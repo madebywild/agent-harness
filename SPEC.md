@@ -214,18 +214,25 @@ export interface ProcessorOutput {
 11. Lockfile filename defaults to `agent-harness.lock.json`.
 
 ## External Constraints Used for Vendor Conventions
+### Codex (OpenAI)
 1. [Codex AGENTS.md behavior](https://developers.openai.com/codex/agents-md)
 2. [Codex configuration and MCP settings](https://developers.openai.com/codex/config-reference)
 3. [Codex config basics (including environment policy)](https://developers.openai.com/codex/config-basic/)
+
+### Claude Code (Anthropic)
 4. [Claude settings and file locations](https://docs.claude.com/en/docs/claude-code/settings)
 5. [Claude memory file behavior](https://docs.anthropic.com/en/docs/claude-code/memory)
 6. [Claude subagents](https://docs.anthropic.com/en/docs/claude-code/sub-agents)
 7. [Claude hooks](https://docs.anthropic.com/en/docs/claude-code/hooks)
+
+### GitHub Copilot / VS Code (Updated)
 8. [GitHub Copilot custom instructions](https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions)
 9. [VS Code Copilot subagents](https://code.visualstudio.com/docs/copilot/agents/subagents)
 10. [GitHub Copilot coding agent hooks](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/use-hooks)
 11. [VS Code Copilot MCP servers](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)
 12. [VS Code Copilot agent skills](https://code.visualstudio.com/docs/copilot/customization/agent-skills)
+
+### Tooling References
 13. [npm lockfile semantics reference](https://docs.npmjs.com/cli/v11/configuring-npm/package-lock-json)
 14. [pnpm workspace configuration reference](https://pnpm.io/workspaces)
 15. [Turborepo repository structuring guidance](https://turbo.build/repo/docs/crafting-your-repository/structuring-a-repository)
