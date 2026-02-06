@@ -1,7 +1,7 @@
 # Agent Harness v1 Spec: Manifest-First Monorepo (Turborepo + pnpm)
 
 ## Summary
-1. Build a monorepo at `/Users/tom/Github/agent-harness` with two publishable packages: `@agent-harness/manifest-schema` and `@agent-harness/toolkit`.
+1. Build a monorepo at the project root with two publishable packages: `@agent-harness/manifest-schema` and `@agent-harness/toolkit`.
 2. Define a declarative source config (`agent-harness.config.json`) and a generated lock-manifest (`agent-harness.lock.json`) with deterministic semantics similar to lockfiles.
 3. Implement a processor pipeline that maps `resource -> vendor processor -> artifact fragments -> merged artifacts`, with explicit collision modeling for shared artifact paths.
 4. Ship v1 adapters for Codex, Claude Code, and GitHub Copilot, with unsupported mappings (for genuinely unsupported combinations) handled as warnings and recorded in lock state.
@@ -10,16 +10,16 @@
 ## Monorepo Layout
 | Path | Purpose | Publish |
 |---|---|---|
-| `/Users/tom/Github/agent-harness/package.json` | Root scripts, workspace config, package manager pin | No |
-| `/Users/tom/Github/agent-harness/pnpm-workspace.yaml` | Workspace package discovery | No |
-| `/Users/tom/Github/agent-harness/turbo.json` | Task graph (`build`, `test`, `lint`, `typecheck`) | No |
-| `/Users/tom/Github/agent-harness/packages/manifest-schema` | JSON Schemas + RFC-style spec docs + examples | Yes (`@agent-harness/manifest-schema`) |
-| `/Users/tom/Github/agent-harness/packages/toolkit` | CLI + core engine + built-in processors | Yes (`@agent-harness/toolkit`) |
-| `/Users/tom/Github/agent-harness/docs` | Architecture and provider matrix docs | No |
+| `package.json` | Root scripts, workspace config, package manager pin | No |
+| `pnpm-workspace.yaml` | Workspace package discovery | No |
+| `turbo.json` | Task graph (`build`, `test`, `lint`, `typecheck`) | No |
+| `packages/manifest-schema` | JSON Schemas + RFC-style spec docs + examples | Yes (`@agent-harness/manifest-schema`) |
+| `packages/toolkit` | CLI + core engine + built-in processors | Yes (`@agent-harness/toolkit`) |
+| `docs` | Architecture and provider matrix docs | No |
 
 ## Public Interfaces and Types (v1)
-1. Source config file: `/Users/tom/Github/agent-harness/agent-harness.config.json`.
-2. Lock-manifest file: `/Users/tom/Github/agent-harness/agent-harness.lock.json`.
+1. Source config file: `agent-harness.config.json`.
+2. Lock-manifest file: `agent-harness.lock.json`.
 3. CLI binary name: `agent-harness`.
 4. Library API exports from `@agent-harness/toolkit`:
 ```ts
@@ -99,7 +99,7 @@ export interface ProcessorOutput {
    - Diagnostic severity is warning by default, error under `--strict`.
 
 ## Source Config Specification
-1. File: `/Users/tom/Github/agent-harness/agent-harness.config.json`.
+1. File: `agent-harness.config.json`.
 2. Required sections:
    - `version` (starts at `1`)
    - `vendors` (enabled vendors + vendor options)
@@ -145,7 +145,7 @@ export interface ProcessorOutput {
 | `skill` | Supported (`.codex/skills/.../SKILL.md`) | Supported (mapped to slash-command style docs under `.claude/commands/...`) | Supported (`.github/skills/<skill-name>/SKILL.md`) |
 | `mcp_server` | Supported (`.codex/config.toml`) | Supported (`.mcp.json` / Claude settings model) | Supported (`.vscode/mcp.json`) |
 | `lifecycle_hook` | Unsupported in built-in v1 (warn+skip) | Supported (`.claude/settings.json` hooks) | Supported (`.github/hooks/*.json`) |
-| `environment_config` | Unsupported in built-in v1 (warn+skip) | Supported (`.claude/settings.json` env) | Unsupported in built-in v1 (warn+skip) |
+| `environment_config` | Supported (`.codex/config.toml`, e.g. `shell_environment_policy`) | Supported (`.claude/settings.json` env) | Unsupported in built-in v1 (warn+skip) |
 | `subagent` | Unsupported in built-in v1 (warn+skip) | Supported (`.claude/agents/...`) | Supported (`.github/agents/*.agent.md`) |
 
 ## CLI Specification
@@ -210,21 +210,22 @@ export interface ProcessorOutput {
 7. Pruning is opt-in via `--prune`.
 8. Package naming is scoped: `@agent-harness/manifest-schema` and `@agent-harness/toolkit`.
 9. Manifest deliverable is schema + RFC-grade docs.
-10. Source config filename defaults to `/Users/tom/Github/agent-harness/agent-harness.config.json`.
-11. Lockfile filename defaults to `/Users/tom/Github/agent-harness/agent-harness.lock.json`.
+10. Source config filename defaults to `agent-harness.config.json`.
+11. Lockfile filename defaults to `agent-harness.lock.json`.
 
 ## External Constraints Used for Vendor Conventions
 1. [Codex AGENTS.md behavior](https://developers.openai.com/codex/agents-md)
 2. [Codex configuration and MCP settings](https://developers.openai.com/codex/config-reference)
-3. [Claude settings and file locations](https://docs.claude.com/en/docs/claude-code/settings)
-4. [Claude memory file behavior](https://docs.anthropic.com/en/docs/claude-code/memory)
-5. [Claude subagents](https://docs.anthropic.com/en/docs/claude-code/sub-agents)
-6. [Claude hooks](https://docs.anthropic.com/en/docs/claude-code/hooks)
-7. [GitHub Copilot custom instructions](https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions)
-8. [VS Code Copilot subagents](https://code.visualstudio.com/docs/copilot/agents/subagents)
-9. [GitHub Copilot coding agent hooks](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/use-hooks)
-10. [VS Code Copilot MCP servers](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)
-11. [VS Code Copilot agent skills](https://code.visualstudio.com/docs/copilot/customization/agent-skills)
-12. [npm lockfile semantics reference](https://docs.npmjs.com/cli/v11/configuring-npm/package-lock-json)
-13. [pnpm workspace configuration reference](https://pnpm.io/workspaces)
-14. [Turborepo repository structuring guidance](https://turbo.build/repo/docs/crafting-your-repository/structuring-a-repository)
+3. [Codex config basics (including environment policy)](https://developers.openai.com/codex/config-basic/)
+4. [Claude settings and file locations](https://docs.claude.com/en/docs/claude-code/settings)
+5. [Claude memory file behavior](https://docs.anthropic.com/en/docs/claude-code/memory)
+6. [Claude subagents](https://docs.anthropic.com/en/docs/claude-code/sub-agents)
+7. [Claude hooks](https://docs.anthropic.com/en/docs/claude-code/hooks)
+8. [GitHub Copilot custom instructions](https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions)
+9. [VS Code Copilot subagents](https://code.visualstudio.com/docs/copilot/agents/subagents)
+10. [GitHub Copilot coding agent hooks](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/use-hooks)
+11. [VS Code Copilot MCP servers](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)
+12. [VS Code Copilot agent skills](https://code.visualstudio.com/docs/copilot/customization/agent-skills)
+13. [npm lockfile semantics reference](https://docs.npmjs.com/cli/v11/configuring-npm/package-lock-json)
+14. [pnpm workspace configuration reference](https://pnpm.io/workspaces)
+15. [Turborepo repository structuring guidance](https://turbo.build/repo/docs/crafting-your-repository/structuring-a-repository)
