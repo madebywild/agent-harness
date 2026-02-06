@@ -4,7 +4,7 @@
 1. Build a monorepo at `/Users/tom/Github/agent-harness` with two publishable packages: `@agent-harness/manifest-schema` and `@agent-harness/toolkit`.
 2. Define a declarative source config (`agent-harness.config.json`) and a generated lock-manifest (`agent-harness.lock.json`) with deterministic semantics similar to lockfiles.
 3. Implement a processor pipeline that maps `resource -> vendor processor -> artifact fragments -> merged artifacts`, with explicit collision modeling for shared artifact paths.
-4. Ship v1 adapters for Codex, Claude Code, and GitHub Copilot, with unsupported mappings handled as warnings and recorded in lock state.
+4. Ship v1 adapters for Codex, Claude Code, and GitHub Copilot, with unsupported mappings (for genuinely unsupported combinations) handled as warnings and recorded in lock state.
 5. Expose both CLI and library APIs in v1, and define a public plugin API for external processors.
 
 ## Monorepo Layout
@@ -142,11 +142,11 @@ export interface ProcessorOutput {
 | Resource Type | Codex | Claude Code | GitHub Copilot |
 |---|---|---|---|
 | `system_prompt` | Supported (`AGENTS.md`) | Supported (`CLAUDE.md`) | Supported (`.github/copilot-instructions.md`, optional AGENTS mode) |
-| `skill` | Supported (`.codex/skills/.../SKILL.md`) | Supported (mapped to slash-command style docs under `.claude/commands/...`) | Supported (`.github/instructions/*.instructions.md`) |
-| `mcp_server` | Supported (`.codex/config.toml`) | Supported (`.mcp.json` / Claude settings model) | Unsupported in built-in v1 (warn+skip) |
-| `lifecycle_hook` | Unsupported in built-in v1 (warn+skip) | Supported (`.claude/settings.json` hooks) | Unsupported in built-in v1 (warn+skip) |
+| `skill` | Supported (`.codex/skills/.../SKILL.md`) | Supported (mapped to slash-command style docs under `.claude/commands/...`) | Supported (`.github/skills/<skill-name>/SKILL.md`) |
+| `mcp_server` | Supported (`.codex/config.toml`) | Supported (`.mcp.json` / Claude settings model) | Supported (`.vscode/mcp.json`) |
+| `lifecycle_hook` | Unsupported in built-in v1 (warn+skip) | Supported (`.claude/settings.json` hooks) | Supported (`.github/hooks/*.json`) |
 | `environment_config` | Unsupported in built-in v1 (warn+skip) | Supported (`.claude/settings.json` env) | Unsupported in built-in v1 (warn+skip) |
-| `subagent` | Unsupported in built-in v1 (warn+skip) | Supported (`.claude/agents/...`) | Unsupported in built-in v1 (warn+skip) |
+| `subagent` | Unsupported in built-in v1 (warn+skip) | Supported (`.claude/agents/...`) | Supported (`.github/agents/*.agent.md`) |
 
 ## CLI Specification
 1. `agent-harness validate`
@@ -188,6 +188,11 @@ export interface ProcessorOutput {
 8. Plugin contract tests verify external plugin loading, `apiVersion` compatibility checks, and deterministic output integration.
 9. End-to-end fixtures for Codex, Claude, Copilot each validate expected artifact file paths and content hashes.
 10. Cross-platform tests validate path normalization and newline consistency.
+11. Copilot fixtures validate all four advanced capabilities:
+   - Skills in `.github/skills/<skill-name>/SKILL.md`.
+   - MCP server entries in `.vscode/mcp.json`.
+   - Hook definition files in `.github/hooks/*.json`.
+   - Subagent definitions in `.github/agents/*.agent.md`.
 
 ## Rollout Plan
 1. Milestone 1: Publish `@agent-harness/manifest-schema@1.0.0` with config schema, lock schema, RFC Markdown spec, and examples.
@@ -216,6 +221,10 @@ export interface ProcessorOutput {
 5. [Claude subagents](https://docs.anthropic.com/en/docs/claude-code/sub-agents)
 6. [Claude hooks](https://docs.anthropic.com/en/docs/claude-code/hooks)
 7. [GitHub Copilot custom instructions](https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions)
-8. [npm lockfile semantics reference](https://docs.npmjs.com/cli/v11/configuring-npm/package-lock-json)
-9. [pnpm workspace configuration reference](https://pnpm.io/workspaces)
-10. [Turborepo repository structuring guidance](https://turbo.build/repo/docs/crafting-your-repository/structuring-a-repository)
+8. [VS Code Copilot subagents](https://code.visualstudio.com/docs/copilot/agents/subagents)
+9. [GitHub Copilot coding agent hooks](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/use-hooks)
+10. [VS Code Copilot MCP servers](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)
+11. [VS Code Copilot agent skills](https://code.visualstudio.com/docs/copilot/customization/agent-skills)
+12. [npm lockfile semantics reference](https://docs.npmjs.com/cli/v11/configuring-npm/package-lock-json)
+13. [pnpm workspace configuration reference](https://pnpm.io/workspaces)
+14. [Turborepo repository structuring guidance](https://turbo.build/repo/docs/crafting-your-repository/structuring-a-repository)
