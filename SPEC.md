@@ -5,7 +5,8 @@
 2. Define a declarative source config (`agent-harness.config.json`) and a generated lock-manifest (`agent-harness.lock.json`) with deterministic semantics similar to lockfiles.
 3. Implement a processor pipeline that maps `resource -> vendor processor -> artifact fragments -> merged artifacts`, with explicit collision modeling for shared artifact paths.
 4. Ship v1 adapters for Codex, Claude Code, and GitHub Copilot, with unsupported mappings (for genuinely unsupported combinations) handled as warnings and recorded in lock state.
-5. Expose both CLI and library APIs in v1, and define a public plugin API for external processors.
+5. Expose a modern TUI-first CLI plus library APIs in v1, and define a public plugin API for external processors.
+6. Architecture diagrams for key concepts are available in `docs/diagrams/agent-harness-diagram-*.mmd` for further context.
 
 ## Monorepo Layout
 | Path | Purpose | Publish |
@@ -69,31 +70,86 @@ export interface ProcessorOutput {
   diagnostics: Diagnostic[];
 }
 ```
+6. Core runtime and lock record types (normative for v1):
+```ts
+export type DiagnosticSeverity = "info" | "warning" | "error";
+export type ResourceStatus = "resolved" | "cached" | "failed";
+export type BindingStatus = "applied" | "unsupported" | "skipped" | "failed";
+export type MergeStrategy =
+  | "single_owner_replace"
+  | "ordered_concat"
+  | "json_object_merge"
+  | "managed_sections";
+
+export interface Diagnostic {
+  code: string;
+  severity: DiagnosticSeverity;
+  message: string;
+  hint?: string;
+  resourceId?: string;
+  bindingId?: string;
+  vendor?: VendorId;
+}
+
+export interface BindingRecord {
+  bindingId: string;
+  resourceId: string;
+  vendor: VendorId;
+  processorId: string;
+  status: BindingStatus;
+  fragmentIds: string[];
+}
+
+export interface ArtifactFragment {
+  fragmentId: string;
+  bindingId: string;
+  resourceId: string;
+  artifactPath: string;
+  mergeStrategy: MergeStrategy;
+  fragmentKey: string;
+  priority: number;
+  contentSha256: string;
+}
+```
 
 ## Manifest Model (Lockfile) Specification
 1. `agent-harness.lock.json` is generated-only. Toolkit is authoritative writer.
 2. Top-level required fields:
    - `$schema` (URL to schema in `@agent-harness/manifest-schema`)
    - `lockfileVersion` (integer, starts at `1`)
-   - `generatedAt` (ISO timestamp)
+   - `generatedAt` (ISO timestamp of the last semantic lock change)
    - `generatedBy` (`toolkitVersion`, `nodeVersion`, `platform`)
-   - `configFingerprint` (sha256 of normalized source config + plugin set)
+   - `configFingerprint` (sha256 of canonicalized source config + resolved plugin identities)
    - `vendors` (resolved vendor set and adapter versions)
    - `resources` (canonicalized resource instances with content hashes)
    - `bindings` (resource/vendor/processor execution records)
    - `artifacts` (final outputs + contribution matrix)
    - `diagnostics` (warnings/errors snapshot)
-3. Key relation objects:
-   - `resources[]`: canonical desired components.
-   - `bindings[]`: one execution edge for each `resource x vendor x processor`.
-   - `artifacts[]`: one output file target with merge metadata and contributors.
-   - `artifacts[].contributors[]`: references `bindingId`, fragment key, and byte/section ownership.
-4. Determinism rules:
+3. Key relation objects and minimum record shapes:
+   - `vendors[]`: `{ vendorId, adapterVersion, processorIds[] }`.
+   - `resources[]`: `{ id, type, status, source, specimen }`.
+   - `bindings[]`: `{ bindingId, resourceId, vendor, processorId, status, fragmentIds[] }`.
+   - `artifacts[]`: `{ artifactId, path, mergeStrategy, contentSha256, contributors[] }`.
+   - `artifacts[].contributors[]`: `{ bindingId, fragmentId, fragmentKey, ownerKey, sectionKey?, byteStart?, byteEnd? }`.
+   - `diagnostics[]`: `{ code, severity, message, hint?, resourceId?, bindingId?, vendor? }`.
+4. Status semantics are entity-specific:
+   - `resources[].status`: `resolved|cached|failed`.
+   - `bindings[].status`: `applied|unsupported|skipped|failed`.
+   - `unsupported` is valid only on `bindings[]`, never on `resources[]`.
+5. Determinism rules:
    - Stable key ordering in JSON serialization.
    - Stable list sorting by deterministic IDs.
    - Path normalization to POSIX relative paths.
    - UTF-8 + `\n` line endings for managed outputs.
-5. Lock drift policy:
+   - `configFingerprint` canonicalization profile is:
+     - apply schema defaults;
+     - normalize all paths to POSIX relative paths;
+     - recursively sort object keys lexicographically;
+     - sort unordered sets deterministically (`vendors` by `vendorId`, `resources` by `id`, each resource `targets` lexicographically, and `plugins` by package name);
+     - serialize as UTF-8 JSON without insignificant whitespace and hash with sha256.
+   - No-op `apply` must preserve lock bytes exactly, including `generatedAt`, so repeated unchanged applies produce identical lockfile hash.
+   - Resource `source.retrievedAt` is updated only when a remote source is actually refreshed/materialized (not when reused from lock/cache).
+6. Lock drift policy:
    - Manual lock edits are detected (fingerprint mismatch).
    - `apply` rewrites lock from computed state.
    - Diagnostic severity is warning by default, error under `--strict`.
@@ -110,13 +166,20 @@ export interface ProcessorOutput {
 4. Resource object must include:
    - `id` (stable user-defined ID)
    - `type` (`skill`, `mcp_server`, `system_prompt`, `lifecycle_hook`, `environment_config`, `subagent`)
-   - `source` (`path` or `inline`)
+   - `source` (typed source reference object; see `RESOURCES.SPEC.md`)
    - `targets` (vendor IDs)
-   - `options` (vendor-specific overrides)
+5. Resource object optional fields:
+   - `options` (vendor-specific overrides; default `{}`)
+   - `priority` (integer, default `100`; lower number merges earlier)
+   - `enabled` (boolean, default `true`)
+6. Policy semantics (v1):
+   - `policy.unsupported`: `warn|error|ignore` (default `warn`).
+   - `policy.pruneDefault`: boolean (default `false`).
+   - `policy.conflictMode`: only `error` is valid in v1 (default `error`; other values are schema errors reserved for future versions).
 
 ## Processing Pipeline (Toolkit Core)
 1. Parse and schema-validate config.
-2. Normalize resources and compute hashes.
+2. Resolve and normalize sources into vendor-neutral resource specimens, then compute specimen hashes.
 3. Resolve processor registry (built-in + plugins).
 4. Execute processors per `resource x target vendor`.
 5. Emit binding records and artifact fragments.
@@ -132,8 +195,22 @@ export interface ProcessorOutput {
    - `ordered_concat`
    - `json_object_merge`
    - `managed_sections`
-4. `managed_sections` is required for shared Markdown/text artifacts (example: `AGENTS.md`) and uses explicit markers to allow safe removal of one contributor without clobbering unrelated content.
-5. Conflict rules:
+4. Deterministic fragment ordering for all merge strategies:
+   - primary key: `resource.priority` ascending.
+   - secondary key: `resource.id` lexicographic.
+   - tertiary key: `bindingId` lexicographic.
+   - quaternary key: `fragmentId` lexicographic.
+5. Strategy semantics:
+   - `single_owner_replace`: exactly one distinct owner per artifact; multiple non-identical owners are conflicts.
+   - `ordered_concat`: concatenate ordered fragments with `\n` separators and normalize final file to exactly one trailing `\n`.
+   - `json_object_merge`: deep object merge by sorted keys; key collisions are conflicts under `policy.conflictMode = "error"`.
+   - `managed_sections`: required for shared Markdown/text artifacts (for example `AGENTS.md`) and uses explicit section markers.
+6. `managed_sections` marker contract:
+   - start marker: `<!-- agent-harness:start section=<sectionKey> owner=<ownerKey> -->`
+   - end marker: `<!-- agent-harness:end section=<sectionKey> -->`
+   - `ownerKey = <resourceId>::<fragmentKey>`
+   - `sectionKey = sha256(<artifactId> + "\0" + <ownerKey>).slice(0, 16)`
+7. Conflict rules:
    - Same artifact with incompatible merge strategies is an error.
    - Same section ownership collision is an error unless identical content hash.
    - `--strict` escalates warnings to errors.
@@ -149,21 +226,40 @@ export interface ProcessorOutput {
 | `subagent` | Unsupported in built-in v1 (warn+skip) | Supported (`.claude/agents/...`) | Supported (`.github/agents/*.agent.md`) |
 
 ## CLI Specification
-1. `agent-harness validate`
+1. `agent-harness` (no subcommand)
+   - Launches the interactive TUI mode by default.
+   - Supports guided flows for plan/apply/diff and resource diagnostics.
+2. `agent-harness validate`
    - Validates config and existing lockfile.
    - Exit `0` on valid, `1` on schema or structural errors.
-2. `agent-harness plan`
+3. `agent-harness plan`
    - Computes operations and diagnostics, no writes.
    - Supports `--json` for machine-readable plan output.
-3. `agent-harness apply`
+4. `agent-harness apply`
    - Writes generated artifacts and lockfile.
-   - Supports `--prune`, `--strict`, `--dry-run`.
-4. `agent-harness diff`
+   - Supports `--prune`, `--strict`, `--dry-run`, `--refresh`, `--offline`.
+5. `agent-harness diff`
    - Shows desired-vs-current delta based on lock and filesystem.
-5. Common flags:
+6. Common flags:
    - `--config <path>`
    - `--lockfile <path>`
    - `--cwd <path>`
+   - `--no-tui` (force plain non-interactive output)
+   - `--json` (machine-readable mode for CI/integration)
+
+## TUI Framework Decision (v1)
+1. Framework choice: `ink` (React-based terminal UI for Node.js) as the primary TUI runtime.
+2. Current recency check (npm registry):
+   - `ink@6.6.0`, package metadata modified on **December 22, 2025**.
+3. Optional companion for lightweight prompt-only flows: `@clack/prompts`.
+4. Why this choice:
+   - Rich component model for complex terminal interfaces.
+   - Strong fit for stateful multi-pane workflows (`plan`, `diff`, diagnostics).
+   - Works alongside non-interactive command mode (`--no-tui` / `--json`) for CI.
+5. Required UX contract:
+   - TUI mode must never be required in CI.
+   - All TUI actions map to equivalent non-TUI subcommands.
+   - Error diagnostics are identical between TUI and non-TUI paths.
 
 ## Turborepo + pnpm Setup
 1. Use `pnpm` workspaces and Turbo task graph.
@@ -179,7 +275,7 @@ export interface ProcessorOutput {
 
 ## Test Cases and Acceptance Scenarios
 1. Schema validation passes for valid config/lock and fails with actionable errors for invalid fields.
-2. Running `apply` twice with unchanged inputs yields zero diff and identical lockfile hash.
+2. Running `apply` twice with unchanged inputs yields zero diff and byte-identical lockfile (including unchanged `generatedAt`).
 3. Shared artifact merge works for multi-contributor `AGENTS.md` and preserves managed section boundaries.
 4. Removing one skill removes only its generated fragments and leaves other contributors intact.
 5. `apply` without `--prune` never deletes stale artifacts; `apply --prune` deletes only toolkit-managed stale outputs.
@@ -193,6 +289,13 @@ export interface ProcessorOutput {
    - MCP server entries in `.vscode/mcp.json`.
    - Hook definition files in `.github/hooks/*.json`.
    - Subagent definitions in `.github/agents/*.agent.md`.
+12. TUI smoke tests validate:
+   - Default `agent-harness` launches interactive mode in TTY contexts.
+   - `--no-tui` and `--json` bypass TUI deterministically.
+   - TUI and non-TUI execution produce equivalent plan/apply outcomes.
+13. Remote source controls validate:
+   - `apply --refresh` re-materializes remote sources and updates `source.retrievedAt`.
+   - `apply --offline` uses only lock+cache and fails if required cache entries are absent.
 
 ## Rollout Plan
 1. Milestone 1: Publish `@agent-harness/manifest-schema@1.0.0` with config schema, lock schema, RFC Markdown spec, and examples.
@@ -212,6 +315,8 @@ export interface ProcessorOutput {
 9. Manifest deliverable is schema + RFC-grade docs.
 10. Source config filename defaults to `agent-harness.config.json`.
 11. Lockfile filename defaults to `agent-harness.lock.json`.
+12. CLI UX is TUI-first for humans, with required non-TUI parity for automation.
+13. `skills_package` is defined as command-backed with `executor: "npx"` and no standalone `ref` field in v1.
 
 ## External Constraints Used for Vendor Conventions
 ### Codex (OpenAI)
@@ -236,3 +341,6 @@ export interface ProcessorOutput {
 13. [npm lockfile semantics reference](https://docs.npmjs.com/cli/v11/configuring-npm/package-lock-json)
 14. [pnpm workspace configuration reference](https://pnpm.io/workspaces)
 15. [Turborepo repository structuring guidance](https://turbo.build/repo/docs/crafting-your-repository/structuring-a-repository)
+16. [Ink repository (React for CLI)](https://github.com/vadimdemedes/ink)
+17. [Ink package on npm](https://www.npmjs.com/package/ink)
+18. [Clack prompts package](https://www.npmjs.com/package/@clack/prompts)

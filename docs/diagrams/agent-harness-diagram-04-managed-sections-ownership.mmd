@@ -1,0 +1,15 @@
+sequenceDiagram
+  participant R as Resource
+  participant B as Binding
+  participant M as Merger
+  participant A as Artifact File
+
+  R->>B: produce fragment (fragmentKey, contentSha256)
+  B->>M: emit fragment with resourceId + bindingId
+  M->>M: ownerKey = resourceId::fragmentKey
+  M->>M: sectionKey = sha256(artifactId + "\0" + ownerKey).slice(0,16)
+  M->>A: insert start marker
+  M->>A: insert section content
+  M->>A: insert end marker
+
+  Note over A: <!-- agent-harness:start section=<sectionKey> owner=<ownerKey> --> ... <!-- agent-harness:end section=<sectionKey> -->

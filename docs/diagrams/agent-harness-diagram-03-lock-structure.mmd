@@ -1,0 +1,53 @@
+classDiagram
+  class HarnessLock {
+    +string "$schema"
+    +number "lockfileVersion"
+    +string "generatedAt"
+    +GeneratedBy "generatedBy"
+    +string "configFingerprint"
+    +VendorRecord[] "vendors"
+    +ResourceRecord[] "resources"
+    +BindingRecord[] "bindings"
+    +ArtifactRecord[] "artifacts"
+    +Diagnostic[] "diagnostics"
+  }
+
+  class ResourceRecord {
+    +string "id"
+    +string "type"
+    +string "status: resolved|cached|failed"
+    +object "source"
+    +object "specimen"
+  }
+
+  class BindingRecord {
+    +string "bindingId"
+    +string "resourceId"
+    +string "vendor"
+    +string "processorId"
+    +string "status: applied|unsupported|skipped|failed"
+    +string[] "fragmentIds"
+  }
+
+  class ArtifactRecord {
+    +string "artifactId"
+    +string "path"
+    +string "mergeStrategy"
+    +string "contentSha256"
+    +Contributor[] "contributors"
+  }
+
+  class Contributor {
+    +string "bindingId"
+    +string "fragmentId"
+    +string "fragmentKey"
+    +string "ownerKey"
+    +string "sectionKey?"
+    +number "byteStart?"
+    +number "byteEnd?"
+  }
+
+  HarnessLock --> ResourceRecord
+  HarnessLock --> BindingRecord
+  HarnessLock --> ArtifactRecord
+  ArtifactRecord --> Contributor
