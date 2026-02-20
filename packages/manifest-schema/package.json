@@ -17,6 +17,7 @@
     "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
+    "@types/node": "^22.13.10",
     "typescript": "^5.9.2"
   },
   "scripts": {
