@@ -13,3 +13,9 @@ test("normalizeRelativePath rejects traversal and repo-root aliases", () => {
     assert.throws(() => normalizeRelativePath(candidate), /invalid relative path/u);
   }
 });
+
+test("normalizeRelativePath rejects Windows drive-prefixed paths", () => {
+  for (const candidate of ["C:/repo/file.md", "C:\\repo\\file.md", "C:repo/file.md"]) {
+    assert.throws(() => normalizeRelativePath(candidate), /invalid relative path/u);
+  }
+});

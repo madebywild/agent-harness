@@ -17,6 +17,7 @@ Low-level shared helpers for hashing, path normalization, deterministic JSON for
 
 - `normalizeRelativePath` enforces relative POSIX paths and rejects:
   - absolute paths,
+  - Windows drive-prefixed paths (for example `C:/...` or `C:...`),
   - any raw `..` segment (even if normalization would remove it),
   - normalized `"."` / `".."` results (including root-collapsing aliases like `""`, `"."`, `"a/.."`).
 - `stableStringify` sorts object keys recursively and appends exactly one trailing newline.

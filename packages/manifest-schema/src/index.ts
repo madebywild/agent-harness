@@ -16,6 +16,7 @@ const relativePathSchema = z
   .min(1)
   .refine((value) => !value.startsWith("/"), "path must be relative")
   .refine((value) => !value.includes("\\"), "path must use POSIX separators")
+  .refine((value) => !/^[a-zA-Z]:/u.test(value), "path must not be Windows drive-prefixed")
   .refine((value) => !value.split("/").includes(".."), "path must not traverse parent")
   .refine((value) => path.posix.normalize(value) !== ".", "path must not resolve to current directory");
 

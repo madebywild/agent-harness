@@ -14,7 +14,7 @@ Provides MCP-specific composition logic shared by provider adapters.
 - Collects `override.targetPath` values for participating MCP entities.
 - Rejects conflicting target paths with an error.
 - Uses the single override target if present, otherwise provider default target.
-- Normalizes all returned paths as strict relative paths (rejects absolute paths, `..` segments, and paths that resolve to `"."`).
+- Normalizes all returned paths as strict relative paths (rejects absolute paths, Windows drive-prefixed paths, `..` segments, and paths that resolve to `"."`).
 
 ## `mergeMcpServers`
 

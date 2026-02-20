@@ -26,4 +26,4 @@ Encapsulates filesystem persistence/parsing for manifest, lock, managed-index, s
   - skill `SKILL.md`,
   - MCP JSON,
   - prompt/skill/MCP override sidecar YAMLs.
-- `collectManagedSourcePaths` derives registered managed paths from manifest entities (`sourcePath` + `overrides[provider]`) using strict relative path normalization (no absolute paths, no `..` segments, no `"."` aliases).
+- `collectManagedSourcePaths` derives registered managed paths from manifest entities (`sourcePath` + `overrides[provider]`) using strict relative path normalization (no absolute paths, no Windows drive-prefixed paths, no `..` segments, no `"."` aliases).

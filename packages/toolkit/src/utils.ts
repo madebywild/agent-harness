@@ -8,6 +8,9 @@ export function sha256(value: string): string {
 
 export function normalizeRelativePath(input: string): string {
   const posixInput = input.replace(/\\/g, "/");
+  if (/^[a-zA-Z]:/u.test(posixInput)) {
+    throw new Error(`invalid relative path '${input}'`);
+  }
   if (posixInput.split("/").includes("..")) {
     throw new Error(`invalid relative path '${input}'`);
   }
