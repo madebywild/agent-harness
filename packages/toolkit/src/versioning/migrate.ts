@@ -22,7 +22,7 @@ import type {
 } from "../types.js";
 import { readTextIfExists, stableStringify, withSingleTrailingNewline, writeFileAtomic } from "../utils.js";
 import { runDoctor } from "./doctor.js";
-import { defaultMigrationRegistry, runMigrationChain } from "./registry.js";
+import { defaultMigrationRegistry, resolveMigrationChain, runMigrationChain } from "./registry.js";
 
 interface MigrateWorkspaceOptions {
   to?: "latest";
@@ -357,10 +357,10 @@ async function migrateVersionedObject(kind: DocumentKind, input: unknown): Promi
     return parseAsCurrent(kind, input);
   }
 
-  try {
-    const migrated = await runMigrationChain(defaultMigrationRegistry, kind, detected.version, targetVersion, input);
-    return parseAsCurrent(kind, migrated.output);
-  } catch {
+  const chain = resolveMigrationChain(defaultMigrationRegistry, kind, detected.version, targetVersion);
+
+  if (chain === null) {
+    // No migration chain available — fall back to bumping version and re-parsing.
     if (!input || typeof input !== "object" || Array.isArray(input)) {
       throw new Error(`Cannot migrate ${kind}: expected object document`);
     }
@@ -371,6 +371,9 @@ async function migrateVersionedObject(kind: DocumentKind, input: unknown): Promi
     };
     return parseAsCurrent(kind, bumped);
   }
+
+  const migrated = await runMigrationChain(defaultMigrationRegistry, kind, detected.version, targetVersion, input);
+  return parseAsCurrent(kind, migrated.output);
 }
 
 function parseAsCurrent(kind: DocumentKind, input: unknown): unknown {
@@ -413,7 +416,7 @@ async function deriveLatestState(
     paths,
     loaded,
     {
-      version: 1,
+      version: LATEST_VERSION_BY_KIND["managed-index"],
       managedSourcePaths: firstPass.nextManagedIndex.managedSourcePaths,
       managedOutputPaths: firstPass.nextManagedIndex.managedOutputPaths,
     },

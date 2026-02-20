@@ -158,12 +158,16 @@ async function inspectJsonDocument(
       return null;
     }
 
+    const isDefaultManifest = input.kind === "manifest" && input.relativePath === ".harness/manifest.json";
+
     return {
-      code: "MANIFEST_NOT_FOUND",
+      code: isDefaultManifest ? "MANIFEST_NOT_FOUND" : "DOCUMENT_NOT_FOUND",
       severity: "error",
-      message: "Missing manifest file at .harness/manifest.json",
+      message: isDefaultManifest
+        ? "Missing manifest file at .harness/manifest.json"
+        : `Missing required ${input.kind} file at ${input.relativePath}`,
       path: input.relativePath,
-      hint: "Run 'harness init' first.",
+      hint: isDefaultManifest ? "Run 'harness init' first." : undefined,
       kind: input.kind,
       status: "missing",
       latestVersion: LATEST_VERSION_BY_KIND[input.kind],

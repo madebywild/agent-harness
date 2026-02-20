@@ -2,7 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { providerIdSchema } from "@agent-harness/manifest-schema";
 import type { ProviderId } from "@agent-harness/manifest-schema";
-import { agentsManifestSchema, managedIndexSchema, manifestLockSchema } from "@agent-harness/manifest-schema";
+import {
+  LATEST_VERSION_BY_KIND,
+  agentsManifestSchema,
+  managedIndexSchema,
+  manifestLockSchema,
+} from "@agent-harness/manifest-schema";
 import chokidar from "chokidar";
 import { loadCanonicalState } from "./loader.js";
 import {
@@ -481,7 +486,7 @@ export class HarnessEngine {
         operations: [],
         diagnostics: versionDiagnostics,
         nextLock: {
-          version: 1,
+          version: LATEST_VERSION_BY_KIND.lock,
           generatedAt: nowIso(),
           manifestFingerprint: sha256("{}"),
           entities: [],
@@ -507,7 +512,7 @@ export class HarnessEngine {
         operations: [],
         diagnostics,
         nextLock: {
-          version: 1,
+          version: LATEST_VERSION_BY_KIND.lock,
           generatedAt: nowIso(),
           manifestFingerprint: sha256("{}"),
           entities: [],

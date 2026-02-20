@@ -62,8 +62,17 @@ export function resolveMigrationChain(
       return null;
     }
 
+    // Ensure the step advances the version and does not overshoot the target.
+    if (next.toVersion <= current || next.toVersion > toVersion) {
+      return null;
+    }
+
     chain.push(next);
     current = next.toVersion;
+  }
+
+  if (current !== toVersion) {
+    return null;
   }
 
   return chain;
