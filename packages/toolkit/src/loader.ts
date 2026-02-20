@@ -10,7 +10,12 @@ import {
   defaultSkillOverridePath,
 } from "./paths.js";
 import type { HarnessPaths } from "./paths.js";
-import { collectSourceCandidates, listFilesRecursively, readProviderOverrideFile } from "./repository.js";
+import {
+  collectManagedSourcePaths,
+  collectSourceCandidates,
+  listFilesRecursively,
+  readProviderOverrideFile,
+} from "./repository.js";
 import type { Diagnostic, LoadResult, LoadedMcp, LoadedPrompt, LoadedSkill } from "./types.js";
 import { normalizeRelativePath, sha256, stableStringify, toPosixRelative } from "./utils.js";
 
@@ -19,7 +24,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   diagnostics.push(...validateManifestSemantics(manifest));
 
   const candidates = await collectSourceCandidates(paths);
-  const registeredSourcePaths = new Set(manifest.entities.map((entity) => normalizeRelativePath(entity.sourcePath)));
+  const registeredSourcePaths = new Set(collectManagedSourcePaths(manifest));
 
   for (const candidate of candidates) {
     if (!registeredSourcePaths.has(candidate)) {

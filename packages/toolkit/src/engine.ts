@@ -56,8 +56,19 @@ export class HarnessEngine {
     this.cwd = cwd;
   }
 
-  async init(): Promise<void> {
+  async init(options?: { force?: boolean }): Promise<void> {
     const paths = resolveHarnessPaths(this.cwd);
+    const force = options?.force === true;
+
+    if (await exists(paths.agentsDir)) {
+      if (!force) {
+        throw new Error(
+          "Harness workspace already exists at '.harness'. Use 'agent-harness init --force' to overwrite.",
+        );
+      }
+      await fs.rm(paths.agentsDir, { recursive: true, force: true });
+    }
+
     await fs.mkdir(paths.promptDir, { recursive: true });
     await fs.mkdir(paths.skillDir, { recursive: true });
     await fs.mkdir(paths.mcpDir, { recursive: true });

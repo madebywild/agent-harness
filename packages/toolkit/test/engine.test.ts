@@ -48,6 +48,51 @@ test("validate fails when unmanaged source candidate exists", async () => {
   assert.ok(validation.diagnostics.some((diagnostic) => diagnostic.code === "SOURCE_UNREGISTERED"));
 });
 
+test("validate fails when unmanaged override sidecar exists", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addPrompt();
+
+  await fs.writeFile(path.join(cwd, ".harness/src/mcp/manual.overrides.codex.yaml"), "version: 1\n", "utf8");
+
+  const validation = await engine.validate();
+  assert.equal(validation.valid, false);
+  assert.ok(
+    validation.diagnostics.some(
+      (diagnostic) =>
+        diagnostic.code === "SOURCE_UNREGISTERED" && diagnostic.path === ".harness/src/mcp/manual.overrides.codex.yaml",
+    ),
+  );
+});
+
+test("init fails when .harness already exists without force", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+
+  await assert.rejects(async () => engine.init(), /already exists/);
+});
+
+test("init --force recreates .harness workspace", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addPrompt();
+
+  await engine.init({ force: true });
+
+  const manifestText = await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8");
+  const manifest = JSON.parse(manifestText) as {
+    entities: Array<{ id: string; type: string }>;
+  };
+  assert.deepEqual(manifest.entities, []);
+  await assert.rejects(async () => fs.stat(path.join(cwd, ".harness/src/prompts/system.md")));
+});
+
 test("provider enablement controls generated outputs", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);

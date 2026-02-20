@@ -224,6 +224,21 @@ export async function collectSourceCandidates(paths: HarnessPaths): Promise<stri
 
     if (/^\.harness\/src\/mcp\/[^/]+\.json$/u.test(relative)) {
       candidates.push(relative);
+      continue;
+    }
+
+    if (/^\.harness\/src\/prompts\/[^/]+\.overrides\.[^.\/]+\.ya?ml$/u.test(relative)) {
+      candidates.push(relative);
+      continue;
+    }
+
+    if (/^\.harness\/src\/skills\/[^/]+\/OVERRIDES\.[^.\/]+\.ya?ml$/u.test(relative)) {
+      candidates.push(relative);
+      continue;
+    }
+
+    if (/^\.harness\/src\/mcp\/[^/]+\.overrides\.[^.\/]+\.ya?ml$/u.test(relative)) {
+      candidates.push(relative);
     }
   }
 

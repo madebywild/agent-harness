@@ -13,9 +13,10 @@ program
 program
   .command("init")
   .description("Initialize .harness structure and state files")
-  .action(async () => {
+  .option("--force", "overwrite an existing .harness workspace", false)
+  .action(async (options: { force: boolean }) => {
     const engine = new HarnessEngine(program.opts().cwd as string);
-    await engine.init();
+    await engine.init({ force: options.force });
     console.log("Initialized .harness workspace.");
   });
 
