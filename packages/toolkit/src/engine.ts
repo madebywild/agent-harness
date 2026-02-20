@@ -62,9 +62,7 @@ export class HarnessEngine {
 
     if (await exists(paths.agentsDir)) {
       if (!force) {
-        throw new Error(
-          "Harness workspace already exists at '.harness'. Use 'agent-harness init --force' to overwrite.",
-        );
+        throw new Error("Harness workspace already exists at '.harness'. Use 'harness init --force' to overwrite.");
       }
       await fs.rm(paths.agentsDir, { recursive: true, force: true });
     }
@@ -418,7 +416,7 @@ export class HarnessEngine {
             await runApply();
           } catch (error) {
             const message = error instanceof Error ? error.message : "unknown watch error";
-            console.error(`[agent-harness] watch apply failed: ${message}`);
+            console.error(`[harness] watch apply failed: ${message}`);
           }
         } while (rerun);
         running = false;
@@ -429,7 +427,7 @@ export class HarnessEngine {
     watcher.on("change", schedule);
     watcher.on("unlink", schedule);
     watcher.on("error", (error) => {
-      console.error(`[agent-harness] watcher error: ${String(error)}`);
+      console.error(`[harness] watcher error: ${String(error)}`);
     });
 
     process.stdin.resume();
@@ -484,7 +482,7 @@ export class HarnessEngine {
     const paths = resolveHarnessPaths(this.cwd);
     const result = await loadManifest(paths);
     if (result.manifest === null) {
-      throw new Error("Manifest not found. Run 'agent-harness init' first.");
+      throw new Error("Manifest not found. Run 'harness init' first.");
     }
     return result.manifest;
   }
@@ -530,11 +528,11 @@ function printDiagnostics(diagnostics: Diagnostic[]): void {
 
 function printApplySummary(writtenArtifacts: string[], prunedArtifacts: string[]): void {
   if (writtenArtifacts.length > 0) {
-    console.log(`[agent-harness] wrote ${writtenArtifacts.length} artifact(s)`);
+    console.log(`[harness] wrote ${writtenArtifacts.length} artifact(s)`);
   }
 
   if (prunedArtifacts.length > 0) {
-    console.log(`[agent-harness] removed ${prunedArtifacts.length} stale artifact(s)`);
+    console.log(`[harness] removed ${prunedArtifacts.length} stale artifact(s)`);
   }
 }
 

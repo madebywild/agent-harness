@@ -6,7 +6,7 @@ import { HarnessEngine } from "./engine.js";
 const program = new Command();
 
 program
-  .name("agent-harness")
+  .name("harness")
   .description("Unified .harness source-of-truth manager for AI agent provider configs")
   .option("--cwd <path>", "working directory", process.cwd());
 

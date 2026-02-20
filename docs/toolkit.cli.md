@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines the `agent-harness` CLI using Commander and maps CLI commands to `HarnessEngine` methods.
+Defines the `harness` CLI using Commander and maps CLI commands to `HarnessEngine` methods.
 
 ## Commands
 

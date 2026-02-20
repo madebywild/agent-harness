@@ -1,12 +1,12 @@
 # Supported Providers
 
-This document describes the AI agent providers supported by `agent-harness` and how they define their native configuration files.
+This document describes the AI agent providers supported by `harness` and how they define their native configuration files.
 
 ## Overview
 
 There is not yet a broadly adopted, "native" `.agents/` standard across major CLIs/IDEs. Each tool has its own config locations and file conventions. The `.agents/` pattern is being popularized mainly by unification tools like `dot-agents`, which centralize configs in `~/.agents/` and then symlink/export into each tool's native format.
 
-`agent-harness` takes a different approach: it maintains a single, canonical source of truth in `.harness/` and generates provider-native outputs directly into each tool's expected locations.
+`harness` takes a different approach: it maintains a single, canonical source of truth in `.harness/` and generates provider-native outputs directly into each tool's expected locations.
 
 ---
 
@@ -158,7 +158,7 @@ This is important when writing custom MCP configurations or debugging output.
 
 ## Tools That Use Centralized `.agents/` Pattern
 
-While `agent-harness` generates directly to provider-native paths, some tools take a different approach:
+While `harness` generates directly to provider-native paths, some tools take a different approach:
 
 ### dot-agents (Unification Layer)
 
@@ -191,9 +191,9 @@ Potential providers for future versions:
 Providers are enabled via the CLI:
 
 ```bash
-agent-harness provider enable codex
-agent-harness provider enable claude
-agent-harness provider enable copilot
+harness provider enable codex
+harness provider enable claude
+harness provider enable copilot
 ```
 
 Only enabled providers receive generated outputs. This allows teams to adopt providers incrementally.

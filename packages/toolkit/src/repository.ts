@@ -31,7 +31,7 @@ export async function loadManifest(
           severity: "error",
           message: "Missing manifest file at .harness/manifest.json",
           path: ".harness/manifest.json",
-          hint: "Run 'agent-harness init' first.",
+          hint: "Run 'harness init' first.",
         },
       ],
     };

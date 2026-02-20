@@ -157,7 +157,7 @@ export async function buildPlan(
       diagnostics.push({
         code: "OUTPUT_COLLISION_UNMANAGED",
         severity: "error",
-        message: `Target '${artifactPath}' already exists but is not managed by agent-harness`,
+        message: `Target '${artifactPath}' already exists but is not managed by harness`,
         path: artifactPath,
         provider: artifact.provider,
         hint: "Move or remove the file before running apply (v1 does not import/adopt existing files).",

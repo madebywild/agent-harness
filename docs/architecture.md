@@ -1,9 +1,9 @@
 # Agent Harness v1 Plan: Unified `.harness` Source With Provider Generators
 
 ## Summary
-Build a TypeScript + `pnpm` monorepo CLI (`agent-harness`) where `.harness` is the only editable source for agent config entities, and provider outputs are generated directly into provider-native paths.
+Build a TypeScript + `pnpm` monorepo CLI (`harness`) where `.harness` is the only editable source for agent config entities, and provider outputs are generated directly into provider-native paths.
 
-This plan is anchored to the current repo state (`/Users/tom/Github/agent-harness` at empty `HEAD`) and uses strict ownership rules:
+This plan is anchored to the current repo state (`/Users/tom/Github/harness` at empty `HEAD`) and uses strict ownership rules:
 1. Entity files are created only via CLI commands.
 2. Source content is user-editable.
 3. Generated provider files are immutable and always regenerated.
@@ -22,7 +22,7 @@ This plan is anchored to the current repo state (`/Users/tom/Github/agent-harnes
 10. Override scope: metadata/path/options only, never full content override.
 
 ## Repository and Package Layout
-Create from scratch in `/Users/tom/Github/agent-harness`:
+Create from scratch in `/Users/tom/Github/harness`:
 
 ```text
 /Users/tom/Github/agent-harness/
@@ -40,7 +40,7 @@ Package roles:
    - Zod schemas + exported TS types for manifest, lock, managed-index, sidecars.
    - JSON Schema export for external tooling.
 2. `/Users/tom/Github/agent-harness/packages/toolkit`
-   - CLI binary `agent-harness`.
+   - CLI binary `harness`.
    - Core planner/applier/watcher.
    - Provider adapter implementations.
 
@@ -179,26 +179,26 @@ export interface ManagedIndex {
 This keeps one canonical content source while allowing provider-specific behavior through typed sidecar metadata and adapter logic.
 
 ## CLI Command Contract
-1. `agent-harness init`
+1. `harness init`
    - Creates `.harness` structure + empty manifest + lock + index.
-2. `agent-harness provider enable <codex|claude|copilot>`
-3. `agent-harness provider disable <codex|claude|copilot>`
-4. `agent-harness add prompt`
+2. `harness provider enable <codex|claude|copilot>`
+3. `harness provider disable <codex|claude|copilot>`
+4. `harness add prompt`
    - Creates only `.harness/src/prompts/system.md` and manifest entry.
    - Fails if prompt already exists.
-5. `agent-harness add skill <skill-id>`
+5. `harness add skill <skill-id>`
    - Creates `.harness/src/skills/<skill-id>/SKILL.md` and manifest entry.
-6. `agent-harness add mcp <config-id>`
+6. `harness add mcp <config-id>`
    - Creates `.harness/src/mcp/<config-id>.json` and manifest entry.
-7. `agent-harness remove <prompt|skill|mcp> <id>`
+7. `harness remove <prompt|skill|mcp> <id>`
    - Removes entity from manifest; optionally deletes source with `--delete-source`.
-8. `agent-harness validate`
+8. `harness validate`
    - Schema, ownership, collisions, and drift checks.
-9. `agent-harness plan [--json]`
+9. `harness plan [--json]`
    - Lists create/update/delete operations and diagnostics.
-10. `agent-harness apply [--json]`
+10. `harness apply [--json]`
    - Executes plan and rewrites managed files.
-11. `agent-harness watch [--debounce 250]`
+11. `harness watch [--debounce 250]`
    - Foreground watcher; initial apply on startup.
 
 ## Strict Ownership and Collision Rules
@@ -264,7 +264,7 @@ This keeps one canonical content source while allowing provider-specific behavio
 15. Invalid sidecar schema fails with path+field diagnostics.
 
 ## Assumptions and Defaults
-1. Start from current empty `HEAD` in `/Users/tom/Github/agent-harness`.
+1. Start from current empty `HEAD` in `/Users/tom/Github/harness`.
 2. Node runtime baseline: `>=22`.
 3. Monorepo uses `pnpm` workspaces + Turborepo.
 4. Single prompt entity in v1.

@@ -32,7 +32,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
         code: "SOURCE_UNREGISTERED",
         severity: "error",
         message: `Source file '${candidate}' was not created through the CLI and is not registered in manifest`,
-        hint: "Use 'agent-harness add ...' to create entities, or remove the unmanaged file.",
+        hint: "Use 'harness add ...' to create entities, or remove the unmanaged file.",
         path: candidate,
       });
     }
