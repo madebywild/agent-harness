@@ -1,3 +1,4 @@
+import path from "node:path";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
@@ -15,7 +16,8 @@ const relativePathSchema = z
   .min(1)
   .refine((value) => !value.startsWith("/"), "path must be relative")
   .refine((value) => !value.includes("\\"), "path must use POSIX separators")
-  .refine((value) => !value.split("/").includes(".."), "path must not traverse parent");
+  .refine((value) => !value.split("/").includes(".."), "path must not traverse parent")
+  .refine((value) => path.posix.normalize(value) !== ".", "path must not resolve to current directory");
 
 const providerRelativePathMapSchema = z
   .object({

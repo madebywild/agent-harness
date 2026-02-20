@@ -15,6 +15,9 @@ Low-level shared helpers for hashing, path normalization, deterministic JSON for
 
 ## Contract details
 
-- `normalizeRelativePath` enforces relative POSIX paths and rejects parent traversal.
+- `normalizeRelativePath` enforces relative POSIX paths and rejects:
+  - absolute paths,
+  - any raw `..` segment (even if normalization would remove it),
+  - normalized `"."` / `".."` results (including root-collapsing aliases like `""`, `"."`, `"a/.."`).
 - `stableStringify` sorts object keys recursively and appends exactly one trailing newline.
 - `deepEqual` compares recursively key-sorted JSON representations.

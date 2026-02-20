@@ -7,9 +7,20 @@ export function sha256(value: string): string {
 }
 
 export function normalizeRelativePath(input: string): string {
-  const normalized = path.posix.normalize(input.replace(/\\/g, "/"));
+  const posixInput = input.replace(/\\/g, "/");
+  if (posixInput.split("/").includes("..")) {
+    throw new Error(`invalid relative path '${input}'`);
+  }
+
+  const normalized = path.posix.normalize(posixInput);
   const withoutDot = normalized.startsWith("./") ? normalized.slice(2) : normalized;
-  if (!withoutDot || withoutDot.startsWith("/") || withoutDot.split("/").includes("..")) {
+  if (
+    !withoutDot ||
+    withoutDot === "." ||
+    withoutDot === ".." ||
+    withoutDot.startsWith("/") ||
+    withoutDot.split("/").includes("..")
+  ) {
     throw new Error(`invalid relative path '${input}'`);
   }
   return withoutDot;
