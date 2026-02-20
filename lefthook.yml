@@ -1,0 +1,19 @@
+# Lefthook configuration for git hooks
+# https://github.com/evilmartians/lefthook
+
+# Format, lint, and apply safe code fixes before committing
+pre-commit:
+  commands:
+    biome:
+      glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
+      run: npx @biomejs/biome check --write --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}
+      stage_fixed: true
+
+# Run typecheck on affected packages before pushing
+pre-push:
+  commands:
+    biome:
+      glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
+      run: npx @biomejs/biome check --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {push_files}
+    typecheck:
+      run: pnpm exec turbo run typecheck
