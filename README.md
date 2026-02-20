@@ -1,5 +1,7 @@
 # Agent Harness
 
+![Cover](public/cover.webp)
+
 [![Node Version](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org/)
 [![Package Manager](https://img.shields.io/badge/pnpm-10.2.0-blue)](https://pnpm.io/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
