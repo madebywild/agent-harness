@@ -15,6 +15,12 @@ This set documents every source file under `packages/toolkit/src`.
 - `types.ts`: [`toolkit.types.md`](./toolkit.types.md)
 - `utils.ts`: [`toolkit.utils.md`](./toolkit.utils.md)
 
+## Versioning modules
+
+- `versioning/doctor.ts`: [`toolkit.versioning.doctor.md`](./toolkit.versioning.doctor.md)
+- `versioning/migrate.ts`: [`toolkit.versioning.migrate.md`](./toolkit.versioning.migrate.md)
+- `versioning/registry.ts`: [`toolkit.versioning.registry.md`](./toolkit.versioning.registry.md)
+
 ## Provider adapter modules
 
 - `provider-adapters/claude.ts`: [`toolkit.provider.claude.md`](./toolkit.provider.claude.md)

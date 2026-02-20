@@ -17,6 +17,7 @@ Agent Harness is a TypeScript CLI tool and library that manages AI agent configu
 - Centralized MCP server configuration with merged outputs
 - Watch mode for automatic regeneration on file changes
 - Strict file ownership with manifest-based integrity enforcement
+- Explicit schema version management with `doctor` + `migrate`
 
 ## Quick Start
 
@@ -32,7 +33,9 @@ cd /path/to/your/project
 harness init
 
 # Enable providers
-harness provider enable codex claude copilot
+harness provider enable codex
+harness provider enable claude
+harness provider enable copilot
 
 # Add a system prompt
 harness add prompt
@@ -74,6 +77,9 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | Command | Description |
 |---------|-------------|
 | `harness init` | Initialize `.harness/` structure |
+| `harness --version` | Print CLI version |
+| `harness doctor` | Report schema version health and migration blockers |
+| `harness migrate` | Upgrade schema files to latest supported version |
 | `harness provider enable <id>` | Enable a provider (codex/claude/copilot) |
 | `harness provider disable <id>` | Disable a provider |
 | `harness add prompt` | Add system prompt entity |
@@ -84,6 +90,16 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | `harness plan` | Preview changes (dry-run) |
 | `harness apply` | Generate provider outputs |
 | `harness watch` | Watch mode with auto-apply |
+
+## Schema Version Policy
+
+- Normal runtime commands (`plan`, `apply`, `validate`, `watch`, `add/remove`, `provider enable/disable`) require current schema versions.
+- If any schema is outdated, run:
+  1. `harness doctor`
+  2. `harness migrate`
+  3. `harness apply`
+- If a workspace schema is newer than the installed CLI, commands fail safely with `*_VERSION_NEWER_THAN_CLI`; upgrade the CLI before proceeding.
+- `harness migrate` creates a backup snapshot under `.harness/.backup/<timestamp>/` and writes files atomically.
 
 ## Project Structure
 

@@ -9,7 +9,7 @@ Low-level shared helpers for hashing, path normalization, deterministic JSON for
 - Hashing: `sha256(value)`
 - Path normalization: `normalizeRelativePath(input)`, `toPosixRelative(fromAbs, rootAbs)`
 - Deterministic serialization: `stableStringify(value)`
-- File helpers: `readTextIfExists`, `exists`, `ensureParentDir`, `isNotFoundError`
+- File helpers: `readTextIfExists`, `exists`, `ensureParentDir`, `writeFileAtomic`, `copyToBackup`, `isNotFoundError`
 - Structural comparison: `deepEqual(left, right)`
 - Collection/time/string helpers: `uniqSorted`, `nowIso`, `stripTrailingNewlines`, `withSingleTrailingNewline`
 
@@ -21,4 +21,6 @@ Low-level shared helpers for hashing, path normalization, deterministic JSON for
   - any raw `..` segment (even if normalization would remove it),
   - normalized `"."` / `".."` results (including root-collapsing aliases like `""`, `"."`, `"a/.."`).
 - `stableStringify` sorts object keys recursively and appends exactly one trailing newline.
+- `writeFileAtomic` writes through a temp file in the same directory and renames to avoid partial writes.
+- `copyToBackup` copies a workspace-relative file into a backup root while preserving relative layout.
 - `deepEqual` compares recursively key-sorted JSON representations.

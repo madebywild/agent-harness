@@ -1,26 +1,38 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
-  agentsManifestSchema,
-  managedIndexSchema,
-  manifestLockSchema,
+  VersionError,
+  parseManagedIndex,
+  parseManifest,
+  parseManifestLock,
   parseProviderOverride,
   providerIdSchema,
 } from "@agent-harness/manifest-schema";
 import type { HarnessPaths } from "./paths.js";
-import type { AgentsManifest, Diagnostic, ManagedIndex, ManifestLock, ProviderId, ProviderOverride } from "./types.js";
+import type {
+  AgentsManifest,
+  Diagnostic,
+  ManagedIndex,
+  ManifestLock,
+  ProviderId,
+  ProviderOverride,
+  VersionStatus,
+} from "./types.js";
 import {
-  ensureParentDir,
+  copyToBackup,
   exists,
   normalizeRelativePath,
   readTextIfExists,
   stableStringify,
   toPosixRelative,
+  writeFileAtomic,
 } from "./utils.js";
+
+type VersionIssue = VersionStatus;
 
 export async function loadManifest(
   paths: HarnessPaths,
-): Promise<{ manifest: AgentsManifest | null; diagnostics: Diagnostic[] }> {
+): Promise<{ manifest: AgentsManifest | null; diagnostics: Diagnostic[]; versionStatus?: VersionIssue }> {
   const contents = await readTextIfExists(paths.manifestFile);
   if (contents === null) {
     return {
@@ -39,9 +51,18 @@ export async function loadManifest(
 
   try {
     const parsed = JSON.parse(contents) as unknown;
-    const manifest = agentsManifestSchema.parse(parsed);
-    return { manifest, diagnostics: [] };
+    const manifest = parseManifest(parsed);
+    return { manifest, diagnostics: [], versionStatus: "current" };
   } catch (error) {
+    if (error instanceof VersionError) {
+      const diagnostic = versionErrorDiagnostic("manifest", ".harness/manifest.json", error);
+      return {
+        manifest: null,
+        diagnostics: [diagnostic],
+        versionStatus: statusForVersionReason(error.reason),
+      };
+    }
+
     return {
       manifest: null,
       diagnostics: [
@@ -57,14 +78,14 @@ export async function loadManifest(
 }
 
 export async function writeManifest(paths: HarnessPaths, manifest: AgentsManifest): Promise<void> {
-  await ensureParentDir(paths.manifestFile);
-  await fs.writeFile(paths.manifestFile, stableStringify(manifest), "utf8");
+  await writeFileAtomic(paths.manifestFile, stableStringify(manifest));
 }
 
 export async function loadLock(paths: HarnessPaths): Promise<{
   lock: ManifestLock | null;
   diagnostics: Diagnostic[];
   raw: string | null;
+  versionStatus?: VersionIssue;
 }> {
   const contents = await readTextIfExists(paths.lockFile);
   if (contents === null) {
@@ -73,9 +94,19 @@ export async function loadLock(paths: HarnessPaths): Promise<{
 
   try {
     const parsed = JSON.parse(contents) as unknown;
-    const lock = manifestLockSchema.parse(parsed);
-    return { lock, diagnostics: [], raw: contents };
+    const lock = parseManifestLock(parsed);
+    return { lock, diagnostics: [], raw: contents, versionStatus: "current" };
   } catch (error) {
+    if (error instanceof VersionError) {
+      const diagnostic = versionErrorDiagnostic("lock", ".harness/manifest.lock.json", error);
+      return {
+        lock: null,
+        raw: contents,
+        diagnostics: [diagnostic],
+        versionStatus: statusForVersionReason(error.reason),
+      };
+    }
+
     return {
       lock: null,
       raw: contents,
@@ -93,8 +124,7 @@ export async function loadLock(paths: HarnessPaths): Promise<{
 
 export async function writeLock(paths: HarnessPaths, lock: ManifestLock): Promise<string> {
   const serialized = stableStringify(lock);
-  await ensureParentDir(paths.lockFile);
-  await fs.writeFile(paths.lockFile, serialized, "utf8");
+  await writeFileAtomic(paths.lockFile, serialized);
   return serialized;
 }
 
@@ -108,7 +138,7 @@ export function emptyManagedIndex(): ManagedIndex {
 
 export async function loadManagedIndex(
   paths: HarnessPaths,
-): Promise<{ managedIndex: ManagedIndex; diagnostics: Diagnostic[] }> {
+): Promise<{ managedIndex: ManagedIndex; diagnostics: Diagnostic[]; versionStatus?: VersionIssue }> {
   const contents = await readTextIfExists(paths.managedIndexFile);
   if (contents === null) {
     return { managedIndex: emptyManagedIndex(), diagnostics: [] };
@@ -116,8 +146,16 @@ export async function loadManagedIndex(
 
   try {
     const parsed = JSON.parse(contents) as unknown;
-    return { managedIndex: managedIndexSchema.parse(parsed), diagnostics: [] };
+    return { managedIndex: parseManagedIndex(parsed), diagnostics: [], versionStatus: "current" };
   } catch (error) {
+    if (error instanceof VersionError) {
+      return {
+        managedIndex: emptyManagedIndex(),
+        diagnostics: [versionErrorDiagnostic("managed-index", ".harness/managed-index.json", error)],
+        versionStatus: statusForVersionReason(error.reason),
+      };
+    }
+
     return {
       managedIndex: emptyManagedIndex(),
       diagnostics: [
@@ -133,8 +171,7 @@ export async function loadManagedIndex(
 }
 
 export async function writeManagedIndex(paths: HarnessPaths, managedIndex: ManagedIndex): Promise<void> {
-  await ensureParentDir(paths.managedIndexFile);
-  await fs.writeFile(paths.managedIndexFile, stableStringify(managedIndex), "utf8");
+  await writeFileAtomic(paths.managedIndexFile, stableStringify(managedIndex));
 }
 
 export async function readProviderOverrideFile(
@@ -145,9 +182,10 @@ export async function readProviderOverrideFile(
   override: ProviderOverride | undefined;
   sha256: string | undefined;
   diagnostics: Diagnostic[];
+  versionStatus?: VersionIssue;
 }> {
   if (!overridePath) {
-    return { override: undefined, sha256: undefined, diagnostics: [] };
+    return { override: undefined, sha256: undefined, diagnostics: [], versionStatus: "current" };
   }
 
   const normalized = normalizeRelativePath(overridePath);
@@ -155,7 +193,7 @@ export async function readProviderOverrideFile(
   const text = await readTextIfExists(absolute);
 
   if (text === null) {
-    return { override: undefined, sha256: undefined, diagnostics: [] };
+    return { override: undefined, sha256: undefined, diagnostics: [], versionStatus: "current" };
   }
 
   try {
@@ -163,8 +201,17 @@ export async function readProviderOverrideFile(
     const parsed = YAML.parse(text) as unknown;
     const override = parseProviderOverride(parsed);
     const { sha256 } = await import("./utils.js");
-    return { override, sha256: sha256(text), diagnostics: [] };
+    return { override, sha256: sha256(text), diagnostics: [], versionStatus: "current" };
   } catch (error) {
+    if (error instanceof VersionError) {
+      return {
+        override: undefined,
+        sha256: undefined,
+        diagnostics: [versionErrorDiagnostic("provider-override", normalized, error, provider)],
+        versionStatus: statusForVersionReason(error.reason),
+      };
+    }
+
     return {
       override: undefined,
       sha256: undefined,
@@ -267,5 +314,60 @@ export async function removeIfExists(filePath: string): Promise<void> {
     await fs.rm(filePath, { recursive: true, force: true });
   } catch {
     // ignore best-effort deletes for stale generated outputs
+  }
+}
+
+export async function copyWorkspaceFileToBackup(
+  paths: HarnessPaths,
+  relativePath: string,
+  backupRoot: string,
+): Promise<boolean> {
+  return copyToBackup(paths.root, relativePath, backupRoot);
+}
+
+function statusForVersionReason(reason: VersionError["reason"]): VersionIssue {
+  switch (reason) {
+    case "outdated_version":
+      return "outdated";
+    case "unsupported_version":
+      return "unsupported";
+    case "missing_version":
+      return "missing";
+    case "invalid_version_type":
+      return "invalid";
+  }
+}
+
+function versionErrorDiagnostic(
+  kind: "manifest" | "lock" | "managed-index" | "provider-override",
+  filePath: string,
+  error: VersionError,
+  provider?: ProviderId,
+): Diagnostic {
+  const prefix = kind === "provider-override" ? "OVERRIDE" : kind.toUpperCase().replaceAll("-", "_");
+  const codeSuffix = versionCodeSuffix(error.reason);
+  return {
+    code: `${prefix}_VERSION_${codeSuffix}`,
+    severity: "error",
+    message: error.message,
+    path: filePath,
+    provider,
+    hint:
+      error.reason === "unsupported_version"
+        ? "Install a newer harness CLI that supports this schema version."
+        : "Run 'harness doctor' then 'harness migrate'.",
+  };
+}
+
+function versionCodeSuffix(reason: VersionError["reason"]): string {
+  switch (reason) {
+    case "unsupported_version":
+      return "NEWER_THAN_CLI";
+    case "outdated_version":
+      return "OUTDATED";
+    case "missing_version":
+      return "MISSING";
+    case "invalid_version_type":
+      return "INVALID";
   }
 }

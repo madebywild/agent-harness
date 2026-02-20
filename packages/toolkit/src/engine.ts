@@ -31,10 +31,12 @@ import type {
   ApplyResult,
   CliEntityType,
   Diagnostic,
+  DoctorResult,
   EntityType,
   InternalPlanResult,
   ManagedIndex,
   ManifestLock,
+  MigrationResult,
   PlanResult,
   ProviderOverride,
   RemoveResult,
@@ -51,6 +53,8 @@ import {
   stableStringify,
   uniqSorted,
 } from "./utils.js";
+import { buildVersionPreflightDiagnostics, hasVersionBlockers, runDoctor } from "./versioning/doctor.js";
+import { runMigration } from "./versioning/migrate.js";
 
 export class HarnessEngine {
   private readonly cwd: string;
@@ -98,6 +102,7 @@ export class HarnessEngine {
   }
 
   async enableProvider(provider: ProviderId): Promise<void> {
+    await this.assertWorkspaceVersionCurrent();
     const manifest = await this.readManifestOrThrow();
     if (!manifest.providers.enabled.includes(provider)) {
       manifest.providers.enabled = uniqSorted([...manifest.providers.enabled, provider]) as ProviderId[];
@@ -106,12 +111,14 @@ export class HarnessEngine {
   }
 
   async disableProvider(provider: ProviderId): Promise<void> {
+    await this.assertWorkspaceVersionCurrent();
     const manifest = await this.readManifestOrThrow();
     manifest.providers.enabled = manifest.providers.enabled.filter((entry) => entry !== provider);
     await writeManifest(resolveHarnessPaths(this.cwd), manifest);
   }
 
   async addPrompt(): Promise<void> {
+    await this.assertWorkspaceVersionCurrent();
     const paths = resolveHarnessPaths(this.cwd);
     const manifest = await this.readManifestOrThrow();
 
@@ -156,6 +163,7 @@ export class HarnessEngine {
   }
 
   async addSkill(skillId: string): Promise<void> {
+    await this.assertWorkspaceVersionCurrent();
     validateEntityId(skillId, "skill");
     const paths = resolveHarnessPaths(this.cwd);
     const manifest = await this.readManifestOrThrow();
@@ -203,6 +211,7 @@ export class HarnessEngine {
   }
 
   async addMcp(configId: string): Promise<void> {
+    await this.assertWorkspaceVersionCurrent();
     validateEntityId(configId, "mcp_config");
     const paths = resolveHarnessPaths(this.cwd);
     const manifest = await this.readManifestOrThrow();
@@ -257,6 +266,7 @@ export class HarnessEngine {
   }
 
   async remove(entityTypeArg: CliEntityType, id: string, deleteSource: boolean): Promise<RemoveResult> {
+    await this.assertWorkspaceVersionCurrent();
     const paths = resolveHarnessPaths(this.cwd);
     const manifest = await this.readManifestOrThrow();
 
@@ -379,6 +389,7 @@ export class HarnessEngine {
   }
 
   async watch(debounceMs = 250): Promise<void> {
+    await this.assertWorkspaceVersionCurrent();
     const runApply = async (): Promise<void> => {
       const result = await this.apply();
       printDiagnostics(result.diagnostics);
@@ -447,8 +458,36 @@ export class HarnessEngine {
     });
   }
 
+  async doctor(_options?: { json?: boolean }): Promise<DoctorResult> {
+    return runDoctor(resolveHarnessPaths(this.cwd));
+  }
+
+  async migrate(options?: { to?: "latest"; dryRun?: boolean; json?: boolean }): Promise<MigrationResult> {
+    return runMigration(resolveHarnessPaths(this.cwd), {
+      to: options?.to,
+      dryRun: options?.dryRun,
+    });
+  }
+
   private async planInternal(): Promise<InternalPlanResult> {
     const paths = resolveHarnessPaths(this.cwd);
+    const versionDiagnostics = await this.versionPreflightDiagnostics();
+    if (versionDiagnostics.length > 0) {
+      return {
+        operations: [],
+        diagnostics: versionDiagnostics,
+        nextLock: {
+          version: 1,
+          generatedAt: nowIso(),
+          manifestFingerprint: sha256("{}"),
+          entities: [],
+          outputs: [],
+        },
+        artifactsByPath: new Map(),
+        nextManagedIndex: emptyManagedIndex(),
+      };
+    }
+
     const manifestResult = await loadManifest(paths);
     const lockResult = await loadLock(paths);
     const managedIndexResult = await loadManagedIndex(paths);
@@ -493,6 +532,10 @@ export class HarnessEngine {
     const paths = resolveHarnessPaths(this.cwd);
     const result = await loadManifest(paths);
     if (result.manifest === null) {
+      const diagnostic = result.diagnostics[0];
+      if (diagnostic) {
+        throw new Error(`${diagnostic.code}: ${diagnostic.message}`);
+      }
       throw new Error("Manifest not found. Run 'harness init' first.");
     }
     return result.manifest;
@@ -502,6 +545,31 @@ export class HarnessEngine {
     const paths = resolveHarnessPaths(this.cwd);
     const result = await loadManagedIndex(paths);
     return result.managedIndex;
+  }
+
+  private async assertWorkspaceVersionCurrent(): Promise<void> {
+    const diagnostics = await this.versionPreflightDiagnostics();
+    if (diagnostics.length === 0) {
+      return;
+    }
+
+    const hasNewerThanCli = diagnostics.some((diagnostic) => diagnostic.code.includes("NEWER_THAN_CLI"));
+    const hasMissingManifest = diagnostics.some((diagnostic) => diagnostic.code === "MANIFEST_NOT_FOUND");
+    const details = diagnostics.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`).join("\n");
+    const hint = hasMissingManifest
+      ? "Run 'harness init' first."
+      : hasNewerThanCli
+        ? "Install a newer harness CLI, then run 'harness doctor'."
+        : "Run 'harness doctor' then 'harness migrate'.";
+    throw new Error(`${details}\n${hint}`);
+  }
+
+  private async versionPreflightDiagnostics(): Promise<Diagnostic[]> {
+    const doctor = await runDoctor(resolveHarnessPaths(this.cwd));
+    if (!hasVersionBlockers(doctor)) {
+      return [];
+    }
+    return buildVersionPreflightDiagnostics(doctor);
   }
 }
 

@@ -1,6 +1,16 @@
 import path from "node:path";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import {
+  type DocumentKind,
+  LATEST_SCHEMA_MAJOR,
+  LATEST_VERSION_BY_KIND,
+  type VersionDetectionResult,
+  VersionError,
+  assertLatestVersion,
+  detectDocumentVersion,
+  isLatestVersion,
+} from "./versioning.js";
 
 export const PROVIDERS = ["codex", "claude", "copilot"] as const;
 
@@ -28,7 +38,7 @@ const providerRelativePathMapSchema = z
   })
   .strict();
 
-const providerOverrideSchema = z
+export const providerOverrideV1Schema = z
   .object({
     version: z.literal(1),
     enabled: z.boolean().optional(),
@@ -67,7 +77,7 @@ export const entityRefSchema = z.discriminatedUnion("type", [
   mcpEntityRefSchema,
 ]);
 
-export const agentsManifestSchema = z
+export const agentsManifestV1Schema = z
   .object({
     version: z.literal(1),
     providers: z
@@ -88,7 +98,7 @@ const providerShaMapSchema = z
   })
   .strict();
 
-export const manifestLockSchema = z
+export const manifestLockV1Schema = z
   .object({
     version: z.literal(1),
     generatedAt: z.string().datetime(),
@@ -116,7 +126,7 @@ export const manifestLockSchema = z
   })
   .strict();
 
-export const managedIndexSchema = z
+export const managedIndexV1Schema = z
   .object({
     version: z.literal(1),
     managedSourcePaths: z.array(relativePathSchema),
@@ -124,7 +134,16 @@ export const managedIndexSchema = z
   })
   .strict();
 
+export const agentsManifestSchema = agentsManifestV1Schema;
+export const manifestLockSchema = manifestLockV1Schema;
+export const managedIndexSchema = managedIndexV1Schema;
+export const providerOverrideSchema = providerOverrideV1Schema;
+
 export const schemas = {
+  agentsManifestV1Schema,
+  manifestLockV1Schema,
+  managedIndexV1Schema,
+  providerOverrideV1Schema,
   agentsManifestSchema,
   manifestLockSchema,
   managedIndexSchema,
@@ -140,9 +159,9 @@ export type EntityRef = z.infer<typeof entityRefSchema>;
 export type PromptEntityRef = z.infer<typeof promptEntityRefSchema>;
 export type SkillEntityRef = z.infer<typeof skillEntityRefSchema>;
 export type McpEntityRef = z.infer<typeof mcpEntityRefSchema>;
-export type AgentsManifest = z.infer<typeof agentsManifestSchema>;
-export type ManifestLock = z.infer<typeof manifestLockSchema>;
-export type ManagedIndex = z.infer<typeof managedIndexSchema>;
+export type AgentsManifest = z.infer<typeof agentsManifestV1Schema>;
+export type ManifestLock = z.infer<typeof manifestLockV1Schema>;
+export type ManagedIndex = z.infer<typeof managedIndexV1Schema>;
 
 export function toJsonSchemas(): Record<string, object> {
   return {
@@ -162,17 +181,29 @@ export function toJsonSchemas(): Record<string, object> {
 }
 
 export function parseManifest(input: unknown): AgentsManifest {
-  return agentsManifestSchema.parse(input);
+  return parseVersionedDocument("manifest", input, agentsManifestV1Schema);
 }
 
 export function parseManifestLock(input: unknown): ManifestLock {
-  return manifestLockSchema.parse(input);
+  return parseVersionedDocument("lock", input, manifestLockV1Schema);
 }
 
 export function parseManagedIndex(input: unknown): ManagedIndex {
-  return managedIndexSchema.parse(input);
+  return parseVersionedDocument("managed-index", input, managedIndexV1Schema);
 }
 
 export function parseProviderOverride(input: unknown): ProviderOverride {
-  return providerOverrideSchema.parse(input);
+  return parseVersionedDocument("provider-override", input, providerOverrideV1Schema);
 }
+
+function parseVersionedDocument<TSchema extends z.ZodTypeAny>(
+  kind: DocumentKind,
+  input: unknown,
+  schema: TSchema,
+): z.infer<TSchema> {
+  assertLatestVersion(kind, input);
+  return schema.parse(input);
+}
+
+export { detectDocumentVersion, isLatestVersion, LATEST_SCHEMA_MAJOR, LATEST_VERSION_BY_KIND, VersionError };
+export type { DocumentKind, VersionDetectionResult };
