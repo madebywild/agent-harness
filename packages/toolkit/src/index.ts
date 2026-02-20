@@ -20,7 +20,7 @@ export type {
   ProviderId,
   ProviderOverride,
   RenderedArtifact,
-  ValidationResult
+  ValidationResult,
 } from "./types.js";
 
 export async function plan(opts: PlanOptions = {}): Promise<PlanResult> {

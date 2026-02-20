@@ -10,11 +10,19 @@
   "scripts": {
     "build": "pnpm exec turbo run build",
     "clean": "pnpm exec turbo run clean",
-    "lint": "pnpm exec turbo run lint",
+    "lint": "biome lint .",
+    "lint:write": "biome lint --write .",
+    "format": "biome format .",
+    "format:write": "biome format --write .",
+    "check": "biome check .",
+    "check:write": "biome check --write .",
     "test": "pnpm exec turbo run test",
-    "typecheck": "pnpm exec turbo run typecheck"
+    "typecheck": "pnpm exec turbo run typecheck",
+    "prepare": "lefthook install"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "lefthook": "^1.11.0",
     "turbo": "^2.5.6",
     "typescript": "^5.9.2"
   }

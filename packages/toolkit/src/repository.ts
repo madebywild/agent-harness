@@ -5,20 +5,22 @@ import {
   managedIndexSchema,
   manifestLockSchema,
   parseProviderOverride,
-  providerIdSchema
+  providerIdSchema,
 } from "@agent-harness/manifest-schema";
-import type {
-  AgentsManifest,
-  Diagnostic,
-  ManagedIndex,
-  ManifestLock,
-  ProviderId,
-  ProviderOverride
-} from "./types.js";
-import { ensureParentDir, exists, normalizeRelativePath, readTextIfExists, stableStringify, toPosixRelative } from "./utils.js";
 import type { HarnessPaths } from "./paths.js";
+import type { AgentsManifest, Diagnostic, ManagedIndex, ManifestLock, ProviderId, ProviderOverride } from "./types.js";
+import {
+  ensureParentDir,
+  exists,
+  normalizeRelativePath,
+  readTextIfExists,
+  stableStringify,
+  toPosixRelative,
+} from "./utils.js";
 
-export async function loadManifest(paths: HarnessPaths): Promise<{ manifest: AgentsManifest | null; diagnostics: Diagnostic[] }> {
+export async function loadManifest(
+  paths: HarnessPaths,
+): Promise<{ manifest: AgentsManifest | null; diagnostics: Diagnostic[] }> {
   const contents = await readTextIfExists(paths.manifestFile);
   if (contents === null) {
     return {
@@ -27,11 +29,11 @@ export async function loadManifest(paths: HarnessPaths): Promise<{ manifest: Age
         {
           code: "MANIFEST_NOT_FOUND",
           severity: "error",
-          message: `Missing manifest file at .harness/manifest.json`,
+          message: "Missing manifest file at .harness/manifest.json",
           path: ".harness/manifest.json",
-          hint: "Run 'agent-harness init' first."
-        }
-      ]
+          hint: "Run 'agent-harness init' first.",
+        },
+      ],
     };
   }
 
@@ -47,9 +49,9 @@ export async function loadManifest(paths: HarnessPaths): Promise<{ manifest: Age
           code: "MANIFEST_INVALID",
           severity: "error",
           message: error instanceof Error ? error.message : "Manifest is invalid JSON or failed schema validation",
-          path: ".harness/manifest.json"
-        }
-      ]
+          path: ".harness/manifest.json",
+        },
+      ],
     };
   }
 }
@@ -59,7 +61,11 @@ export async function writeManifest(paths: HarnessPaths, manifest: AgentsManifes
   await fs.writeFile(paths.manifestFile, stableStringify(manifest), "utf8");
 }
 
-export async function loadLock(paths: HarnessPaths): Promise<{ lock: ManifestLock | null; diagnostics: Diagnostic[]; raw: string | null }> {
+export async function loadLock(paths: HarnessPaths): Promise<{
+  lock: ManifestLock | null;
+  diagnostics: Diagnostic[];
+  raw: string | null;
+}> {
   const contents = await readTextIfExists(paths.lockFile);
   if (contents === null) {
     return { lock: null, diagnostics: [], raw: null };
@@ -78,9 +84,9 @@ export async function loadLock(paths: HarnessPaths): Promise<{ lock: ManifestLoc
           code: "LOCK_INVALID",
           severity: "error",
           message: error instanceof Error ? error.message : "manifest.lock.json failed schema validation",
-          path: ".harness/manifest.lock.json"
-        }
-      ]
+          path: ".harness/manifest.lock.json",
+        },
+      ],
     };
   }
 }
@@ -96,11 +102,13 @@ export function emptyManagedIndex(): ManagedIndex {
   return {
     version: 1,
     managedSourcePaths: [],
-    managedOutputPaths: []
+    managedOutputPaths: [],
   };
 }
 
-export async function loadManagedIndex(paths: HarnessPaths): Promise<{ managedIndex: ManagedIndex; diagnostics: Diagnostic[] }> {
+export async function loadManagedIndex(
+  paths: HarnessPaths,
+): Promise<{ managedIndex: ManagedIndex; diagnostics: Diagnostic[] }> {
   const contents = await readTextIfExists(paths.managedIndexFile);
   if (contents === null) {
     return { managedIndex: emptyManagedIndex(), diagnostics: [] };
@@ -117,9 +125,9 @@ export async function loadManagedIndex(paths: HarnessPaths): Promise<{ managedIn
           code: "MANAGED_INDEX_INVALID",
           severity: "error",
           message: error instanceof Error ? error.message : "managed-index failed schema validation",
-          path: ".harness/managed-index.json"
-        }
-      ]
+          path: ".harness/managed-index.json",
+        },
+      ],
     };
   }
 }
@@ -132,8 +140,12 @@ export async function writeManagedIndex(paths: HarnessPaths, managedIndex: Manag
 export async function readProviderOverrideFile(
   rootDir: string,
   provider: ProviderId,
-  overridePath?: string
-): Promise<{ override: ProviderOverride | undefined; sha256: string | undefined; diagnostics: Diagnostic[] }> {
+  overridePath?: string,
+): Promise<{
+  override: ProviderOverride | undefined;
+  sha256: string | undefined;
+  diagnostics: Diagnostic[];
+}> {
   if (!overridePath) {
     return { override: undefined, sha256: undefined, diagnostics: [] };
   }
@@ -162,9 +174,9 @@ export async function readProviderOverrideFile(
           severity: "error",
           message: `Invalid override YAML for provider '${provider}': ${error instanceof Error ? error.message : "unknown error"}`,
           path: normalized,
-          provider
-        }
-      ]
+          provider,
+        },
+      ],
     };
   }
 }
@@ -212,7 +224,6 @@ export async function collectSourceCandidates(paths: HarnessPaths): Promise<stri
 
     if (/^\.harness\/src\/mcp\/[^/]+\.json$/u.test(relative)) {
       candidates.push(relative);
-      continue;
     }
   }
 

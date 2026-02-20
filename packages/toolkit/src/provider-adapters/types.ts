@@ -1,9 +1,4 @@
-import type {
-  LoadedSkillFile,
-  ProviderAdapter,
-  ProviderId,
-  RenderedArtifact
-} from "../types.js";
+import type { LoadedSkillFile, ProviderAdapter, ProviderId, RenderedArtifact } from "../types.js";
 
 export type SkillFileIndex = ReadonlyMap<string, ReadonlyArray<LoadedSkillFile>>;
 

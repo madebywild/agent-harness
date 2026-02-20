@@ -21,7 +21,7 @@ const providerRelativePathMapSchema = z
   .object({
     codex: relativePathSchema.optional(),
     claude: relativePathSchema.optional(),
-    copilot: relativePathSchema.optional()
+    copilot: relativePathSchema.optional(),
   })
   .strict();
 
@@ -30,35 +30,38 @@ const providerOverrideSchema = z
     version: z.literal(1),
     enabled: z.boolean().optional(),
     targetPath: relativePathSchema.optional(),
-    options: z.record(z.unknown()).optional()
+    options: z.record(z.unknown()).optional(),
   })
   .strict();
 
 const entityRefBaseSchema = z
   .object({
-    id: z.string().min(1).regex(/^[a-zA-Z0-9._-]+$/),
+    id: z
+      .string()
+      .min(1)
+      .regex(/^[a-zA-Z0-9._-]+$/),
     sourcePath: relativePathSchema,
     overrides: providerRelativePathMapSchema.optional(),
-    enabled: z.boolean().optional()
+    enabled: z.boolean().optional(),
   })
   .strict();
 
 export const promptEntityRefSchema = entityRefBaseSchema.extend({
-  type: z.literal("prompt")
+  type: z.literal("prompt"),
 });
 
 export const skillEntityRefSchema = entityRefBaseSchema.extend({
-  type: z.literal("skill")
+  type: z.literal("skill"),
 });
 
 export const mcpEntityRefSchema = entityRefBaseSchema.extend({
-  type: z.literal("mcp_config")
+  type: z.literal("mcp_config"),
 });
 
 export const entityRefSchema = z.discriminatedUnion("type", [
   promptEntityRefSchema,
   skillEntityRefSchema,
-  mcpEntityRefSchema
+  mcpEntityRefSchema,
 ]);
 
 export const agentsManifestSchema = z
@@ -66,10 +69,10 @@ export const agentsManifestSchema = z
     version: z.literal(1),
     providers: z
       .object({
-        enabled: z.array(providerIdSchema).default([])
+        enabled: z.array(providerIdSchema).default([]),
       })
       .strict(),
-    entities: z.array(entityRefSchema).default([])
+    entities: z.array(entityRefSchema).default([]),
   })
   .strict();
 
@@ -78,7 +81,7 @@ const providerShaMapSchema = z
   .object({
     codex: sha256Schema.optional(),
     claude: sha256Schema.optional(),
-    copilot: sha256Schema.optional()
+    copilot: sha256Schema.optional(),
   })
   .strict();
 
@@ -93,9 +96,9 @@ export const manifestLockSchema = z
           id: z.string().regex(/^[a-zA-Z0-9._-]+$/),
           type: entityTypeSchema,
           sourceSha256: sha256Schema,
-          overrideSha256ByProvider: providerShaMapSchema
+          overrideSha256ByProvider: providerShaMapSchema,
         })
-        .strict()
+        .strict(),
     ),
     outputs: z.array(
       z
@@ -103,10 +106,10 @@ export const manifestLockSchema = z
           path: relativePathSchema,
           provider: providerIdSchema,
           contentSha256: sha256Schema,
-          ownerEntityIds: z.array(z.string().regex(/^[a-zA-Z0-9._-]+$/))
+          ownerEntityIds: z.array(z.string().regex(/^[a-zA-Z0-9._-]+$/)),
         })
-        .strict()
-    )
+        .strict(),
+    ),
   })
   .strict();
 
@@ -114,7 +117,7 @@ export const managedIndexSchema = z
   .object({
     version: z.literal(1),
     managedSourcePaths: z.array(relativePathSchema),
-    managedOutputPaths: z.array(relativePathSchema)
+    managedOutputPaths: z.array(relativePathSchema),
   })
   .strict();
 
@@ -126,7 +129,7 @@ export const schemas = {
   entityRefSchema,
   promptEntityRefSchema,
   skillEntityRefSchema,
-  mcpEntityRefSchema
+  mcpEntityRefSchema,
 };
 
 export type ProviderOverride = z.infer<typeof providerOverrideSchema>;
@@ -141,17 +144,17 @@ export type ManagedIndex = z.infer<typeof managedIndexSchema>;
 export function toJsonSchemas(): Record<string, object> {
   return {
     "agents-manifest.schema.json": zodToJsonSchema(agentsManifestSchema, {
-      name: "AgentsManifest"
+      name: "AgentsManifest",
     }),
     "manifest-lock.schema.json": zodToJsonSchema(manifestLockSchema, {
-      name: "ManifestLock"
+      name: "ManifestLock",
     }),
     "managed-index.schema.json": zodToJsonSchema(managedIndexSchema, {
-      name: "ManagedIndex"
+      name: "ManagedIndex",
     }),
     "provider-override.schema.json": zodToJsonSchema(providerOverrideSchema, {
-      name: "ProviderOverride"
-    })
+      name: "ProviderOverride",
+    }),
   };
 }
 

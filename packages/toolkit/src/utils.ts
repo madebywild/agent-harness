@@ -21,7 +21,7 @@ export function toPosixRelative(fromAbs: string, rootAbs: string): string {
 }
 
 export function stableStringify(value: unknown): string {
-  return JSON.stringify(sortJsonValue(value), undefined, 2) + "\n";
+  return `${JSON.stringify(sortJsonValue(value), undefined, 2)}\n`;
 }
 
 function sortJsonValue(value: unknown): unknown {
@@ -68,7 +68,9 @@ export async function ensureParentDir(filePath: string): Promise<void> {
 }
 
 export function isNotFoundError(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "ENOENT";
+  return (
+    typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "ENOENT"
+  );
 }
 
 export function deepEqual(left: unknown, right: unknown): boolean {

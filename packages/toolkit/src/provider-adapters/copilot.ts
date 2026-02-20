@@ -7,7 +7,7 @@ import type { ProviderDefinition, SkillFileIndex } from "./types.js";
 const COPILOT_DEFINITION: ProviderDefinition = {
   id: "copilot",
   defaults: PROVIDER_DEFAULTS.copilot,
-  mcpRenderer: createJsonMcpRenderer("servers")
+  mcpRenderer: createJsonMcpRenderer("servers"),
 };
 
 export function buildCopilotAdapter(skillFilesByEntityId: SkillFileIndex): ProviderAdapter {

@@ -1,8 +1,10 @@
-import type { LoadedSkillFile, ProviderAdapter, ProviderId } from "./types.js";
-import { buildProviderAdapters } from "./provider-adapters/registry.js";
 import { getProviderDefaults } from "./provider-adapters/constants.js";
+import { buildProviderAdapters } from "./provider-adapters/registry.js";
+import type { LoadedSkillFile, ProviderAdapter, ProviderId } from "./types.js";
 
-export function buildBuiltinAdapters(skillFilesByEntityId: Map<string, LoadedSkillFile[]>): Record<ProviderId, ProviderAdapter> {
+export function buildBuiltinAdapters(
+  skillFilesByEntityId: Map<string, LoadedSkillFile[]>,
+): Record<ProviderId, ProviderAdapter> {
   return buildProviderAdapters(skillFilesByEntityId);
 }
 

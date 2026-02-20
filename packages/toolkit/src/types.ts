@@ -2,10 +2,10 @@ import type {
   AgentsManifest,
   EntityRef,
   EntityType,
-  ManifestLock,
   ManagedIndex,
+  ManifestLock,
   ProviderId,
-  ProviderOverride
+  ProviderOverride,
 } from "@agent-harness/manifest-schema";
 
 export type { AgentsManifest, EntityRef, EntityType, ManifestLock, ManagedIndex, ProviderId, ProviderOverride };
@@ -40,7 +40,7 @@ export interface ProviderAdapter {
   renderSkill?(input: CanonicalSkill, override?: ProviderOverride): Promise<RenderedArtifact[]>;
   renderMcp?(
     input: CanonicalMcpConfig[],
-    overrideByEntity?: Map<string, ProviderOverride | undefined>
+    overrideByEntity?: Map<string, ProviderOverride | undefined>,
   ): Promise<RenderedArtifact[]>;
 }
 

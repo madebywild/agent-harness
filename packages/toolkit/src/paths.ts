@@ -24,7 +24,7 @@ export function resolveHarnessPaths(rootDir: string): HarnessPaths {
     managedIndexFile: path.join(harnessDir, "managed-index.json"),
     promptDir: path.join(srcDir, "prompts"),
     skillDir: path.join(srcDir, "skills"),
-    mcpDir: path.join(srcDir, "mcp")
+    mcpDir: path.join(srcDir, "mcp"),
   };
 }
 

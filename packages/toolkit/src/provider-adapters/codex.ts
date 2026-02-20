@@ -13,11 +13,11 @@ const CODEX_DEFINITION: ProviderDefinition = {
     render(servers) {
       return withSingleTrailingNewline(
         TOML.stringify({
-          mcp_servers: servers as unknown as TOML.AnyJson
-        })
+          mcp_servers: servers as unknown as TOML.AnyJson,
+        }),
       );
-    }
-  }
+    },
+  },
 };
 
 export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): ProviderAdapter {

@@ -6,6 +6,6 @@ export function createJsonMcpRenderer(serverProperty: "mcpServers" | "servers"):
     format: "json",
     render(servers) {
       return stableStringify({ [serverProperty]: servers });
-    }
+    },
   };
 }

@@ -11,6 +11,21 @@
     "lint": {
       "outputs": []
     },
+    "lint:write": {
+      "cache": false
+    },
+    "format": {
+      "outputs": []
+    },
+    "format:write": {
+      "cache": false
+    },
+    "check": {
+      "outputs": []
+    },
+    "check:write": {
+      "cache": false
+    },
     "test": {
       "dependsOn": ["build"],
       "outputs": []

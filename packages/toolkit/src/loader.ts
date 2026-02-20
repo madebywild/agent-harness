@@ -1,27 +1,18 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import matter from "gray-matter";
-import type {
-  AgentsManifest,
-  EntityRef,
-  ProviderId,
-  ProviderOverride
-} from "@agent-harness/manifest-schema";
+import type { AgentsManifest, EntityRef, ProviderId, ProviderOverride } from "@agent-harness/manifest-schema";
 import { providerIdSchema } from "@agent-harness/manifest-schema";
+import matter from "gray-matter";
 import {
   DEFAULT_PROMPT_SOURCE_PATH,
   defaultMcpOverridePath,
   defaultPromptOverridePath,
-  defaultSkillOverridePath
+  defaultSkillOverridePath,
 } from "./paths.js";
-import {
-  collectSourceCandidates,
-  listFilesRecursively,
-  readProviderOverrideFile
-} from "./repository.js";
+import type { HarnessPaths } from "./paths.js";
+import { collectSourceCandidates, listFilesRecursively, readProviderOverrideFile } from "./repository.js";
 import type { Diagnostic, LoadResult, LoadedMcp, LoadedPrompt, LoadedSkill } from "./types.js";
 import { normalizeRelativePath, sha256, stableStringify, toPosixRelative } from "./utils.js";
-import type { HarnessPaths } from "./paths.js";
 
 export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsManifest): Promise<LoadResult> {
   const diagnostics: Diagnostic[] = [];
@@ -37,7 +28,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
         severity: "error",
         message: `Source file '${candidate}' was not created through the CLI and is not registered in manifest`,
         hint: "Use 'agent-harness add ...' to create entities, or remove the unmanaged file.",
-        path: candidate
+        path: candidate,
       });
     }
   }
@@ -79,7 +70,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
     diagnostics,
     prompt,
     skills: skills.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
-    mcps: mcps.sort((left, right) => left.entity.id.localeCompare(right.entity.id))
+    mcps: mcps.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
   };
 }
 
@@ -93,7 +84,7 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
         code: "PROVIDER_DUPLICATE",
         severity: "error",
         message: `Provider '${provider}' is listed multiple times in providers.enabled`,
-        path: ".harness/manifest.json"
+        path: ".harness/manifest.json",
       });
     }
     providerSet.add(provider);
@@ -109,7 +100,7 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
         severity: "error",
         message: `Entity id '${entity.id}' appears multiple times in manifest`,
         path: ".harness/manifest.json",
-        entityId: entity.id
+        entityId: entity.id,
       });
     }
     entityIdSet.add(entity.id);
@@ -123,7 +114,7 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
           severity: "error",
           message: `Prompt entity id must be 'system' in v1, found '${entity.id}'`,
           path: sourcePath,
-          entityId: entity.id
+          entityId: entity.id,
         });
       }
 
@@ -133,7 +124,7 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
           severity: "error",
           message: `Prompt sourcePath must be '${DEFAULT_PROMPT_SOURCE_PATH}' in v1`,
           path: sourcePath,
-          entityId: entity.id
+          entityId: entity.id,
         });
       }
     }
@@ -146,7 +137,7 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
           severity: "error",
           message: `Skill '${entity.id}' sourcePath must be '${expectedPath}'`,
           path: sourcePath,
-          entityId: entity.id
+          entityId: entity.id,
         });
       }
     }
@@ -159,7 +150,7 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
           severity: "error",
           message: `MCP config '${entity.id}' sourcePath must be '${expectedPath}'`,
           path: sourcePath,
-          entityId: entity.id
+          entityId: entity.id,
         });
       }
     }
@@ -170,14 +161,17 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
       code: "PROMPT_COUNT_INVALID",
       severity: "error",
       message: "v1 supports exactly zero or one prompt entity",
-      path: ".harness/manifest.json"
+      path: ".harness/manifest.json",
     });
   }
 
   return diagnostics;
 }
 
-async function loadPrompt(paths: HarnessPaths, entity: EntityRef): Promise<{ prompt?: LoadedPrompt; diagnostics: Diagnostic[] }> {
+async function loadPrompt(
+  paths: HarnessPaths,
+  entity: EntityRef,
+): Promise<{ prompt?: LoadedPrompt; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
   const sourceAbs = path.join(paths.root, sourcePath);
@@ -192,7 +186,7 @@ async function loadPrompt(paths: HarnessPaths, entity: EntityRef): Promise<{ pro
       message: `Prompt source file '${sourcePath}' could not be read`,
       path: sourcePath,
       entityId: entity.id,
-      hint: error instanceof Error ? error.message : undefined
+      hint: error instanceof Error ? error.message : undefined,
     });
     return { diagnostics };
   }
@@ -205,7 +199,7 @@ async function loadPrompt(paths: HarnessPaths, entity: EntityRef): Promise<{ pro
       severity: "error",
       message: `Prompt '${entity.id}' cannot be empty`,
       path: sourcePath,
-      entityId: entity.id
+      entityId: entity.id,
     });
   }
 
@@ -217,7 +211,7 @@ async function loadPrompt(paths: HarnessPaths, entity: EntityRef): Promise<{ pro
       paths,
       provider,
       entity,
-      entity.overrides?.[provider] ?? defaultPromptOverridePath(provider)
+      entity.overrides?.[provider] ?? defaultPromptOverridePath(provider),
     );
     diagnostics.push(...parsedOverride.diagnostics);
     overrideByProvider.set(provider, parsedOverride.override);
@@ -233,16 +227,19 @@ async function loadPrompt(paths: HarnessPaths, entity: EntityRef): Promise<{ pro
       canonical: {
         id: entity.id,
         body,
-        frontmatter: (parsed.data as Record<string, unknown>) ?? {}
+        frontmatter: (parsed.data as Record<string, unknown>) ?? {},
       },
       sourceSha256: sha256(text),
       overrideByProvider,
-      overrideShaByProvider
-    }
+      overrideShaByProvider,
+    },
   };
 }
 
-async function loadSkill(paths: HarnessPaths, entity: EntityRef): Promise<{ skill?: LoadedSkill; diagnostics: Diagnostic[] }> {
+async function loadSkill(
+  paths: HarnessPaths,
+  entity: EntityRef,
+): Promise<{ skill?: LoadedSkill; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
   const sourceAbs = path.join(paths.root, sourcePath);
@@ -259,7 +256,7 @@ async function loadSkill(paths: HarnessPaths, entity: EntityRef): Promise<{ skil
       severity: "error",
       message: `Skill source '${sourcePath}' could not be read`,
       path: sourcePath,
-      entityId: entity.id
+      entityId: entity.id,
     });
     return { diagnostics };
   }
@@ -280,7 +277,7 @@ async function loadSkill(paths: HarnessPaths, entity: EntityRef): Promise<{ skil
     filesWithContent.push({
       path: relativeInSkill,
       sha256: sha256(content),
-      content
+      content,
     });
   }
 
@@ -291,7 +288,7 @@ async function loadSkill(paths: HarnessPaths, entity: EntityRef): Promise<{ skil
       severity: "error",
       message: `Skill '${entity.id}' must contain SKILL.md`,
       path: sourcePath,
-      entityId: entity.id
+      entityId: entity.id,
     });
   }
 
@@ -303,7 +300,7 @@ async function loadSkill(paths: HarnessPaths, entity: EntityRef): Promise<{ skil
       paths,
       provider,
       entity,
-      entity.overrides?.[provider] ?? defaultSkillOverridePath(entity.id, provider)
+      entity.overrides?.[provider] ?? defaultSkillOverridePath(entity.id, provider),
     );
     diagnostics.push(...parsedOverride.diagnostics);
     overrideByProvider.set(provider, parsedOverride.override);
@@ -322,17 +319,20 @@ async function loadSkill(paths: HarnessPaths, entity: EntityRef): Promise<{ skil
       entity,
       canonical: {
         id: entity.id,
-        files: normalizedFiles
+        files: normalizedFiles,
       },
       filesWithContent: filesWithContent.sort((left, right) => left.path.localeCompare(right.path)),
       sourceSha256: sha256(stableStringify(normalizedFiles)),
       overrideByProvider,
-      overrideShaByProvider
-    }
+      overrideShaByProvider,
+    },
   };
 }
 
-async function loadMcp(paths: HarnessPaths, entity: EntityRef): Promise<{ mcp?: LoadedMcp; diagnostics: Diagnostic[] }> {
+async function loadMcp(
+  paths: HarnessPaths,
+  entity: EntityRef,
+): Promise<{ mcp?: LoadedMcp; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
   const sourceAbs = path.join(paths.root, sourcePath);
@@ -346,7 +346,7 @@ async function loadMcp(paths: HarnessPaths, entity: EntityRef): Promise<{ mcp?: 
       severity: "error",
       message: `MCP source '${sourcePath}' could not be read`,
       path: sourcePath,
-      entityId: entity.id
+      entityId: entity.id,
     });
     return { diagnostics };
   }
@@ -364,7 +364,7 @@ async function loadMcp(paths: HarnessPaths, entity: EntityRef): Promise<{ mcp?: 
       severity: "error",
       message: `MCP config '${entity.id}' is not valid JSON object: ${error instanceof Error ? error.message : "unknown error"}`,
       path: sourcePath,
-      entityId: entity.id
+      entityId: entity.id,
     });
     return { diagnostics };
   }
@@ -377,7 +377,7 @@ async function loadMcp(paths: HarnessPaths, entity: EntityRef): Promise<{ mcp?: 
       paths,
       provider,
       entity,
-      entity.overrides?.[provider] ?? defaultMcpOverridePath(entity.id, provider)
+      entity.overrides?.[provider] ?? defaultMcpOverridePath(entity.id, provider),
     );
     diagnostics.push(...parsedOverride.diagnostics);
     overrideByProvider.set(provider, parsedOverride.override);
@@ -392,12 +392,12 @@ async function loadMcp(paths: HarnessPaths, entity: EntityRef): Promise<{ mcp?: 
       entity,
       canonical: {
         id: entity.id,
-        json
+        json,
       },
       sourceSha256: sha256(stableStringify(json)),
       overrideByProvider,
-      overrideShaByProvider
-    }
+      overrideShaByProvider,
+    },
   };
 }
 
@@ -406,7 +406,7 @@ async function parseOverride(paths: HarnessPaths, provider: ProviderId, entity: 
     ...result,
     diagnostics: result.diagnostics.map((diagnostic) => ({
       ...diagnostic,
-      entityId: diagnostic.entityId ?? entity.id
-    }))
+      entityId: diagnostic.entityId ?? entity.id,
+    })),
   }));
 }

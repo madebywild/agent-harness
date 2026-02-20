@@ -14,9 +14,7 @@
       "default": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "dependencies": {
     "@agent-harness/manifest-schema": "workspace:*",
     "@iarna/toml": "^2.2.5",
@@ -33,7 +31,12 @@
   "scripts": {
     "build": "pnpm exec tsc -b",
     "clean": "rm -rf dist",
-    "lint": "echo \"No lint task configured\"",
+    "lint": "biome lint .",
+    "lint:write": "biome lint --write .",
+    "format": "biome format .",
+    "format:write": "biome format --write .",
+    "check": "biome check .",
+    "check:write": "biome check --write .",
     "test": "pnpm exec tsx --test test/**/*.test.ts",
     "typecheck": "pnpm exec tsc -b --pretty false"
   }

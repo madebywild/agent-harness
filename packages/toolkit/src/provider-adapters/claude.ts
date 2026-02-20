@@ -7,7 +7,7 @@ import type { ProviderDefinition, SkillFileIndex } from "./types.js";
 const CLAUDE_DEFINITION: ProviderDefinition = {
   id: "claude",
   defaults: PROVIDER_DEFAULTS.claude,
-  mcpRenderer: createJsonMcpRenderer("mcpServers")
+  mcpRenderer: createJsonMcpRenderer("mcpServers"),
 };
 
 export function buildClaudeAdapter(skillFilesByEntityId: SkillFileIndex): ProviderAdapter {

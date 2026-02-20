@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { Command } from "commander";
 import { providerIdSchema } from "@agent-harness/manifest-schema";
+import { Command } from "commander";
 import { HarnessEngine } from "./engine.js";
 
 const program = new Command();

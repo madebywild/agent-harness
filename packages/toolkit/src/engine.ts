@@ -2,12 +2,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { providerIdSchema } from "@agent-harness/manifest-schema";
 import type { ProviderId } from "@agent-harness/manifest-schema";
-import {
-  agentsManifestSchema,
-  manifestLockSchema,
-  managedIndexSchema
-} from "@agent-harness/manifest-schema";
+import { agentsManifestSchema, managedIndexSchema, manifestLockSchema } from "@agent-harness/manifest-schema";
 import chokidar from "chokidar";
+import { loadCanonicalState } from "./loader.js";
 import {
   DEFAULT_PROMPT_SOURCE_PATH,
   defaultMcpOverridePath,
@@ -15,9 +12,8 @@ import {
   defaultPromptOverridePath,
   defaultSkillOverridePath,
   defaultSkillSourcePath,
-  resolveHarnessPaths
+  resolveHarnessPaths,
 } from "./paths.js";
-import { loadCanonicalState } from "./loader.js";
 import { buildPlan } from "./planner.js";
 import {
   collectManagedSourcePaths,
@@ -28,7 +24,7 @@ import {
   removeIfExists,
   writeLock,
   writeManagedIndex,
-  writeManifest
+  writeManifest,
 } from "./repository.js";
 import type {
   AgentsManifest,
@@ -40,9 +36,18 @@ import type {
   ManifestLock,
   PlanResult,
   ProviderOverride,
-  ValidationResult
+  ValidationResult,
 } from "./types.js";
-import { ensureParentDir, exists, normalizeRelativePath, nowIso, readTextIfExists, sha256, stableStringify, uniqSorted } from "./utils.js";
+import {
+  ensureParentDir,
+  exists,
+  normalizeRelativePath,
+  nowIso,
+  readTextIfExists,
+  sha256,
+  stableStringify,
+  uniqSorted,
+} from "./utils.js";
 
 export class HarnessEngine {
   private readonly cwd: string;
@@ -60,9 +65,9 @@ export class HarnessEngine {
     const manifest: AgentsManifest = {
       version: 1,
       providers: {
-        enabled: []
+        enabled: [],
       },
-      entities: []
+      entities: [],
     };
 
     const lock: ManifestLock = {
@@ -70,7 +75,7 @@ export class HarnessEngine {
       generatedAt: nowIso(),
       manifestFingerprint: sha256(JSON.stringify(manifest)),
       entities: [],
-      outputs: []
+      outputs: [],
     };
 
     const managedIndex: ManagedIndex = emptyManagedIndex();
@@ -127,7 +132,7 @@ export class HarnessEngine {
       type: "prompt",
       sourcePath,
       overrides,
-      enabled: true
+      enabled: true,
     });
     manifest.entities = sortEntities(manifest.entities);
 
@@ -157,7 +162,7 @@ export class HarnessEngine {
     await fs.writeFile(
       sourceAbs,
       `---\nname: ${skillId}\ndescription: Describe what this skill does.\n---\n\n# ${skillId}\n\nAdd usage guidance here.\n`,
-      "utf8"
+      "utf8",
     );
 
     const overrides: Partial<Record<ProviderId, string>> = {};
@@ -174,7 +179,7 @@ export class HarnessEngine {
       type: "skill",
       sourcePath,
       overrides,
-      enabled: true
+      enabled: true,
     });
     manifest.entities = sortEntities(manifest.entities);
 
@@ -207,11 +212,11 @@ export class HarnessEngine {
         servers: {
           [configId]: {
             command: "echo",
-            args: ["configure-this-mcp-server"]
-          }
-        }
+            args: ["configure-this-mcp-server"],
+          },
+        },
       }),
-      "utf8"
+      "utf8",
     );
 
     const overrides: Partial<Record<ProviderId, string>> = {};
@@ -228,7 +233,7 @@ export class HarnessEngine {
       type: "mcp_config",
       sourcePath,
       overrides,
-      enabled: true
+      enabled: true,
     });
     manifest.entities = sortEntities(manifest.entities);
 
@@ -246,9 +251,7 @@ export class HarnessEngine {
     const entityType: EntityType = entityTypeArg === "mcp" ? "mcp_config" : entityTypeArg;
     const targetId = entityType === "prompt" ? "system" : id;
 
-    const entityIndex = manifest.entities.findIndex(
-      (entity) => entity.type === entityType && entity.id === targetId
-    );
+    const entityIndex = manifest.entities.findIndex((entity) => entity.type === entityType && entity.id === targetId);
 
     if (entityIndex === -1) {
       throw new Error(`Could not find ${entityTypeArg} entity '${targetId}'`);
@@ -285,7 +288,7 @@ export class HarnessEngine {
     const result = await this.planInternal();
     return {
       valid: !result.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
-      diagnostics: result.diagnostics
+      diagnostics: result.diagnostics,
     };
   }
 
@@ -294,7 +297,7 @@ export class HarnessEngine {
     return {
       operations: result.operations,
       diagnostics: result.diagnostics,
-      nextLock: result.nextLock
+      nextLock: result.nextLock,
     };
   }
 
@@ -306,7 +309,7 @@ export class HarnessEngine {
       return {
         ...planResult,
         writtenArtifacts: [],
-        prunedArtifacts: []
+        prunedArtifacts: [],
       };
     }
 
@@ -351,7 +354,7 @@ export class HarnessEngine {
       diagnostics,
       nextLock: planResult.nextLock,
       writtenArtifacts: writtenArtifacts.sort((left, right) => left.localeCompare(right)),
-      prunedArtifacts: prunedArtifacts.sort((left, right) => left.localeCompare(right))
+      prunedArtifacts: prunedArtifacts.sort((left, right) => left.localeCompare(right)),
     };
   }
 
@@ -371,15 +374,15 @@ export class HarnessEngine {
         path.join(base, "src/**/*.md"),
         path.join(base, "src/**/*.json"),
         path.join(base, "src/**/*.overrides.*.yaml"),
-        path.join(base, "src/**/OVERRIDES.*.yaml")
+        path.join(base, "src/**/OVERRIDES.*.yaml"),
       ],
       {
         ignoreInitial: true,
         awaitWriteFinish: {
           stabilityThreshold: 100,
-          pollInterval: 20
-        }
-      }
+          pollInterval: 20,
+        },
+      },
     );
 
     let running = false;
@@ -433,7 +436,7 @@ export class HarnessEngine {
     const diagnostics: Diagnostic[] = [
       ...manifestResult.diagnostics,
       ...lockResult.diagnostics,
-      ...managedIndexResult.diagnostics
+      ...managedIndexResult.diagnostics,
     ];
 
     if (manifestResult.manifest === null) {
@@ -445,10 +448,10 @@ export class HarnessEngine {
           generatedAt: nowIso(),
           manifestFingerprint: sha256("{}"),
           entities: [],
-          outputs: []
+          outputs: [],
         },
         artifactsByPath: new Map(),
-        nextManagedIndex: managedIndexResult.managedIndex
+        nextManagedIndex: managedIndexResult.managedIndex,
       };
     }
 
@@ -457,10 +460,10 @@ export class HarnessEngine {
       paths,
       {
         ...loaded,
-        diagnostics: [...diagnostics, ...loaded.diagnostics]
+        diagnostics: [...diagnostics, ...loaded.diagnostics],
       },
       managedIndexResult.managedIndex,
-      lockResult.lock
+      lockResult.lock,
     );
 
     return planResult;
@@ -486,7 +489,7 @@ function sortEntities(entities: AgentsManifest["entities"]): AgentsManifest["ent
   const order: Record<EntityType, number> = {
     prompt: 0,
     skill: 1,
-    mcp_config: 2
+    mcp_config: 2,
   };
 
   return [...entities].sort((left, right) => {
@@ -542,8 +545,8 @@ export function validateConfig(config: AgentsManifest): ValidationResult {
       code: "MANIFEST_INVALID",
       severity: "error",
       message: issue.message,
-      path: issue.path.join(".")
-    }))
+      path: issue.path.join("."),
+    })),
   };
 }
 
@@ -559,8 +562,8 @@ export function validateLock(lock: ManifestLock): ValidationResult {
       code: "LOCK_INVALID",
       severity: "error",
       message: issue.message,
-      path: issue.path.join(".")
-    }))
+      path: issue.path.join("."),
+    })),
   };
 }
 
@@ -576,8 +579,8 @@ export function validateManagedIndex(index: ManagedIndex): ValidationResult {
       code: "MANAGED_INDEX_INVALID",
       severity: "error",
       message: issue.message,
-      path: issue.path.join(".")
-    }))
+      path: issue.path.join("."),
+    })),
   };
 }
 

@@ -5,7 +5,7 @@ export function resolveMcpTargetPath(
   provider: ProviderId,
   defaultTargetPath: string,
   configs: ReadonlyArray<CanonicalMcpConfig>,
-  overrideByEntity?: ReadonlyMap<string, ProviderOverride | undefined>
+  overrideByEntity?: ReadonlyMap<string, ProviderOverride | undefined>,
 ): string {
   const targets = new Set<string>();
 
@@ -17,9 +17,7 @@ export function resolveMcpTargetPath(
   }
 
   if (targets.size > 1) {
-    throw new Error(
-      `conflicting MCP targetPath overrides for provider '${provider}': ${[...targets].join(", ")}`
-    );
+    throw new Error(`conflicting MCP targetPath overrides for provider '${provider}': ${[...targets].join(", ")}`);
   }
 
   if (targets.size === 1) {
@@ -42,15 +40,13 @@ export function mergeMcpServers(configs: ReadonlyArray<CanonicalMcpConfig>): Rec
     }
   }
 
-  return Object.fromEntries(
-    Object.entries(merged).sort(([left], [right]) => left.localeCompare(right))
-  );
+  return Object.fromEntries(Object.entries(merged).sort(([left], [right]) => left.localeCompare(right)));
 }
 
 function extractServers(json: Record<string, unknown>): Record<string, unknown> {
   const candidate =
-    (json["servers"] as Record<string, unknown> | undefined) ??
-    (json["mcpServers"] as Record<string, unknown> | undefined) ??
+    (json.servers as Record<string, unknown> | undefined) ??
+    (json.mcpServers as Record<string, unknown> | undefined) ??
     json;
 
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {

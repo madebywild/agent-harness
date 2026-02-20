@@ -4,7 +4,7 @@ import type {
   CanonicalSkill,
   ProviderAdapter,
   ProviderOverride,
-  RenderedArtifact
+  RenderedArtifact,
 } from "../types.js";
 import { normalizeRelativePath, withSingleTrailingNewline } from "../utils.js";
 import { mergeMcpServers, resolveMcpTargetPath } from "./mcp.js";
@@ -16,7 +16,7 @@ function inferSkillFormat(filePath: string): RenderedArtifact["format"] {
 
 export function createProviderAdapter(
   definition: ProviderDefinition,
-  skillFilesByEntityId: SkillFileIndex
+  skillFilesByEntityId: SkillFileIndex,
 ): ProviderAdapter {
   const { id: provider, defaults, mcpRenderer } = definition;
 
@@ -36,8 +36,8 @@ export function createProviderAdapter(
           content: promptContent,
           ownerEntityId: input.id,
           provider,
-          format: "markdown"
-        }
+          format: "markdown",
+        },
       ];
     },
 
@@ -55,13 +55,13 @@ export function createProviderAdapter(
         content: file.content,
         ownerEntityId: input.id,
         provider,
-        format: inferSkillFormat(file.path)
+        format: inferSkillFormat(file.path),
       }));
     },
 
     async renderMcp(
       input: CanonicalMcpConfig[],
-      overrideByEntity?: Map<string, ProviderOverride | undefined>
+      overrideByEntity?: Map<string, ProviderOverride | undefined>,
     ): Promise<RenderedArtifact[]> {
       const enabledSources = input.filter((entry) => {
         const override = overrideByEntity?.get(entry.id);
@@ -80,11 +80,14 @@ export function createProviderAdapter(
         {
           path: targetPath,
           content,
-          ownerEntityId: enabledSources.map((entry) => entry.id).sort().join(","),
+          ownerEntityId: enabledSources
+            .map((entry) => entry.id)
+            .sort()
+            .join(","),
           provider,
-          format: mcpRenderer.format
-        }
+          format: mcpRenderer.format,
+        },
       ];
-    }
+    },
   };
 }

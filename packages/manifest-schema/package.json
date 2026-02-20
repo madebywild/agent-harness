@@ -11,9 +11,7 @@
       "default": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "dependencies": {
     "zod": "^3.24.1",
     "zod-to-json-schema": "^3.24.6"
@@ -24,7 +22,12 @@
   "scripts": {
     "build": "pnpm exec tsc -b",
     "clean": "rm -rf dist",
-    "lint": "echo \"No lint task configured\"",
+    "lint": "biome lint .",
+    "lint:write": "biome lint --write .",
+    "format": "biome format .",
+    "format:write": "biome format --write .",
+    "check": "biome check .",
+    "check:write": "biome check --write .",
     "test": "echo \"No tests in manifest-schema\"",
     "typecheck": "pnpm exec tsc -b --pretty false"
   }

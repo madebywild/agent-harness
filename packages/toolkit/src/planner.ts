@@ -3,13 +3,7 @@ import type { ManagedIndex, ManifestLock, ProviderId } from "@agent-harness/mani
 import type { HarnessPaths } from "./paths.js";
 import { buildBuiltinAdapters } from "./providers.js";
 import { collectManagedSourcePaths } from "./repository.js";
-import type {
-  Diagnostic,
-  InternalPlanResult,
-  LoadResult,
-  Operation,
-  RenderedArtifact
-} from "./types.js";
+import type { Diagnostic, InternalPlanResult, LoadResult, Operation, RenderedArtifact } from "./types.js";
 import { deepEqual, normalizeRelativePath, nowIso, readTextIfExists, sha256, uniqSorted } from "./utils.js";
 
 interface DesiredArtifact {
@@ -23,13 +17,11 @@ export async function buildPlan(
   paths: HarnessPaths,
   loaded: LoadResult,
   managedIndex: ManagedIndex,
-  previousLock: ManifestLock | null
+  previousLock: ManifestLock | null,
 ): Promise<InternalPlanResult> {
   const diagnostics: Diagnostic[] = [...loaded.diagnostics];
 
-  const skillFilesByEntity = new Map(
-    loaded.skills.map((skill) => [skill.entity.id, skill.filesWithContent] as const)
-  );
+  const skillFilesByEntity = new Map(loaded.skills.map((skill) => [skill.entity.id, skill.filesWithContent] as const));
 
   const adapters = buildBuiltinAdapters(skillFilesByEntity);
   const artifacts: RenderedArtifact[] = [];
@@ -42,10 +34,7 @@ export async function buildPlan(
     if (loaded.prompt && adapter.renderPrompt) {
       try {
         artifacts.push(
-          ...(await adapter.renderPrompt(
-            loaded.prompt.canonical,
-            loaded.prompt.overrideByProvider.get(provider)
-          ))
+          ...(await adapter.renderPrompt(loaded.prompt.canonical, loaded.prompt.overrideByProvider.get(provider))),
         );
       } catch (error) {
         diagnostics.push({
@@ -53,7 +42,7 @@ export async function buildPlan(
           severity: "error",
           message: error instanceof Error ? error.message : "Prompt render failed",
           entityId: loaded.prompt.entity.id,
-          provider
+          provider,
         });
       }
     }
@@ -64,19 +53,14 @@ export async function buildPlan(
       }
 
       try {
-        artifacts.push(
-          ...(await adapter.renderSkill(
-            skill.canonical,
-            skill.overrideByProvider.get(provider)
-          ))
-        );
+        artifacts.push(...(await adapter.renderSkill(skill.canonical, skill.overrideByProvider.get(provider))));
       } catch (error) {
         diagnostics.push({
           code: "SKILL_RENDER_FAILED",
           severity: "error",
           message: error instanceof Error ? error.message : "Skill render failed",
           entityId: skill.entity.id,
-          provider
+          provider,
         });
       }
     }
@@ -84,20 +68,20 @@ export async function buildPlan(
     if (adapter.renderMcp) {
       try {
         const overrideByEntity = new Map(
-          loaded.mcps.map((mcp) => [mcp.entity.id, mcp.overrideByProvider.get(provider)] as const)
+          loaded.mcps.map((mcp) => [mcp.entity.id, mcp.overrideByProvider.get(provider)] as const),
         );
         artifacts.push(
           ...(await adapter.renderMcp(
             loaded.mcps.map((mcp) => mcp.canonical),
-            overrideByEntity
-          ))
+            overrideByEntity,
+          )),
         );
       } catch (error) {
         diagnostics.push({
           code: "MCP_RENDER_FAILED",
           severity: "error",
           message: error instanceof Error ? error.message : "MCP render failed",
-          provider
+          provider,
         });
       }
     }
@@ -107,7 +91,12 @@ export async function buildPlan(
 
   for (const artifact of artifacts) {
     const normalizedPath = normalizeRelativePath(artifact.path);
-    const ownerEntityIds = uniqSorted(artifact.ownerEntityId.split(",").map((entry) => entry.trim()).filter(Boolean));
+    const ownerEntityIds = uniqSorted(
+      artifact.ownerEntityId
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    );
     const existing = desiredByPath.get(normalizedPath);
 
     if (!existing) {
@@ -115,7 +104,7 @@ export async function buildPlan(
         path: normalizedPath,
         provider: artifact.provider,
         content: artifact.content,
-        ownerEntityIds
+        ownerEntityIds,
       });
       continue;
     }
@@ -126,7 +115,7 @@ export async function buildPlan(
         severity: "error",
         message: `Multiple artifacts generated different content for '${normalizedPath}'`,
         path: normalizedPath,
-        provider: artifact.provider
+        provider: artifact.provider,
       });
       continue;
     }
@@ -137,7 +126,9 @@ export async function buildPlan(
   const operations: Operation[] = [];
   const managedOutputSet = new Set(managedIndex.managedOutputPaths.map((entry) => normalizeRelativePath(entry)));
 
-  for (const [artifactPath, artifact] of [...desiredByPath.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+  for (const [artifactPath, artifact] of [...desiredByPath.entries()].sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
     const absolutePath = path.join(paths.root, artifactPath);
     const existingText = await readTextIfExists(absolutePath);
 
@@ -146,7 +137,7 @@ export async function buildPlan(
         type: "create",
         path: artifactPath,
         provider: artifact.provider,
-        reason: "generated artifact missing"
+        reason: "generated artifact missing",
       });
       continue;
     }
@@ -158,7 +149,7 @@ export async function buildPlan(
         message: `Target '${artifactPath}' already exists but is not managed by agent-harness`,
         path: artifactPath,
         provider: artifact.provider,
-        hint: "Move or remove the file before running apply (v1 does not import/adopt existing files)."
+        hint: "Move or remove the file before running apply (v1 does not import/adopt existing files).",
       });
       continue;
     }
@@ -168,14 +159,14 @@ export async function buildPlan(
         type: "noop",
         path: artifactPath,
         provider: artifact.provider,
-        reason: "already up to date"
+        reason: "already up to date",
       });
     } else {
       operations.push({
         type: "update",
         path: artifactPath,
         provider: artifact.provider,
-        reason: "content drift or source changed"
+        reason: "content drift or source changed",
       });
     }
   }
@@ -186,7 +177,7 @@ export async function buildPlan(
       operations.push({
         type: "delete",
         path: stalePath,
-        reason: "stale managed artifact"
+        reason: "stale managed artifact",
       });
     }
   }
@@ -199,22 +190,22 @@ export async function buildPlan(
             id: loaded.prompt.entity.id,
             type: loaded.prompt.entity.type,
             sourceSha256: loaded.prompt.sourceSha256,
-            overrideSha256ByProvider: loaded.prompt.overrideShaByProvider
-          }
+            overrideSha256ByProvider: loaded.prompt.overrideShaByProvider,
+          },
         ]
       : []),
     ...loaded.skills.map((skill) => ({
       id: skill.entity.id,
       type: skill.entity.type,
       sourceSha256: skill.sourceSha256,
-      overrideSha256ByProvider: skill.overrideShaByProvider
+      overrideSha256ByProvider: skill.overrideShaByProvider,
     })),
     ...loaded.mcps.map((mcp) => ({
       id: mcp.entity.id,
       type: mcp.entity.type,
       sourceSha256: mcp.sourceSha256,
-      overrideSha256ByProvider: mcp.overrideShaByProvider
-    }))
+      overrideSha256ByProvider: mcp.overrideShaByProvider,
+    })),
   ].sort((left, right) => left.id.localeCompare(right.id));
 
   const outputRecords = [...desiredByPath.values()]
@@ -222,7 +213,7 @@ export async function buildPlan(
       path: artifact.path,
       provider: artifact.provider,
       contentSha256: sha256(artifact.content),
-      ownerEntityIds: artifact.ownerEntityIds
+      ownerEntityIds: artifact.ownerEntityIds,
     }))
     .sort((left, right) => left.path.localeCompare(right.path));
 
@@ -230,7 +221,7 @@ export async function buildPlan(
     version: 1 as const,
     manifestFingerprint,
     entities: entityRecords,
-    outputs: outputRecords
+    outputs: outputRecords,
   };
 
   const previousSemanticPayload =
@@ -240,7 +231,7 @@ export async function buildPlan(
           version: previousLock.version,
           manifestFingerprint: previousLock.manifestFingerprint,
           entities: previousLock.entities,
-          outputs: previousLock.outputs
+          outputs: previousLock.outputs,
         };
 
   const nextLock =
@@ -248,13 +239,13 @@ export async function buildPlan(
       ? previousLock
       : {
           ...semanticLockPayload,
-          generatedAt: nowIso()
+          generatedAt: nowIso(),
         };
 
   const nextManagedIndex: ManagedIndex = {
     version: 1,
     managedSourcePaths: collectManagedSourcePaths(loaded.manifest),
-    managedOutputPaths: [...desiredByPath.keys()].sort((left, right) => left.localeCompare(right))
+    managedOutputPaths: [...desiredByPath.keys()].sort((left, right) => left.localeCompare(right)),
   };
 
   return {
@@ -267,10 +258,10 @@ export async function buildPlan(
         {
           content: artifact.content,
           provider: artifact.provider,
-          ownerEntityIds: artifact.ownerEntityIds
-        }
-      ])
+          ownerEntityIds: artifact.ownerEntityIds,
+        },
+      ]),
     ),
-    nextManagedIndex
+    nextManagedIndex,
   };
 }

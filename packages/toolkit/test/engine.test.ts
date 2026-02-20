@@ -26,7 +26,7 @@ test("init + add commands scaffold manifest and source files", async () => {
   assert.equal(manifest.entities.length, 3);
   assert.deepEqual(
     manifest.entities.map((entity) => `${entity.type}:${entity.id}`),
-    ["prompt:system", "skill:reviewer", "mcp_config:playwright"]
+    ["prompt:system", "skill:reviewer", "mcp_config:playwright"],
   );
 
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/prompts/system.md")));
@@ -59,7 +59,10 @@ test("provider enablement controls generated outputs", async () => {
   await engine.enableProvider("codex");
 
   const apply = await engine.apply();
-  assert.equal(apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"), false);
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
 
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, "AGENTS.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".codex/skills/reviewer/SKILL.md")));
@@ -78,13 +81,19 @@ test("manifest.lock remains byte-stable on no-op apply", async () => {
   await engine.enableProvider("codex");
 
   const first = await engine.apply();
-  assert.equal(first.diagnostics.some((diagnostic) => diagnostic.severity === "error"), false);
+  assert.equal(
+    first.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
 
   const lockPath = path.join(cwd, ".harness/manifest.lock.json");
   const lockBefore = await fs.readFile(lockPath, "utf8");
 
   const second = await engine.apply();
-  assert.equal(second.diagnostics.some((diagnostic) => diagnostic.severity === "error"), false);
+  assert.equal(
+    second.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
 
   const lockAfter = await fs.readFile(lockPath, "utf8");
   assert.equal(lockAfter, lockBefore);
@@ -115,28 +124,36 @@ test("MCP conflict on duplicate server IDs with different values", async () => {
 
   await fs.writeFile(
     path.join(cwd, ".harness/src/mcp/one.json"),
-    JSON.stringify({
-      servers: {
-        shared: {
-          command: "node",
-          args: ["a"]
-        }
-      }
-    }, null, 2),
-    "utf8"
+    JSON.stringify(
+      {
+        servers: {
+          shared: {
+            command: "node",
+            args: ["a"],
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
   );
 
   await fs.writeFile(
     path.join(cwd, ".harness/src/mcp/two.json"),
-    JSON.stringify({
-      servers: {
-        shared: {
-          command: "node",
-          args: ["b"]
-        }
-      }
-    }, null, 2),
-    "utf8"
+    JSON.stringify(
+      {
+        servers: {
+          shared: {
+            command: "node",
+            args: ["b"],
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
   );
 
   const result = await engine.apply();
@@ -156,19 +173,26 @@ test("claude provider generates correct output files", async () => {
   // Write MCP config with proper structure
   await fs.writeFile(
     path.join(cwd, ".harness/src/mcp/playwright.json"),
-    JSON.stringify({
-      servers: {
-        playwright: {
-          command: "npx",
-          args: ["@anthropic-ai/playwright-mcp"]
-        }
-      }
-    }, null, 2),
-    "utf8"
+    JSON.stringify(
+      {
+        servers: {
+          playwright: {
+            command: "npx",
+            args: ["@anthropic-ai/playwright-mcp"],
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
   );
 
   const apply = await engine.apply();
-  assert.equal(apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"), false);
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
 
   // Verify Claude-specific output paths
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, "CLAUDE.md")));
@@ -177,7 +201,9 @@ test("claude provider generates correct output files", async () => {
 
   // Verify MCP config uses correct JSON structure with "mcpServers" property
   const mcpContent = await fs.readFile(path.join(cwd, ".mcp.json"), "utf8");
-  const mcpConfig = JSON.parse(mcpContent) as { mcpServers: Record<string, unknown> };
+  const mcpConfig = JSON.parse(mcpContent) as {
+    mcpServers: Record<string, unknown>;
+  };
   assert.ok(mcpConfig.mcpServers, "MCP config should have mcpServers property");
   assert.ok(mcpConfig.mcpServers.playwright, "MCP config should have playwright server");
 
@@ -199,19 +225,26 @@ test("copilot provider generates correct output files", async () => {
   // Write MCP config with proper structure
   await fs.writeFile(
     path.join(cwd, ".harness/src/mcp/playwright.json"),
-    JSON.stringify({
-      servers: {
-        playwright: {
-          command: "npx",
-          args: ["@anthropic-ai/playwright-mcp"]
-        }
-      }
-    }, null, 2),
-    "utf8"
+    JSON.stringify(
+      {
+        servers: {
+          playwright: {
+            command: "npx",
+            args: ["@anthropic-ai/playwright-mcp"],
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
   );
 
   const apply = await engine.apply();
-  assert.equal(apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"), false);
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
 
   // Verify Copilot-specific output paths
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".github/copilot-instructions.md")));
@@ -220,7 +253,9 @@ test("copilot provider generates correct output files", async () => {
 
   // Verify MCP config uses correct JSON structure with "servers" property (not "mcpServers")
   const mcpContent = await fs.readFile(path.join(cwd, ".vscode/mcp.json"), "utf8");
-  const mcpConfig = JSON.parse(mcpContent) as { servers: Record<string, unknown> };
+  const mcpConfig = JSON.parse(mcpContent) as {
+    servers: Record<string, unknown>;
+  };
   assert.ok(mcpConfig.servers, "MCP config should have servers property");
   assert.ok(!("mcpServers" in mcpConfig), "MCP config should NOT have mcpServers property");
   assert.ok(mcpConfig.servers.playwright, "MCP config should have playwright server");
@@ -245,19 +280,26 @@ test("multiple providers generate all expected outputs", async () => {
   // Write MCP config
   await fs.writeFile(
     path.join(cwd, ".harness/src/mcp/test-server.json"),
-    JSON.stringify({
-      servers: {
-        test: {
-          command: "node",
-          args: ["server.js"]
-        }
-      }
-    }, null, 2),
-    "utf8"
+    JSON.stringify(
+      {
+        servers: {
+          test: {
+            command: "node",
+            args: ["server.js"],
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
   );
 
   const apply = await engine.apply();
-  assert.equal(apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"), false);
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
 
   // Verify all provider outputs exist
   // Codex
@@ -286,20 +328,27 @@ test("codex MCP config uses TOML format with mcp_servers property", async () => 
 
   await fs.writeFile(
     path.join(cwd, ".harness/src/mcp/test-server.json"),
-    JSON.stringify({
-      servers: {
-        test: {
-          command: "node",
-          args: ["server.js"],
-          env: { KEY: "value" }
-        }
-      }
-    }, null, 2),
-    "utf8"
+    JSON.stringify(
+      {
+        servers: {
+          test: {
+            command: "node",
+            args: ["server.js"],
+            env: { KEY: "value" },
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
   );
 
   const apply = await engine.apply();
-  assert.equal(apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"), false);
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
 
   // Verify TOML format and structure
   const tomlContent = await fs.readFile(path.join(cwd, ".codex/config.toml"), "utf8");
