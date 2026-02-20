@@ -13,7 +13,7 @@ This plan is anchored to the current repo state (`/Users/tom/Github/agent-harnes
 1. Providers in v1: `codex`, `claude`, `copilot`.
 2. Entities in v1: `prompt`, `skill`, `mcp_config`.
 3. `lifecycle_hooks` and `subagents`: not implemented in v1.
-4. Prompt cardinality: exactly one system prompt entity.
+4. Prompt cardinality: zero or one system prompt entity (optional).
 5. Provider enablement: global opt-in at CLI level; enabled providers receive all entity types.
 6. Output location: provider-native paths directly in repo.
 7. Ownership mode: strict, registry-enforced.
