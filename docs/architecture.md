@@ -1,7 +1,7 @@
-# Agent Harness v1 Plan: Unified `.agents` Source With Provider Generators
+# Agent Harness v1 Plan: Unified `.harness` Source With Provider Generators
 
 ## Summary
-Build a TypeScript + `pnpm` monorepo CLI (`agent-harness`) where `.agents` is the only editable source for agent config entities, and provider outputs are generated directly into provider-native paths.
+Build a TypeScript + `pnpm` monorepo CLI (`agent-harness`) where `.harness` is the only editable source for agent config entities, and provider outputs are generated directly into provider-native paths.
 
 This plan is anchored to the current repo state (`/Users/tom/Github/agent-harness` at empty `HEAD`) and uses strict ownership rules:
 1. Entity files are created only via CLI commands.
@@ -44,11 +44,11 @@ Package roles:
    - Core planner/applier/watcher.
    - Provider adapter implementations.
 
-## `.agents` Filesystem Contract
+## `.harness` Filesystem Contract
 CLI owns and maintains:
 
 ```text
-/Users/tom/Github/agent-harness/.agents/
+/Users/tom/Github/agent-harness/.harness/
   manifest.json
   manifest.lock.json
   managed-index.json
@@ -165,7 +165,7 @@ export interface ManagedIndex {
 ## Core Data Flow (No Duplication Design)
 1. Load and Zod-validate `manifest.json`.
 2. Enforce source ownership:
-   - Scan `.agents/src` for known entity candidates.
+   - Scan `.harness/src` for known entity candidates.
    - Any candidate not present in manifest is a hard error.
 3. Load canonical entity content.
 4. Load provider sidecars and merge metadata-only overrides.
@@ -180,16 +180,16 @@ This keeps one canonical content source while allowing provider-specific behavio
 
 ## CLI Command Contract
 1. `agent-harness init`
-   - Creates `.agents` structure + empty manifest + lock + index.
+   - Creates `.harness` structure + empty manifest + lock + index.
 2. `agent-harness provider enable <codex|claude|copilot>`
 3. `agent-harness provider disable <codex|claude|copilot>`
 4. `agent-harness add prompt`
-   - Creates only `.agents/src/prompts/system.md` and manifest entry.
+   - Creates only `.harness/src/prompts/system.md` and manifest entry.
    - Fails if prompt already exists.
 5. `agent-harness add skill <skill-id>`
-   - Creates `.agents/src/skills/<skill-id>/SKILL.md` and manifest entry.
+   - Creates `.harness/src/skills/<skill-id>/SKILL.md` and manifest entry.
 6. `agent-harness add mcp <config-id>`
-   - Creates `.agents/src/mcp/<config-id>.json` and manifest entry.
+   - Creates `.harness/src/mcp/<config-id>.json` and manifest entry.
 7. `agent-harness remove <prompt|skill|mcp> <id>`
    - Removes entity from manifest; optionally deletes source with `--delete-source`.
 8. `agent-harness validate`
@@ -203,7 +203,7 @@ This keeps one canonical content source while allowing provider-specific behavio
 
 ## Strict Ownership and Collision Rules
 1. Source files:
-   - Unknown candidate files under `.agents/src` are errors.
+   - Unknown candidate files under `.harness/src` are errors.
 2. Target files:
    - If target path exists and is not listed in `managed-index.json`, fail with collision diagnostic and migration hint.
 3. Managed outputs:
@@ -227,11 +227,11 @@ This keeps one canonical content source while allowing provider-specific behavio
 
 ## Watch Mode Behavior
 1. Watches:
-   - `.agents/manifest.json`
-   - `.agents/src/**/*.md`
-   - `.agents/src/**/*.json`
-   - `.agents/src/**/*.overrides.*.yaml`
-   - `.agents/src/**/OVERRIDES.*.yaml`
+   - `.harness/manifest.json`
+   - `.harness/src/**/*.md`
+   - `.harness/src/**/*.json`
+   - `.harness/src/**/*.overrides.*.yaml`
+   - `.harness/src/**/OVERRIDES.*.yaml`
 2. Ignores generated output paths to avoid loops.
 3. Debounced apply queue with single-flight execution.
 4. On error, watch continues and reports latest diagnostic set.
@@ -247,10 +247,10 @@ This keeps one canonical content source while allowing provider-specific behavio
 8. Add tests and CI gates.
 
 ## Test Cases and Acceptance Scenarios
-1. `init` creates valid `.agents` structure and schemas validate.
+1. `init` creates valid `.harness` structure and schemas validate.
 2. `add prompt` succeeds once and fails on second attempt.
 3. `add skill` and `add mcp` scaffold correctly and register in manifest.
-4. Unknown manually-created source candidate under `.agents/src` fails `validate/plan/apply`.
+4. Unknown manually-created source candidate under `.harness/src` fails `validate/plan/apply`.
 5. Provider opt-in matrix works: only enabled providers generate outputs.
 6. Prompt generation writes correct file paths for each provider.
 7. Skill generation copies full directory payloads deterministically.

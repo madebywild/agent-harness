@@ -13,39 +13,39 @@ export interface HarnessPaths {
 }
 
 export function resolveHarnessPaths(rootDir: string): HarnessPaths {
-  const agentsDir = path.join(rootDir, ".agents");
-  const srcDir = path.join(agentsDir, "src");
+  const harnessDir = path.join(rootDir, ".harness");
+  const srcDir = path.join(harnessDir, "src");
   return {
     root: rootDir,
-    agentsDir,
+    agentsDir: harnessDir,
     srcDir,
-    manifestFile: path.join(agentsDir, "manifest.json"),
-    lockFile: path.join(agentsDir, "manifest.lock.json"),
-    managedIndexFile: path.join(agentsDir, "managed-index.json"),
+    manifestFile: path.join(harnessDir, "manifest.json"),
+    lockFile: path.join(harnessDir, "manifest.lock.json"),
+    managedIndexFile: path.join(harnessDir, "managed-index.json"),
     promptDir: path.join(srcDir, "prompts"),
     skillDir: path.join(srcDir, "skills"),
     mcpDir: path.join(srcDir, "mcp")
   };
 }
 
-export const DEFAULT_PROMPT_SOURCE_PATH = ".agents/src/prompts/system.md";
+export const DEFAULT_PROMPT_SOURCE_PATH = ".harness/src/prompts/system.md";
 
 export function defaultPromptOverridePath(provider: "codex" | "claude" | "copilot"): string {
-  return `.agents/src/prompts/system.overrides.${provider}.yaml`;
+  return `.harness/src/prompts/system.overrides.${provider}.yaml`;
 }
 
 export function defaultSkillSourcePath(skillId: string): string {
-  return `.agents/src/skills/${skillId}/SKILL.md`;
+  return `.harness/src/skills/${skillId}/SKILL.md`;
 }
 
 export function defaultSkillOverridePath(skillId: string, provider: "codex" | "claude" | "copilot"): string {
-  return `.agents/src/skills/${skillId}/OVERRIDES.${provider}.yaml`;
+  return `.harness/src/skills/${skillId}/OVERRIDES.${provider}.yaml`;
 }
 
 export function defaultMcpSourcePath(id: string): string {
-  return `.agents/src/mcp/${id}.json`;
+  return `.harness/src/mcp/${id}.json`;
 }
 
 export function defaultMcpOverridePath(id: string, provider: "codex" | "claude" | "copilot"): string {
-  return `.agents/src/mcp/${id}.overrides.${provider}.yaml`;
+  return `.harness/src/mcp/${id}.overrides.${provider}.yaml`;
 }

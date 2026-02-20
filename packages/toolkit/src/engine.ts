@@ -268,7 +268,7 @@ export class HarnessEngine {
       }
 
       if (entity.type === "skill") {
-        await removeIfExists(path.join(this.cwd, `.agents/src/skills/${entity.id}`));
+        await removeIfExists(path.join(this.cwd, `.harness/src/skills/${entity.id}`));
       }
     }
 
@@ -525,7 +525,7 @@ function printApplySummary(writtenArtifacts: string[], prunedArtifacts: string[]
 }
 
 export async function loadConfig(pathValue?: string): Promise<AgentsManifest> {
-  const configPath = pathValue ? path.resolve(pathValue) : path.resolve(process.cwd(), ".agents/manifest.json");
+  const configPath = pathValue ? path.resolve(pathValue) : path.resolve(process.cwd(), ".harness/manifest.json");
   const text = await fs.readFile(configPath, "utf8");
   return agentsManifestSchema.parse(JSON.parse(text));
 }

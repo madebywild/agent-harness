@@ -7,16 +7,16 @@ const program = new Command();
 
 program
   .name("agent-harness")
-  .description("Unified .agents source-of-truth manager for AI agent provider configs")
+  .description("Unified .harness source-of-truth manager for AI agent provider configs")
   .option("--cwd <path>", "working directory", process.cwd());
 
 program
   .command("init")
-  .description("Initialize .agents structure and state files")
+  .description("Initialize .harness structure and state files")
   .action(async () => {
     const engine = new HarnessEngine(program.opts().cwd as string);
     await engine.init();
-    console.log("Initialized .agents workspace.");
+    console.log("Initialized .harness workspace.");
   });
 
 const providerCommand = program.command("provider").description("Enable or disable providers");
@@ -41,7 +41,7 @@ providerCommand
     console.log(`Disabled provider '${parsed}'.`);
   });
 
-const addCommand = program.command("add").description("Add source entities under .agents/src");
+const addCommand = program.command("add").description("Add source entities under .harness/src");
 
 addCommand
   .command("prompt")

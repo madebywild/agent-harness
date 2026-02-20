@@ -93,7 +93,7 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
         code: "PROVIDER_DUPLICATE",
         severity: "error",
         message: `Provider '${provider}' is listed multiple times in providers.enabled`,
-        path: ".agents/manifest.json"
+        path: ".harness/manifest.json"
       });
     }
     providerSet.add(provider);
@@ -108,7 +108,7 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
         code: "ENTITY_ID_DUPLICATE",
         severity: "error",
         message: `Entity id '${entity.id}' appears multiple times in manifest`,
-        path: ".agents/manifest.json",
+        path: ".harness/manifest.json",
         entityId: entity.id
       });
     }
@@ -139,7 +139,7 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
     }
 
     if (entity.type === "skill") {
-      const expectedPath = `.agents/src/skills/${entity.id}/SKILL.md`;
+      const expectedPath = `.harness/src/skills/${entity.id}/SKILL.md`;
       if (sourcePath !== expectedPath) {
         diagnostics.push({
           code: "SKILL_SOURCE_INVALID",
@@ -152,7 +152,7 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
     }
 
     if (entity.type === "mcp_config") {
-      const expectedPath = `.agents/src/mcp/${entity.id}.json`;
+      const expectedPath = `.harness/src/mcp/${entity.id}.json`;
       if (sourcePath !== expectedPath) {
         diagnostics.push({
           code: "MCP_SOURCE_INVALID",
@@ -170,7 +170,7 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
       code: "PROMPT_COUNT_INVALID",
       severity: "error",
       message: "v1 supports exactly zero or one prompt entity",
-      path: ".agents/manifest.json"
+      path: ".harness/manifest.json"
     });
   }
 

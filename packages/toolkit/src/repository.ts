@@ -27,8 +27,8 @@ export async function loadManifest(paths: HarnessPaths): Promise<{ manifest: Age
         {
           code: "MANIFEST_NOT_FOUND",
           severity: "error",
-          message: `Missing manifest file at .agents/manifest.json`,
-          path: ".agents/manifest.json",
+          message: `Missing manifest file at .harness/manifest.json`,
+          path: ".harness/manifest.json",
           hint: "Run 'agent-harness init' first."
         }
       ]
@@ -47,7 +47,7 @@ export async function loadManifest(paths: HarnessPaths): Promise<{ manifest: Age
           code: "MANIFEST_INVALID",
           severity: "error",
           message: error instanceof Error ? error.message : "Manifest is invalid JSON or failed schema validation",
-          path: ".agents/manifest.json"
+          path: ".harness/manifest.json"
         }
       ]
     };
@@ -78,7 +78,7 @@ export async function loadLock(paths: HarnessPaths): Promise<{ lock: ManifestLoc
           code: "LOCK_INVALID",
           severity: "error",
           message: error instanceof Error ? error.message : "manifest.lock.json failed schema validation",
-          path: ".agents/manifest.lock.json"
+          path: ".harness/manifest.lock.json"
         }
       ]
     };
@@ -117,7 +117,7 @@ export async function loadManagedIndex(paths: HarnessPaths): Promise<{ managedIn
           code: "MANAGED_INDEX_INVALID",
           severity: "error",
           message: error instanceof Error ? error.message : "managed-index failed schema validation",
-          path: ".agents/managed-index.json"
+          path: ".harness/managed-index.json"
         }
       ]
     };
@@ -200,17 +200,17 @@ export async function collectSourceCandidates(paths: HarnessPaths): Promise<stri
   for (const file of files) {
     const relative = toPosixRelative(file, paths.root);
 
-    if (/^\.agents\/src\/prompts\/[^/]+\.md$/u.test(relative)) {
+    if (/^\.harness\/src\/prompts\/[^/]+\.md$/u.test(relative)) {
       candidates.push(relative);
       continue;
     }
 
-    if (/^\.agents\/src\/skills\/[^/]+\/SKILL\.md$/u.test(relative)) {
+    if (/^\.harness\/src\/skills\/[^/]+\/SKILL\.md$/u.test(relative)) {
       candidates.push(relative);
       continue;
     }
 
-    if (/^\.agents\/src\/mcp\/[^/]+\.json$/u.test(relative)) {
+    if (/^\.harness\/src\/mcp\/[^/]+\.json$/u.test(relative)) {
       candidates.push(relative);
       continue;
     }

@@ -18,7 +18,7 @@ test("init + add commands scaffold manifest and source files", async () => {
   await engine.addSkill("reviewer");
   await engine.addMcp("playwright");
 
-  const manifestText = await fs.readFile(path.join(cwd, ".agents/manifest.json"), "utf8");
+  const manifestText = await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8");
   const manifest = JSON.parse(manifestText) as {
     entities: Array<{ id: string; type: string }>;
   };
@@ -29,9 +29,9 @@ test("init + add commands scaffold manifest and source files", async () => {
     ["prompt:system", "skill:reviewer", "mcp_config:playwright"]
   );
 
-  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".agents/src/prompts/system.md")));
-  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".agents/src/skills/reviewer/SKILL.md")));
-  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".agents/src/mcp/playwright.json")));
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/prompts/system.md")));
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md")));
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/mcp/playwright.json")));
 });
 
 test("validate fails when unmanaged source candidate exists", async () => {
@@ -41,7 +41,7 @@ test("validate fails when unmanaged source candidate exists", async () => {
   await engine.init();
   await engine.addPrompt();
 
-  await fs.writeFile(path.join(cwd, ".agents/src/mcp/manual.json"), "{}\n", "utf8");
+  await fs.writeFile(path.join(cwd, ".harness/src/mcp/manual.json"), "{}\n", "utf8");
 
   const validation = await engine.validate();
   assert.equal(validation.valid, false);
@@ -80,7 +80,7 @@ test("manifest.lock remains byte-stable on no-op apply", async () => {
   const first = await engine.apply();
   assert.equal(first.diagnostics.some((diagnostic) => diagnostic.severity === "error"), false);
 
-  const lockPath = path.join(cwd, ".agents/manifest.lock.json");
+  const lockPath = path.join(cwd, ".harness/manifest.lock.json");
   const lockBefore = await fs.readFile(lockPath, "utf8");
 
   const second = await engine.apply();
@@ -114,7 +114,7 @@ test("MCP conflict on duplicate server IDs with different values", async () => {
   await engine.addMcp("two");
 
   await fs.writeFile(
-    path.join(cwd, ".agents/src/mcp/one.json"),
+    path.join(cwd, ".harness/src/mcp/one.json"),
     JSON.stringify({
       servers: {
         shared: {
@@ -127,7 +127,7 @@ test("MCP conflict on duplicate server IDs with different values", async () => {
   );
 
   await fs.writeFile(
-    path.join(cwd, ".agents/src/mcp/two.json"),
+    path.join(cwd, ".harness/src/mcp/two.json"),
     JSON.stringify({
       servers: {
         shared: {
