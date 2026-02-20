@@ -4,19 +4,19 @@
 [![Package Manager](https://img.shields.io/badge/pnpm-10.2.0-blue)](https://pnpm.io/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-> Unified AI agent configuration management for Codex, Claude, and Copilot
+Unified AI agent configuration management for Codex, Claude, and Copilot.
 
 Agent Harness is a TypeScript CLI tool and library that manages AI agent configurations (prompts, skills, and MCP server configs) from a single source of truth, generating provider-specific outputs for OpenAI Codex, Anthropic Claude Code, and GitHub Copilot.
 
 ## Features
 
-- 🎯 **Single Source of Truth** - Manage all agent configurations in one `.harness/` directory
-- 🔄 **Multi-Provider Support** - Generate outputs for Codex, Claude, and Copilot simultaneously
-- 📝 **Prompt Management** - System prompts with provider-specific overrides
-- 🛠️ **Skill Management** - Reusable agent skills synced across providers
-- 🔌 **MCP Configuration** - Centralized MCP server configs with merged outputs
-- 👀 **Watch Mode** - Auto-regenerate on file changes
-- 🔒 **Strict Ownership** - Enforced integrity with manifest locking
+- Single source of truth for all agent configurations in the `.harness/` directory
+- Multi-provider support with simultaneous output generation for Codex, Claude, and Copilot
+- System prompt management with provider-specific overrides
+- Reusable skill management synchronized across providers
+- Centralized MCP server configuration with merged outputs
+- Watch mode for automatic regeneration on file changes
+- Strict file ownership with manifest-based integrity enforcement
 
 ## Quick Start
 
@@ -46,7 +46,7 @@ harness add mcp my-mcp
 # Generate outputs
 harness apply
 
-# Or watch for changes
+# Watch for changes
 harness watch
 ```
 
@@ -65,8 +65,9 @@ git clone <repo-url>
 cd agent-harness
 pnpm install
 pnpm build
-# The harness CLI is now available at packages/toolkit/dist/cli.js
 ```
+
+The CLI is available at `packages/toolkit/dist/cli.js`.
 
 ## CLI Commands
 
