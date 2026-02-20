@@ -10,7 +10,8 @@ Implements the orchestration layer (`HarnessEngine`) for init, CRUD, validation,
 - `init({ force? })`: creates or force-recreates `.harness` state files.
 - `enableProvider` / `disableProvider`: mutate `manifest.providers.enabled`.
 - `addPrompt`, `addSkill`, `addMcp`: scaffold source + override sidecars and register manifest entries.
-- `remove(entityType, id, deleteSource)`: removes manifest entry and optionally deletes source and overrides.
+- `remove(entityType, id, deleteSource)`: removes manifest entry and optionally deletes source and overrides; returns removed `{ entityType, id }`.
+  - Prompt removals require `id === "system"` (v1 prompt singleton).
 - `validate()`: returns diagnostics-only validity decision.
 - `plan()`: returns operations + diagnostics + next lock.
 - `apply()`: executes create/update/delete operations and writes lock/index.

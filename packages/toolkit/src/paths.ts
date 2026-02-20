@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { ProviderId } from "./types.js";
 
 export interface HarnessPaths {
   root: string;
@@ -30,7 +31,7 @@ export function resolveHarnessPaths(rootDir: string): HarnessPaths {
 
 export const DEFAULT_PROMPT_SOURCE_PATH = ".harness/src/prompts/system.md";
 
-export function defaultPromptOverridePath(provider: "codex" | "claude" | "copilot"): string {
+export function defaultPromptOverridePath(provider: ProviderId): string {
   return `.harness/src/prompts/system.overrides.${provider}.yaml`;
 }
 
@@ -38,7 +39,7 @@ export function defaultSkillSourcePath(skillId: string): string {
   return `.harness/src/skills/${skillId}/SKILL.md`;
 }
 
-export function defaultSkillOverridePath(skillId: string, provider: "codex" | "claude" | "copilot"): string {
+export function defaultSkillOverridePath(skillId: string, provider: ProviderId): string {
   return `.harness/src/skills/${skillId}/OVERRIDES.${provider}.yaml`;
 }
 
@@ -46,6 +47,6 @@ export function defaultMcpSourcePath(id: string): string {
   return `.harness/src/mcp/${id}.json`;
 }
 
-export function defaultMcpOverridePath(id: string, provider: "codex" | "claude" | "copilot"): string {
+export function defaultMcpOverridePath(id: string, provider: ProviderId): string {
   return `.harness/src/mcp/${id}.overrides.${provider}.yaml`;
 }

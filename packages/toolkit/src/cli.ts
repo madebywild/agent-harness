@@ -2,6 +2,7 @@
 import { providerIdSchema } from "@agent-harness/manifest-schema";
 import { Command } from "commander";
 import { HarnessEngine } from "./engine.js";
+import { CLI_ENTITY_TYPES, isCliEntityType } from "./types.js";
 
 const program = new Command();
 
@@ -76,16 +77,16 @@ addCommand
 program
   .command("remove")
   .description("Remove an existing entity")
-  .argument("<entity-type>", "prompt|skill|mcp")
+  .argument("<entity-type>", CLI_ENTITY_TYPES.join("|"))
   .argument("<id>", "entity id; use 'system' for prompt")
   .option("--delete-source", "delete scaffolded source files", false)
   .action(async (entityType: string, id: string, options: { deleteSource: boolean }) => {
-    if (!["prompt", "skill", "mcp"].includes(entityType)) {
-      throw new Error("entity-type must be one of: prompt, skill, mcp");
+    if (!isCliEntityType(entityType)) {
+      throw new Error(`entity-type must be one of: ${CLI_ENTITY_TYPES.join(", ")}`);
     }
     const engine = new HarnessEngine(program.opts().cwd as string);
-    await engine.remove(entityType as "prompt" | "skill" | "mcp", id, options.deleteSource);
-    console.log(`Removed ${entityType} '${id}'.`);
+    const removed = await engine.remove(entityType, id, options.deleteSource);
+    console.log(`Removed ${entityType} '${removed.id}'.`);
   });
 
 program

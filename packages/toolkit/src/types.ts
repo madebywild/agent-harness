@@ -10,6 +10,19 @@ import type {
 
 export type { AgentsManifest, EntityRef, EntityType, ManifestLock, ManagedIndex, ProviderId, ProviderOverride };
 
+export const CLI_ENTITY_TYPES = ["prompt", "skill", "mcp"] as const;
+export type CliEntityType = (typeof CLI_ENTITY_TYPES)[number];
+
+export const CLI_ENTITY_TO_MANIFEST_ENTITY: Record<CliEntityType, EntityType> = {
+  prompt: "prompt",
+  skill: "skill",
+  mcp: "mcp_config",
+};
+
+export function isCliEntityType(value: string): value is CliEntityType {
+  return (CLI_ENTITY_TYPES as readonly string[]).includes(value);
+}
+
 export interface CanonicalPrompt {
   id: string;
   body: string;
@@ -87,6 +100,11 @@ export interface PlanResult {
 export interface ApplyResult extends PlanResult {
   writtenArtifacts: string[];
   prunedArtifacts: string[];
+}
+
+export interface RemoveResult {
+  entityType: CliEntityType;
+  id: string;
 }
 
 export interface LoadedPrompt {

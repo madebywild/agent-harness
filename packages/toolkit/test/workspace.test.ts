@@ -82,3 +82,34 @@ test("manifest.lock remains byte-stable on no-op apply", async () => {
   const lockAfter = await fs.readFile(lockPath, "utf8");
   assert.equal(lockAfter, lockBefore);
 });
+
+test("remove prompt rejects non-system id and preserves manifest entity", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addPrompt();
+
+  await assert.rejects(async () => engine.remove("prompt", "wrong-id", false), /must be 'system'/u);
+
+  const manifestText = await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8");
+  const manifest = JSON.parse(manifestText) as {
+    entities: Array<{ id: string; type: string }>;
+  };
+
+  assert.deepEqual(
+    manifest.entities.map((entity) => `${entity.type}:${entity.id}`),
+    ["prompt:system"],
+  );
+});
+
+test("remove returns the actual removed entity id", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addPrompt();
+
+  const removed = await engine.remove("prompt", "system", false);
+  assert.deepEqual(removed, { entityType: "prompt", id: "system" });
+});

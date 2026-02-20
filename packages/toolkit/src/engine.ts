@@ -29,6 +29,7 @@ import {
 import type {
   AgentsManifest,
   ApplyResult,
+  CliEntityType,
   Diagnostic,
   EntityType,
   InternalPlanResult,
@@ -36,8 +37,10 @@ import type {
   ManifestLock,
   PlanResult,
   ProviderOverride,
+  RemoveResult,
   ValidationResult,
 } from "./types.js";
+import { CLI_ENTITY_TO_MANIFEST_ENTITY } from "./types.js";
 import {
   ensureParentDir,
   exists,
@@ -253,12 +256,12 @@ export class HarnessEngine {
     await writeManagedIndex(paths, index);
   }
 
-  async remove(entityTypeArg: "prompt" | "skill" | "mcp", id: string, deleteSource: boolean): Promise<void> {
+  async remove(entityTypeArg: CliEntityType, id: string, deleteSource: boolean): Promise<RemoveResult> {
     const paths = resolveHarnessPaths(this.cwd);
     const manifest = await this.readManifestOrThrow();
 
-    const entityType: EntityType = entityTypeArg === "mcp" ? "mcp_config" : entityTypeArg;
-    const targetId = entityType === "prompt" ? "system" : id;
+    const entityType: EntityType = CLI_ENTITY_TO_MANIFEST_ENTITY[entityTypeArg];
+    const targetId = resolveRemoveTargetId(entityTypeArg, id);
 
     const entityIndex = manifest.entities.findIndex((entity) => entity.type === entityType && entity.id === targetId);
 
@@ -267,8 +270,11 @@ export class HarnessEngine {
     }
 
     const [entity] = manifest.entities.splice(entityIndex, 1);
+    if (!entity) {
+      throw new Error(`Could not find ${entityTypeArg} entity '${targetId}'`);
+    }
 
-    if (deleteSource && entity) {
+    if (deleteSource) {
       await removeIfExists(path.join(this.cwd, normalizeRelativePath(entity.sourcePath)));
       if (entity.overrides) {
         for (const provider of providerIdSchema.options) {
@@ -291,6 +297,11 @@ export class HarnessEngine {
     const index = await this.readManagedIndexOrDefault();
     index.managedSourcePaths = collectManagedSourcePaths(manifest);
     await writeManagedIndex(paths, index);
+
+    return {
+      entityType: entityTypeArg,
+      id: entity.id,
+    };
   }
 
   async validate(): Promise<ValidationResult> {
@@ -514,6 +525,18 @@ function validateEntityId(id: string, type: EntityType): void {
   if (!/^[a-zA-Z0-9._-]+$/u.test(id)) {
     throw new Error(`Invalid ${type} id '${id}'. Allowed characters: letters, digits, '.', '_', '-'`);
   }
+}
+
+function resolveRemoveTargetId(entityType: CliEntityType, id: string): string {
+  if (entityType !== "prompt") {
+    return id;
+  }
+
+  if (id !== "system") {
+    throw new Error(`Prompt entity id must be 'system', received '${id}'`);
+  }
+
+  return "system";
 }
 
 function printDiagnostics(diagnostics: Diagnostic[]): void {

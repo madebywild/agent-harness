@@ -192,6 +192,7 @@ This keeps one canonical content source while allowing provider-specific behavio
    - Creates `.harness/src/mcp/<config-id>.json` and manifest entry.
 7. `harness remove <prompt|skill|mcp> <id>`
    - Removes entity from manifest; optionally deletes source with `--delete-source`.
+   - For prompts in v1, id must be `system`.
 8. `harness validate`
    - Schema, ownership, collisions, and drift checks.
 9. `harness plan [--json]`
