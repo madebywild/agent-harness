@@ -109,6 +109,17 @@ export async function buildPlan(
       continue;
     }
 
+    if (existing.provider !== artifact.provider) {
+      diagnostics.push({
+        code: "OUTPUT_PATH_COLLISION",
+        severity: "error",
+        message: `Multiple providers generated the same output path '${normalizedPath}' (${existing.provider}, ${artifact.provider})`,
+        path: normalizedPath,
+        provider: artifact.provider,
+      });
+      continue;
+    }
+
     if (existing.content !== artifact.content) {
       diagnostics.push({
         code: "OUTPUT_PATH_COLLISION",

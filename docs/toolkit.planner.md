@@ -18,7 +18,9 @@ Transforms canonical loaded state into:
 
 - Build provider adapters and render prompt/skill/MCP artifacts for enabled providers.
 - Normalize artifact paths and coalesce by path.
-- Detect conflicting multi-owner content (`OUTPUT_PATH_COLLISION`).
+- Detect output path collisions (`OUTPUT_PATH_COLLISION`):
+  - cross-provider same-path collisions are always errors in v1, even with identical content.
+  - same-provider collisions with different content are errors.
 - Compare desired outputs with disk state and managed index:
   - missing file => `create`
   - managed + changed => `update`

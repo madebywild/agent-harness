@@ -158,6 +158,31 @@ test("apply fails on unmanaged output collision", async () => {
   assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "OUTPUT_COLLISION_UNMANAGED"));
 });
 
+test("apply fails when different providers target the same output path", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addPrompt();
+  await engine.enableProvider("codex");
+  await engine.enableProvider("claude");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/prompts/system.overrides.codex.yaml"),
+    "version: 1\ntargetPath: shared/AGENTS.md\n",
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/prompts/system.overrides.claude.yaml"),
+    "version: 1\ntargetPath: shared/AGENTS.md\n",
+    "utf8",
+  );
+
+  const result = await engine.apply();
+  assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "OUTPUT_PATH_COLLISION"));
+  assert.equal(result.writtenArtifacts.length, 0);
+});
+
 test("MCP conflict on duplicate server IDs with different values", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);
