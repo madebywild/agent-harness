@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseManifest, parseProviderOverride } from "../../manifest-schema/src/index.ts";
+import { VersionError, parseManifest, parseProviderOverride } from "../../manifest-schema/src/index.ts";
 
 test("parseManifest rejects Windows drive-prefixed source paths", () => {
   assert.throws(
@@ -30,5 +30,26 @@ test("parseProviderOverride rejects Windows drive-prefixed targetPath", () => {
         targetPath: "C:/repo/AGENTS.md",
       }),
     /Windows drive-prefixed/u,
+  );
+});
+
+test("parseManifest throws VersionError for newer schema versions", () => {
+  assert.throws(
+    () =>
+      parseManifest({
+        version: 2,
+        providers: {
+          enabled: [],
+        },
+        entities: [],
+      }),
+    (error) => error instanceof VersionError && error.reason === "unsupported_version",
+  );
+});
+
+test("parseProviderOverride throws VersionError for missing version", () => {
+  assert.throws(
+    () => parseProviderOverride({ enabled: true }),
+    (error) => error instanceof VersionError && error.reason === "missing_version",
   );
 });

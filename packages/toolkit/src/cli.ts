@@ -1,14 +1,19 @@
 #!/usr/bin/env node
+import { createRequire } from "node:module";
 import { providerIdSchema } from "@agent-harness/manifest-schema";
 import { Command } from "commander";
 import { HarnessEngine } from "./engine.js";
 import { CLI_ENTITY_TYPES, isCliEntityType } from "./types.js";
+
+const require = createRequire(import.meta.url);
+const packageJson = require("../package.json") as { version?: string };
 
 const program = new Command();
 
 program
   .name("harness")
   .description("Unified .harness source-of-truth manager for AI agent provider configs")
+  .version(packageJson.version ?? "0.0.0")
   .option("--cwd <path>", "working directory", process.cwd());
 
 program
@@ -107,6 +112,78 @@ program
     }
 
     if (!result.valid) {
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command("doctor")
+  .description("Inspect workspace schema version health")
+  .option("--json", "emit machine-readable JSON")
+  .action(async (options: { json?: boolean }) => {
+    const engine = new HarnessEngine(program.opts().cwd as string);
+    const result = await engine.doctor({ json: options.json });
+
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      for (const file of result.files) {
+        const provider = file.provider ? ` [${file.provider}]` : "";
+        const versionLabel = typeof file.version === "number" ? ` v${file.version}` : "";
+        console.log(
+          `${file.status.toUpperCase()}${provider} ${file.path ?? "<unknown>"}${versionLabel} - ${file.message}`,
+        );
+      }
+
+      if (result.diagnostics.length > 0) {
+        console.log("\nDiagnostics:");
+      }
+      for (const diagnostic of result.diagnostics) {
+        const location = diagnostic.path ? ` (${diagnostic.path})` : "";
+        console.log(`[${diagnostic.severity}] ${diagnostic.code}: ${diagnostic.message}${location}`);
+      }
+    }
+
+    if (!result.healthy) {
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command("migrate")
+  .description("Migrate workspace schema to latest supported version")
+  .option("--to <target>", "migration target (latest)", "latest")
+  .option("--dry-run", "preview migration actions without writing files", false)
+  .option("--json", "emit machine-readable JSON")
+  .action(async (options: { to: string; dryRun: boolean; json?: boolean }) => {
+    if (options.to !== "latest") {
+      throw new Error("--to currently supports only 'latest'");
+    }
+
+    const engine = new HarnessEngine(program.opts().cwd as string);
+    const result = await engine.migrate({ to: "latest", dryRun: options.dryRun, json: options.json });
+
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      for (const action of result.actions) {
+        console.log(`${action.action.toUpperCase()} ${action.path} - ${action.details}`);
+      }
+
+      if (result.backupRoot) {
+        console.log(`Backup: ${result.backupRoot}`);
+      }
+
+      if (result.diagnostics.length > 0) {
+        console.log("\nDiagnostics:");
+      }
+      for (const diagnostic of result.diagnostics) {
+        const location = diagnostic.path ? ` (${diagnostic.path})` : "";
+        console.log(`[${diagnostic.severity}] ${diagnostic.code}: ${diagnostic.message}${location}`);
+      }
+    }
+
+    if (!result.success) {
       process.exitCode = 1;
     }
   });
