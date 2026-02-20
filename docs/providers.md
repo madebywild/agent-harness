@@ -29,7 +29,6 @@ There is not yet a broadly adopted, "native" `.agents/` standard across major CL
 
 **MCP Configuration Structure:**
 ```toml
-[mcp_servers]
 [mcp_servers.server-name]
 command = "node"
 args = ["/path/to/server.js"]

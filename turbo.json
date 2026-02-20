@@ -28,6 +28,7 @@
     },
     "test": {
       "dependsOn": ["build"],
+      "inputs": ["src/**", "test/**"],
       "outputs": []
     },
     "typecheck": {
