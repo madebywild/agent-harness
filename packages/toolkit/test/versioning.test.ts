@@ -202,6 +202,24 @@ test("migrate refuses to downgrade newer workspace files", async () => {
   assert.equal(after, before);
 });
 
+test("init --force does not mutate newer workspace schemas", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+
+  const manifest = await readJson<Record<string, unknown>>(cwd, ".harness/manifest.json");
+  manifest.version = 2;
+  await writeJson(cwd, ".harness/manifest.json", manifest);
+
+  const before = await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8");
+
+  await assert.rejects(async () => engine.init({ force: true }), /MANIFEST_VERSION_NEWER_THAN_CLI/u);
+
+  const after = await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8");
+  assert.equal(after, before);
+});
+
 test("cli --version prints package version", async () => {
   const packageJson = await readJson<{ version: string }>(process.cwd(), "package.json");
   const { stdout } = await execFileAsync("pnpm", ["exec", "tsx", "src/cli.ts", "--version"], {

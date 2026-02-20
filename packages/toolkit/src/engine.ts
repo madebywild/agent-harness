@@ -68,6 +68,10 @@ export class HarnessEngine {
     const force = options?.force === true;
 
     if (await exists(paths.agentsDir)) {
+      await this.assertWorkspaceVersionCurrent({ allowMissingManifest: true });
+    }
+
+    if (await exists(paths.agentsDir)) {
       if (!force) {
         throw new Error("Harness workspace already exists at '.harness'. Use 'harness init --force' to overwrite.");
       }
@@ -547,8 +551,8 @@ export class HarnessEngine {
     return result.managedIndex;
   }
 
-  private async assertWorkspaceVersionCurrent(): Promise<void> {
-    const diagnostics = await this.versionPreflightDiagnostics();
+  private async assertWorkspaceVersionCurrent(options?: { allowMissingManifest?: boolean }): Promise<void> {
+    const diagnostics = await this.versionPreflightDiagnostics(options);
     if (diagnostics.length === 0) {
       return;
     }
@@ -564,12 +568,28 @@ export class HarnessEngine {
     throw new Error(`${details}\n${hint}`);
   }
 
-  private async versionPreflightDiagnostics(): Promise<Diagnostic[]> {
+  private async versionPreflightDiagnostics(options?: { allowMissingManifest?: boolean }): Promise<Diagnostic[]> {
     const doctor = await runDoctor(resolveHarnessPaths(this.cwd));
-    if (!hasVersionBlockers(doctor)) {
+    let diagnostics = doctor.files.filter((status) => status.status !== "current");
+
+    if (options?.allowMissingManifest) {
+      diagnostics = diagnostics.filter((status) => status.code !== "MANIFEST_NOT_FOUND");
+    }
+
+    if (diagnostics.length === 0 || !hasVersionBlockers({ ...doctor, files: diagnostics })) {
       return [];
     }
-    return buildVersionPreflightDiagnostics(doctor);
+
+    const preflightDoctor = {
+      ...doctor,
+      files: diagnostics,
+      diagnostics:
+        doctor.diagnostics.length > 0
+          ? doctor.diagnostics.filter((diagnostic) => diagnostic.code !== "MANIFEST_NOT_FOUND")
+          : doctor.diagnostics,
+    };
+
+    return buildVersionPreflightDiagnostics(preflightDoctor);
   }
 }
 
