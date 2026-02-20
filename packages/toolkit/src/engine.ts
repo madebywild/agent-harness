@@ -486,7 +486,7 @@ export class HarnessEngine {
         operations: [],
         diagnostics: versionDiagnostics,
         nextLock: {
-          version: LATEST_VERSION_BY_KIND.lock,
+          version: LATEST_VERSION_BY_KIND.lock as ManifestLock["version"],
           generatedAt: nowIso(),
           manifestFingerprint: sha256("{}"),
           entities: [],
@@ -512,7 +512,7 @@ export class HarnessEngine {
         operations: [],
         diagnostics,
         nextLock: {
-          version: LATEST_VERSION_BY_KIND.lock,
+          version: LATEST_VERSION_BY_KIND.lock as ManifestLock["version"],
           generatedAt: nowIso(),
           manifestFingerprint: sha256("{}"),
           entities: [],

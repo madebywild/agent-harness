@@ -416,7 +416,7 @@ async function deriveLatestState(
     paths,
     loaded,
     {
-      version: LATEST_VERSION_BY_KIND["managed-index"],
+      version: LATEST_VERSION_BY_KIND["managed-index"] as ManagedIndex["version"],
       managedSourcePaths: firstPass.nextManagedIndex.managedSourcePaths,
       managedOutputPaths: firstPass.nextManagedIndex.managedOutputPaths,
     },
