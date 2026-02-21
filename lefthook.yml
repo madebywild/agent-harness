@@ -4,6 +4,13 @@
 # Format, lint, and apply safe code fixes before committing
 pre-commit:
   commands:
+    check-package-lock:
+      run: |
+        if find . -name 'package-lock.json' -not -path './node_modules/*' -not -path '*/node_modules/*' | grep -q .; then
+          echo "Error: package-lock.json found in the repository."
+          echo "This is a PNPM workspace. Please use pnpm and remove any package-lock.json files."
+          exit 1
+        fi
     biome:
       glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
       run: npx @biomejs/biome check --write --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}

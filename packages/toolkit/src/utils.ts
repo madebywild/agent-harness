@@ -81,6 +81,40 @@ export async function ensureParentDir(filePath: string): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
 }
 
+export async function writeFileAtomic(absPath: string, content: string): Promise<void> {
+  await ensureParentDir(absPath);
+
+  const tempPath = path.join(
+    path.dirname(absPath),
+    `.${path.basename(absPath)}.${process.pid}.${crypto.randomUUID()}.tmp`,
+  );
+
+  await fs.writeFile(tempPath, content, "utf8");
+
+  try {
+    await fs.rename(tempPath, absPath);
+  } catch (error) {
+    await fs.rm(tempPath, { force: true }).catch(() => {
+      // best effort cleanup for failed atomic writes
+    });
+    throw error;
+  }
+}
+
+export async function copyToBackup(rootAbs: string, relPath: string, backupRootAbs: string): Promise<boolean> {
+  const normalized = normalizeRelativePath(relPath);
+  const sourceAbs = path.join(rootAbs, normalized);
+
+  if (!(await exists(sourceAbs))) {
+    return false;
+  }
+
+  const backupAbs = path.join(backupRootAbs, normalized);
+  await ensureParentDir(backupAbs);
+  await fs.copyFile(sourceAbs, backupAbs);
+  return true;
+}
+
 export function isNotFoundError(error: unknown): boolean {
   return (
     typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "ENOENT"

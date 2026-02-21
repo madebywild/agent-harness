@@ -3,6 +3,31 @@
 ## Summary
 Build a TypeScript + `pnpm` monorepo CLI (`harness`) where `.harness` is the only editable source for agent config entities, and provider outputs are generated directly into provider-native paths.
 
+## Schema Versioning Architecture
+
+Versioning is now explicit and enforced across `.harness` state files:
+
+1. Runtime compatibility:
+   - Normal commands run only on current schema versions.
+   - If any file is outdated/newer/invalid, mutating/runtime commands stop before writes.
+2. Version diagnostics:
+   - `harness doctor` scans `.harness/manifest.json`, `.harness/manifest.lock.json`, `.harness/managed-index.json`, and discovered override sidecars.
+   - It reports per-file status (`current|outdated|unsupported|invalid|missing`) and actionable diagnostics.
+3. Migration flow:
+   - `harness migrate` performs explicit upgrades only (`--to latest`).
+   - Pre-write backup snapshot: `.harness/.backup/<timestamp>/...`.
+   - Per-file atomic writes (temp file + rename).
+   - Deterministic write order: overrides, lock, managed-index, manifest (manifest last).
+4. Forward compatibility safety:
+   - Older CLI never mutates newer workspace schemas.
+   - Newer-than-supported files emit `*_VERSION_NEWER_THAN_CLI` and `MIGRATION_DOWNGRADE_UNSUPPORTED`.
+5. Derived-state rebuild after migration:
+   - Lock and managed-index are rebuilt from desired rendered outputs.
+   - Managed-index adopts desired output paths during migration to prevent first-apply unmanaged collision deadlocks.
+6. Idempotency and resumability:
+   - No global multi-file transaction is used.
+   - Migration reruns converge deterministically; mixed-version states surface as `MIGRATION_INCOMPLETE`.
+
 This plan is anchored to the current repo state (`/Users/tom/Github/harness` at empty `HEAD`) and uses strict ownership rules:
 1. Entity files are created only via CLI commands.
 2. Source content is user-editable.

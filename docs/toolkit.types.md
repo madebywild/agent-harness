@@ -15,7 +15,9 @@ Defines shared toolkit interfaces for canonical entities, provider adapters, dia
 - Diagnostics/operations:
   - `Diagnostic`, `DiagnosticSeverity`, `Operation`, `OperationType`
 - Command result models:
-  - `ValidationResult`, `PlanResult`, `ApplyResult`
+  - `ValidationResult`, `PlanResult`, `ApplyResult`, `DoctorResult`, `MigrationResult`
+- Versioning models:
+  - `VersionStatus`, `VersionDiagnostic`, `MigrationAction`
 - Loader/planner internal models:
   - `LoadedPrompt`, `LoadedSkillFile`, `LoadedSkill`, `LoadedMcp`, `LoadResult`, `InternalPlanResult`
 

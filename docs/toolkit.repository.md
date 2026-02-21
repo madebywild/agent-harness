@@ -10,7 +10,7 @@ Encapsulates filesystem persistence/parsing for manifest, lock, managed-index, s
 - Lock I/O: `loadLock`, `writeLock`
 - Managed index I/O: `emptyManagedIndex`, `loadManagedIndex`, `writeManagedIndex`
 - Sidecar parser: `readProviderOverrideFile`
-- Filesystem helpers: `listFilesRecursively`, `collectSourceCandidates`, `collectManagedSourcePaths`, `removeIfExists`
+- Filesystem helpers: `listFilesRecursively`, `collectSourceCandidates`, `collectManagedSourcePaths`, `removeIfExists`, `copyWorkspaceFileToBackup`
 
 ## Diagnostics produced here
 
@@ -18,6 +18,7 @@ Encapsulates filesystem persistence/parsing for manifest, lock, managed-index, s
 - `LOCK_INVALID`
 - `MANAGED_INDEX_INVALID`
 - `OVERRIDE_INVALID`
+- Version-specific diagnostics (per file kind): `*_VERSION_OUTDATED`, `*_VERSION_NEWER_THAN_CLI`, `*_VERSION_MISSING`, `*_VERSION_INVALID`
 
 ## Ownership helpers
 

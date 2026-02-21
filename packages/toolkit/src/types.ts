@@ -1,5 +1,6 @@
 import type {
   AgentsManifest,
+  DocumentKind,
   EntityRef,
   EntityType,
   ManagedIndex,
@@ -67,6 +68,39 @@ export interface Diagnostic {
   path?: string;
   entityId?: string;
   provider?: ProviderId;
+}
+
+export type VersionStatus = "current" | "outdated" | "unsupported" | "invalid" | "missing";
+
+export interface VersionDiagnostic extends Diagnostic {
+  kind: DocumentKind;
+  status: VersionStatus;
+  version?: number;
+  latestVersion: number;
+  canMigrate: boolean;
+}
+
+export interface DoctorResult {
+  healthy: boolean;
+  migrationNeeded: boolean;
+  migrationPossible: boolean;
+  files: VersionDiagnostic[];
+  diagnostics: Diagnostic[];
+}
+
+export interface MigrationAction {
+  kind: DocumentKind | "backup";
+  path: string;
+  action: "noop" | "migrate" | "rewrite" | "backup" | "skip";
+  details: string;
+}
+
+export interface MigrationResult {
+  success: boolean;
+  dryRun: boolean;
+  backupRoot?: string;
+  actions: MigrationAction[];
+  diagnostics: Diagnostic[];
 }
 
 export type OperationType = "create" | "update" | "delete" | "noop";
