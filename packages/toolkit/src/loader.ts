@@ -22,6 +22,7 @@ import { normalizeRelativePath, sha256, stableStringify, toPosixRelative } from 
 export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsManifest): Promise<LoadResult> {
   const diagnostics: Diagnostic[] = [];
   diagnostics.push(...validateManifestSemantics(manifest));
+  diagnostics.push(...buildProviderEnablementDiagnostics(manifest));
 
   const candidates = await collectSourceCandidates(paths);
   const registeredSourcePaths = new Set(collectManagedSourcePaths(manifest));
@@ -77,6 +78,23 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
     skills: skills.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     mcps: mcps.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
   };
+}
+
+function buildProviderEnablementDiagnostics(manifest: AgentsManifest): Diagnostic[] {
+  const hasEnabledEntities = manifest.entities.some((entity) => entity.enabled !== false);
+  if (!hasEnabledEntities || manifest.providers.enabled.length > 0) {
+    return [];
+  }
+
+  return [
+    {
+      code: "NO_PROVIDERS_ENABLED",
+      severity: "warning",
+      message: "No providers are enabled, so apply will not generate any artifacts.",
+      path: ".harness/manifest.json",
+      hint: "Run 'harness provider enable <codex|claude|copilot>' before running apply.",
+    },
+  ];
 }
 
 export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[] {

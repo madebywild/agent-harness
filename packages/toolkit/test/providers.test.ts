@@ -5,6 +5,23 @@ import test from "node:test";
 import { HarnessEngine } from "../src/engine.ts";
 import { mkTmpRepo } from "./helpers.ts";
 
+test("apply warns when entities exist but no providers are enabled", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addPrompt();
+
+  const apply = await engine.apply();
+  assert.equal(apply.writtenArtifacts.length, 0);
+  assert.equal(apply.prunedArtifacts.length, 0);
+  assert.ok(apply.diagnostics.some((diagnostic) => diagnostic.code === "NO_PROVIDERS_ENABLED"));
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
+});
+
 test("provider enablement controls generated outputs", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);

@@ -33,3 +33,4 @@ Loads canonical entities from `.harness/src`, validates manifest semantics, and 
 - Prompt entity ID must be `system` (`PROMPT_ID_INVALID`).
 - Enforced source paths by entity type (`PROMPT_SOURCE_INVALID`, `SKILL_SOURCE_INVALID`, `MCP_SOURCE_INVALID`).
 - At most one prompt entity (`PROMPT_COUNT_INVALID`).
+- Warns when entities are present but no providers are enabled (`NO_PROVIDERS_ENABLED`).
