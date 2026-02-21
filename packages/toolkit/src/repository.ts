@@ -30,9 +30,11 @@ import {
 
 type VersionIssue = VersionStatus;
 
-export async function loadManifest(
-  paths: HarnessPaths,
-): Promise<{ manifest: AgentsManifest | null; diagnostics: Diagnostic[]; versionStatus?: VersionIssue }> {
+export async function loadManifest(paths: HarnessPaths): Promise<{
+  manifest: AgentsManifest | null;
+  diagnostics: Diagnostic[];
+  versionStatus?: VersionIssue;
+}> {
   const contents = await readTextIfExists(paths.manifestFile);
   if (contents === null) {
     return {
@@ -136,9 +138,11 @@ export function emptyManagedIndex(): ManagedIndex {
   };
 }
 
-export async function loadManagedIndex(
-  paths: HarnessPaths,
-): Promise<{ managedIndex: ManagedIndex; diagnostics: Diagnostic[]; versionStatus?: VersionIssue }> {
+export async function loadManagedIndex(paths: HarnessPaths): Promise<{
+  managedIndex: ManagedIndex;
+  diagnostics: Diagnostic[];
+  versionStatus?: VersionIssue;
+}> {
   const contents = await readTextIfExists(paths.managedIndexFile);
   if (contents === null) {
     return { managedIndex: emptyManagedIndex(), diagnostics: [] };
@@ -146,7 +150,11 @@ export async function loadManagedIndex(
 
   try {
     const parsed = JSON.parse(contents) as unknown;
-    return { managedIndex: parseManagedIndex(parsed), diagnostics: [], versionStatus: "current" };
+    return {
+      managedIndex: parseManagedIndex(parsed),
+      diagnostics: [],
+      versionStatus: "current",
+    };
   } catch (error) {
     if (error instanceof VersionError) {
       return {
@@ -185,7 +193,12 @@ export async function readProviderOverrideFile(
   versionStatus?: VersionIssue;
 }> {
   if (!overridePath) {
-    return { override: undefined, sha256: undefined, diagnostics: [], versionStatus: "current" };
+    return {
+      override: undefined,
+      sha256: undefined,
+      diagnostics: [],
+      versionStatus: "current",
+    };
   }
 
   const normalized = normalizeRelativePath(overridePath);
@@ -193,7 +206,12 @@ export async function readProviderOverrideFile(
   const text = await readTextIfExists(absolute);
 
   if (text === null) {
-    return { override: undefined, sha256: undefined, diagnostics: [], versionStatus: "current" };
+    return {
+      override: undefined,
+      sha256: undefined,
+      diagnostics: [],
+      versionStatus: "current",
+    };
   }
 
   try {
@@ -201,7 +219,12 @@ export async function readProviderOverrideFile(
     const parsed = YAML.parse(text) as unknown;
     const override = parseProviderOverride(parsed);
     const { sha256 } = await import("./utils.js");
-    return { override, sha256: sha256(text), diagnostics: [], versionStatus: "current" };
+    return {
+      override,
+      sha256: sha256(text),
+      diagnostics: [],
+      versionStatus: "current",
+    };
   } catch (error) {
     if (error instanceof VersionError) {
       return {

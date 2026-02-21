@@ -60,7 +60,8 @@ harness watch
 ### From npm (not yet published)
 
 ```bash
-npm install -g agent-harness
+npm install --save-dev @agent-harness/toolkit
+npx harness init
 ```
 
 ### From source
@@ -76,22 +77,22 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 
 ## CLI Commands
 
-| Command | Description |
-|---------|-------------|
-| `harness init` | Initialize `.harness/` structure |
-| `harness --version` | Print CLI version |
-| `harness doctor` | Report schema version health and migration blockers |
-| `harness migrate` | Upgrade schema files to latest supported version |
-| `harness provider enable <id>` | Enable a provider (codex/claude/copilot) |
-| `harness provider disable <id>` | Disable a provider |
-| `harness add prompt` | Add system prompt entity |
-| `harness add skill <id>` | Add a skill entity |
-| `harness add mcp <id>` | Add an MCP config entity |
-| `harness remove <type> <id>` | Remove an entity |
-| `harness validate` | Validate manifest and files |
-| `harness plan` | Preview changes (dry-run) |
-| `harness apply` | Generate provider outputs |
-| `harness watch` | Watch mode with auto-apply |
+| Command                         | Description                                         |
+| ------------------------------- | --------------------------------------------------- |
+| `harness init`                  | Initialize `.harness/` structure                    |
+| `harness --version`             | Print CLI version                                   |
+| `harness doctor`                | Report schema version health and migration blockers |
+| `harness migrate`               | Upgrade schema files to latest supported version    |
+| `harness provider enable <id>`  | Enable a provider (codex/claude/copilot)            |
+| `harness provider disable <id>` | Disable a provider                                  |
+| `harness add prompt`            | Add system prompt entity                            |
+| `harness add skill <id>`        | Add a skill entity                                  |
+| `harness add mcp <id>`          | Add an MCP config entity                            |
+| `harness remove <type> <id>`    | Remove an entity                                    |
+| `harness validate`              | Validate manifest and files                         |
+| `harness plan`                  | Preview changes (dry-run)                           |
+| `harness apply`                 | Generate provider outputs                           |
+| `harness watch`                 | Watch mode with auto-apply                          |
 
 ## Schema Version Policy
 
@@ -131,11 +132,11 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 
 ## Generated Outputs
 
-| Entity | Codex | Claude | Copilot |
-|--------|-------|--------|---------|
-| Prompt | `AGENTS.md` | `CLAUDE.md` | `.github/copilot-instructions.md` |
-| Skills | `.codex/skills/` | `.claude/skills/` | `.github/skills/` |
-| MCP | `.codex/config.toml` | `.mcp.json` | `.vscode/mcp.json` |
+| Entity | Codex                | Claude            | Copilot                           |
+| ------ | -------------------- | ----------------- | --------------------------------- |
+| Prompt | `AGENTS.md`          | `CLAUDE.md`       | `.github/copilot-instructions.md` |
+| Skills | `.codex/skills/`     | `.claude/skills/` | `.github/skills/`                 |
+| MCP    | `.codex/config.toml` | `.mcp.json`       | `.vscode/mcp.json`                |
 
 ## Monorepo Packages
 
@@ -144,15 +145,19 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 Zod schemas and TypeScript types for manifests, locks, and sidecars.
 
 ```typescript
-import type { AgentsManifest, ProviderId, EntityRef } from '@agent-harness/manifest-schema';
+import type {
+  AgentsManifest,
+  ProviderId,
+  EntityRef,
+} from "@agent-harness/manifest-schema";
 ```
 
-### `agent-harness`
+### `@agent-harness/toolkit`
 
 The main toolkit with CLI and core engine.
 
 ```typescript
-import { Planner, ProviderAdapter } from 'agent-harness';
+import { Planner, ProviderAdapter } from "@agent-harness/toolkit";
 ```
 
 ## Development
@@ -174,7 +179,7 @@ pnpm test
 pnpm check:write
 
 # Watch mode during development
-pnpm --filter agent-harness watch
+pnpm --filter @agent-harness/toolkit watch
 ```
 
 ## Architecture
