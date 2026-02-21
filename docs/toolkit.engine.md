@@ -23,6 +23,7 @@ Implements the orchestration layer (`HarnessEngine`) for init, CRUD, version pre
 
 - `planInternal()` composes repository loaders, canonical loader, and planner.
 - Version preflight runs before normal runtime/mutating commands and blocks non-current schema states with actionable diagnostics.
+- Preflight checks workspace presence first and reports `WORKSPACE_NOT_INITIALIZED` with `harness init` guidance when `.harness` is missing.
 - If manifest is missing, planning returns empty operations and carries manifest diagnostics.
 - Apply short-circuits when any `error` diagnostic exists.
 

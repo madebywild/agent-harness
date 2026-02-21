@@ -220,6 +220,28 @@ test("init --force does not mutate newer workspace schemas", async () => {
   assert.equal(after, before);
 });
 
+test("default CLI command reports missing workspace before version diagnostics", async () => {
+  const cwd = await mkTmpRepo();
+
+  await assert.rejects(
+    async () =>
+      execFileAsync("pnpm", ["exec", "tsx", "src/cli.ts", "--cwd", cwd], {
+        cwd: process.cwd(),
+      }),
+    (error) => {
+      if (!error || typeof error !== "object") {
+        return false;
+      }
+
+      const stdout = "stdout" in error ? String(error.stdout ?? "") : "";
+      assert.match(stdout, /WORKSPACE_NOT_INITIALIZED/u);
+      assert.match(stdout, /harness init/u);
+      assert.doesNotMatch(stdout, /WORKSPACE_VERSION_BLOCKED/u);
+      return true;
+    },
+  );
+});
+
 test("cli --version prints package version", async () => {
   const packageJson = await readJson<{ version: string }>(process.cwd(), "package.json");
   const { stdout } = await execFileAsync("pnpm", ["exec", "tsx", "src/cli.ts", "--version"], {

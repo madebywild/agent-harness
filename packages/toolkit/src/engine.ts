@@ -569,9 +569,9 @@ export class HarnessEngine {
     }
 
     const hasNewerThanCli = diagnostics.some((diagnostic) => diagnostic.code.includes("NEWER_THAN_CLI"));
-    const hasMissingManifest = diagnostics.some((diagnostic) => diagnostic.code === "MANIFEST_NOT_FOUND");
+    const hasMissingWorkspace = diagnostics.some((diagnostic) => isMissingWorkspaceCode(diagnostic.code));
     const details = diagnostics.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`).join("\n");
-    const hint = hasMissingManifest
+    const hint = hasMissingWorkspace
       ? "Run 'harness init' first."
       : hasNewerThanCli
         ? "Install a newer harness CLI, then run 'harness doctor'."
@@ -582,6 +582,11 @@ export class HarnessEngine {
   private async versionPreflightDiagnostics(options?: {
     allowMissingManifest?: boolean;
   }): Promise<Diagnostic[]> {
+    const missingWorkspace = await this.workspaceInitializationDiagnostics(options);
+    if (missingWorkspace.length > 0) {
+      return missingWorkspace;
+    }
+
     const doctor = await runDoctor(resolveHarnessPaths(this.cwd));
     let diagnostics = doctor.files.filter((status) => status.status !== "current");
 
@@ -596,13 +601,33 @@ export class HarnessEngine {
     const preflightDoctor = {
       ...doctor,
       files: diagnostics,
-      diagnostics:
-        doctor.diagnostics.length > 0
-          ? doctor.diagnostics.filter((diagnostic) => diagnostic.code !== "MANIFEST_NOT_FOUND")
-          : doctor.diagnostics,
+      diagnostics: preflightDiagnosticsFromDoctor(doctor.diagnostics, diagnostics),
     };
 
     return buildVersionPreflightDiagnostics(preflightDoctor);
+  }
+
+  private async workspaceInitializationDiagnostics(options?: {
+    allowMissingManifest?: boolean;
+  }): Promise<Diagnostic[]> {
+    if (options?.allowMissingManifest) {
+      return [];
+    }
+
+    const paths = resolveHarnessPaths(this.cwd);
+    if (await exists(paths.agentsDir)) {
+      return [];
+    }
+
+    return [
+      {
+        code: "WORKSPACE_NOT_INITIALIZED",
+        severity: "error",
+        message: "Harness workspace directory '.harness' does not exist. Run 'harness init' first.",
+        path: ".harness",
+        hint: "Run 'harness init' first.",
+      },
+    ];
   }
 }
 
@@ -658,6 +683,23 @@ function printApplySummary(writtenArtifacts: string[], prunedArtifacts: string[]
   if (prunedArtifacts.length > 0) {
     console.log(`[harness] removed ${prunedArtifacts.length} stale artifact(s)`);
   }
+}
+
+function preflightDiagnosticsFromDoctor(
+  doctorDiagnostics: Diagnostic[],
+  fileDiagnostics: Array<{ code: string }>,
+): Diagnostic[] {
+  if (doctorDiagnostics.length === 0) {
+    return doctorDiagnostics;
+  }
+
+  const fileCodes = new Set(fileDiagnostics.map((status) => status.code));
+  const filtered = doctorDiagnostics.filter((diagnostic) => fileCodes.has(diagnostic.code));
+  return filtered.length > 0 ? filtered : doctorDiagnostics;
+}
+
+function isMissingWorkspaceCode(code: string): boolean {
+  return code === "MANIFEST_NOT_FOUND" || code === "WORKSPACE_NOT_INITIALIZED";
 }
 
 export async function loadConfig(pathValue?: string): Promise<AgentsManifest> {

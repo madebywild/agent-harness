@@ -23,6 +23,7 @@ Defines the `harness` CLI using Commander and maps CLI commands to `HarnessEngin
 
 - Global option: `--cwd <path>` sets workspace root.
 - Default action (no subcommand) runs `plan` and prints operations and diagnostics.
+- If `.harness` is missing, runtime commands report `WORKSPACE_NOT_INITIALIZED` with `harness init` guidance.
 - All command failures are funneled through `program.parseAsync(...).catch(...)` and exit with code `1`.
 - `doctor` exits `0` only when workspace is fully current; otherwise exits `1`.
 - `migrate` exits `0` on success/no-op and `1` on blocked migrations (invalid/newer/unsupported).
