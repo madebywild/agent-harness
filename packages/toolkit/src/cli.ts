@@ -161,7 +161,11 @@ program
     }
 
     const engine = new HarnessEngine(program.opts().cwd as string);
-    const result = await engine.migrate({ to: "latest", dryRun: options.dryRun, json: options.json });
+    const result = await engine.migrate({
+      to: "latest",
+      dryRun: options.dryRun,
+      json: options.json,
+    });
 
     if (options.json) {
       console.log(JSON.stringify(result, null, 2));
