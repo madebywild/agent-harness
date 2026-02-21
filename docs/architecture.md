@@ -5,30 +5,28 @@ Build a TypeScript + `pnpm` monorepo CLI (`harness`) where `.harness` is the onl
 
 ## Schema Versioning Architecture
 
-Versioning is now explicit and enforced across `.harness` state files:
+Agent Harness uses a **"current-major runtime, explicit migration"** model for workspace state files. This architecture ensures safe evolution of schema versions while preventing data corruption from version mismatches.
 
-1. Runtime compatibility:
-   - Normal commands run only on current schema versions.
-   - If any file is outdated/newer/invalid, mutating/runtime commands stop before writes.
-2. Version diagnostics:
-   - `harness doctor` scans `.harness/manifest.json`, `.harness/manifest.lock.json`, `.harness/managed-index.json`, and discovered override sidecars.
-   - It reports per-file status (`current|outdated|unsupported|invalid|missing`) and actionable diagnostics.
-3. Migration flow:
-   - `harness migrate` performs explicit upgrades only (`--to latest`).
-   - Pre-write backup snapshot: `.harness/.backup/<timestamp>/...`.
-   - Per-file atomic writes (temp file + rename).
-   - Deterministic write order: overrides, lock, managed-index, manifest (manifest last).
-4. Forward compatibility safety:
-   - Older CLI never mutates newer workspace schemas.
-   - Newer-than-supported files emit `*_VERSION_NEWER_THAN_CLI` and `MIGRATION_DOWNGRADE_UNSUPPORTED`.
-5. Derived-state rebuild after migration:
-   - Lock and managed-index are rebuilt from desired rendered outputs.
-   - Managed-index adopts desired output paths during migration to prevent first-apply unmanaged collision deadlocks.
-6. Idempotency and resumability:
-   - No global multi-file transaction is used.
-   - Migration reruns converge deterministically; mixed-version states surface as `MIGRATION_INCOMPLETE`.
+### Key Concepts
 
-This plan is anchored to the current repo state (`/Users/tom/Github/harness` at empty `HEAD`) and uses strict ownership rules:
+- **Current-Major Runtime**: Normal commands (plan, apply, watch) operate only on the current schema version. Outdated or newer versions block writes.
+- **Explicit Migration**: Schema upgrades require an intentional `harness migrate` command — never auto-upgraded during normal operations.
+- **Doctor Diagnostics**: `harness doctor` scans all workspace files and reports per-file status (`current|outdated|unsupported|invalid|missing`).
+- **Backup Safety**: Every migration creates a complete backup at `.harness/.backup/<timestamp>/` before making changes.
+- **Forward Compatibility**: Older CLIs can read but never write newer schema versions, preventing data loss from field stripping.
+
+### Architecture Details
+
+See [Schema Versioning Architecture](./architecture/versioning.md) for comprehensive documentation covering:
+
+- Migration mechanics and write ordering
+- Per-kind versioning strategy
+- Derived state handling (lock/index rebuild)
+- Atomicity guarantees and trade-offs
+- CI/CD integration patterns
+- Industry comparison (Terraform, Prisma, Kubernetes, Helm)
+
+This plan uses strict ownership rules:
 1. Entity files are created only via CLI commands.
 2. Source content is user-editable.
 3. Generated provider files are immutable and always regenerated.
