@@ -471,7 +471,11 @@ export class HarnessEngine {
     return runDoctor(resolveHarnessPaths(this.cwd));
   }
 
-  async migrate(options?: { to?: "latest"; dryRun?: boolean; json?: boolean }): Promise<MigrationResult> {
+  async migrate(options?: {
+    to?: "latest";
+    dryRun?: boolean;
+    json?: boolean;
+  }): Promise<MigrationResult> {
     return runMigration(resolveHarnessPaths(this.cwd), {
       to: options?.to,
       dryRun: options?.dryRun,
@@ -556,7 +560,9 @@ export class HarnessEngine {
     return result.managedIndex;
   }
 
-  private async assertWorkspaceVersionCurrent(options?: { allowMissingManifest?: boolean }): Promise<void> {
+  private async assertWorkspaceVersionCurrent(options?: {
+    allowMissingManifest?: boolean;
+  }): Promise<void> {
     const diagnostics = await this.versionPreflightDiagnostics(options);
     if (diagnostics.length === 0) {
       return;
@@ -573,7 +579,9 @@ export class HarnessEngine {
     throw new Error(`${details}\n${hint}`);
   }
 
-  private async versionPreflightDiagnostics(options?: { allowMissingManifest?: boolean }): Promise<Diagnostic[]> {
+  private async versionPreflightDiagnostics(options?: {
+    allowMissingManifest?: boolean;
+  }): Promise<Diagnostic[]> {
     const doctor = await runDoctor(resolveHarnessPaths(this.cwd));
     let diagnostics = doctor.files.filter((status) => status.status !== "current");
 
