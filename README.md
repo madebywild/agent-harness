@@ -88,7 +88,7 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | `harness add prompt`            | Add system prompt entity                            |
 | `harness add skill <id>`        | Add a skill entity                                  |
 | `harness add mcp <id>`          | Add an MCP config entity                            |
-| `harness remove <type> <id>`    | Remove an entity                                    |
+| `harness remove <type> <id> [--no-delete-source]` | Remove an entity (deletes source by default) |
 | `harness validate`              | Validate manifest and files                         |
 | `harness plan`                  | Preview changes (dry-run)                           |
 | `harness apply`                 | Generate provider outputs                           |

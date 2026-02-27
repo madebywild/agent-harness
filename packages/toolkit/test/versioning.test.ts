@@ -250,3 +250,24 @@ test("cli --version prints package version", async () => {
 
   assert.equal(stdout.trim(), packageJson.version);
 });
+
+test("cli remove deletes source by default to avoid unregistered-source diagnostics", async () => {
+  const cwd = await mkTmpRepo();
+
+  const runCli = async (...args: string[]): Promise<void> => {
+    await execFileAsync("pnpm", ["exec", "tsx", "src/cli.ts", "--cwd", cwd, ...args], {
+      cwd: process.cwd(),
+    });
+  };
+
+  await runCli("init");
+  await runCli("provider", "enable", "codex");
+  await runCli("add", "skill", "temp-skill");
+  await runCli("apply");
+  await runCli("remove", "skill", "temp-skill");
+  await runCli("apply");
+  await runCli("validate");
+
+  await assert.rejects(async () => fs.stat(path.join(cwd, ".harness/src/skills/temp-skill/SKILL.md")));
+  await assert.rejects(async () => fs.stat(path.join(cwd, ".codex/skills/temp-skill/SKILL.md")));
+});

@@ -84,7 +84,7 @@ program
   .description("Remove an existing entity")
   .argument("<entity-type>", CLI_ENTITY_TYPES.join("|"))
   .argument("<id>", "entity id; use 'system' for prompt")
-  .option("--delete-source", "delete scaffolded source files", false)
+  .option("--no-delete-source", "keep scaffolded source files (advanced; may trigger ownership diagnostics)")
   .action(async (entityType: string, id: string, options: { deleteSource: boolean }) => {
     if (!isCliEntityType(entityType)) {
       throw new Error(`entity-type must be one of: ${CLI_ENTITY_TYPES.join(", ")}`);
