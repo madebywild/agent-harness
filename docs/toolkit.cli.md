@@ -11,7 +11,7 @@ Defines the `harness` CLI using Commander and maps CLI commands to `HarnessEngin
 - `provider enable <provider>`: enable `codex`, `claude`, or `copilot`.
 - `provider disable <provider>`: disable a provider.
 - `add prompt|skill|mcp`: scaffold source entities.
-- `remove <prompt|skill|mcp> <id> [--delete-source]`: remove an entity from manifest and optionally delete source files (`prompt` requires id `system`).
+- `remove <prompt|skill|mcp> <id> [--no-delete-source]`: remove an entity from manifest and delete scaffolded source files by default (`prompt` requires id `system`).
 - `validate`: print diagnostics and set exit code `1` if invalid.
 - `plan [--json]`: show proposed file operations and diagnostics.
 - `apply [--json]`: execute write/delete operations if no error diagnostics.
