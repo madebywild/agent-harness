@@ -190,7 +190,7 @@ export const registryManifestSchema = z
   .object({
     version: z.literal(1),
     title: z.string().min(1),
-    description: z.string().optional(),
+    description: z.string().min(1),
     metadata: z.record(z.unknown()).optional(),
   })
   .strict();

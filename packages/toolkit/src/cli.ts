@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { providerIdSchema } from "@agent-harness/manifest-schema";
 import { Command } from "commander";
 import { HarnessEngine } from "./engine.js";
+import { validateRegistryRepo } from "./registry-validator.js";
 import { CLI_ENTITY_TYPES, isCliEntityType } from "./types.js";
 
 const require = createRequire(import.meta.url);
@@ -73,6 +74,34 @@ registryCommand
           `${entry.id}${marker} - git url=${entry.definition.url} ref=${entry.definition.ref}${root}${token}`,
         );
       }
+    }
+  });
+
+registryCommand
+  .command("validate")
+  .description("Validate a git registry repository structure and metadata")
+  .option("--path <dir>", "registry repository path", ".")
+  .option("--root <relative>", "registry root path inside repository", ".")
+  .option("--json", "emit machine-readable JSON")
+  .action(async (options: { path?: string; root?: string; json?: boolean }) => {
+    const result = await validateRegistryRepo({
+      repoPath: options.path,
+      rootPath: options.root,
+    });
+
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else if (result.diagnostics.length === 0) {
+      console.log("Registry validation passed.");
+    } else {
+      for (const diagnostic of result.diagnostics) {
+        const location = diagnostic.path ? ` (${diagnostic.path})` : "";
+        console.log(`[${diagnostic.severity}] ${diagnostic.code}: ${diagnostic.message}${location}`);
+      }
+    }
+
+    if (!result.valid) {
+      process.exitCode = 1;
     }
   });
 

@@ -9,6 +9,7 @@ import {
   type RegistryRevision,
   parseRegistryManifest,
 } from "@agent-harness/manifest-schema";
+import { listFilesRecursively } from "./repository.js";
 import type { EntityType, RegistryId } from "./types.js";
 import { normalizeRelativePath, sha256, stableStringify } from "./utils.js";
 
@@ -327,26 +328,6 @@ async function cleanupTempDir(tempDir: string): Promise<void> {
   await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {
     // best-effort temp cleanup
   });
-}
-
-async function listFilesRecursively(baseDir: string): Promise<string[]> {
-  const output: string[] = [];
-  const queue = [baseDir];
-
-  while (queue.length > 0) {
-    const current = queue.pop() as string;
-    const entries = await fs.readdir(current, { withFileTypes: true });
-    for (const entry of entries) {
-      const nextPath = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        queue.push(nextPath);
-      } else if (entry.isFile()) {
-        output.push(nextPath);
-      }
-    }
-  }
-
-  return output.sort((left, right) => left.localeCompare(right));
 }
 
 function isNotFound(error: unknown): boolean {

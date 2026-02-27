@@ -515,6 +515,9 @@ export class HarnessEngine {
       manifest.entities = sortEntities(manifest.entities);
       await writeManifest(paths, manifest);
     }
+    if (updatedEntities.length === 0) {
+      return { updatedEntities };
+    }
     await this.writeManagedSourceIndex(paths, manifest);
     lock.generatedAt = nowIso();
     lock.manifestFingerprint = sha256(JSON.stringify(manifest));

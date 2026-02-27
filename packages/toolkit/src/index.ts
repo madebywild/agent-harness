@@ -1,7 +1,9 @@
 import { HarnessEngine, loadConfig, validateConfig, validateLock } from "./engine.js";
+import { validateRegistryRepo } from "./registry-validator.js";
 import type { ApplyOptions, ApplyResult, DoctorResult, MigrationResult, PlanOptions, PlanResult } from "./types.js";
 
 export { HarnessEngine, loadConfig, validateConfig, validateLock };
+export { validateRegistryRepo };
 
 export type {
   AgentsManifest,
@@ -26,6 +28,8 @@ export type {
   RegistryId,
   RegistryListEntry,
   RegistryManifest,
+  RegistryValidationOptions,
+  RegistryValidationResult,
   RegistryPullResult,
   RenderedArtifact,
   ValidationResult,

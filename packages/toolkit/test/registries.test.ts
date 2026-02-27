@@ -4,11 +4,14 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { HarnessEngine } from "../src/engine.ts";
+import { validateRegistryRepo } from "../src/registry-validator.ts";
 import { mkTmpRepo } from "./helpers.ts";
 
 const execFileAsync = promisify(execFile);
+const toolkitDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 test("init seeds local registry and add writes lock provenance immediately", async () => {
   const cwd = await mkTmpRepo();
@@ -130,7 +133,7 @@ test("registry pull blocks local drift unless --force", async () => {
   const cwd = await mkTmpRepo();
   const registryRepo = await mkTmpGitRegistry({
     files: {
-      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry" }, null, 2),
+      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
       "skills/reviewer/SKILL.md": "# reviewer\n\nVersion 1\n",
     },
   });
@@ -157,11 +160,47 @@ test("registry pull blocks local drift unless --force", async () => {
   assert.match(refreshed, /Version 2/u);
 });
 
+test("registry pull does not rewrite lock/index when all targets are non-git", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addSkill("local-skill");
+
+  const manifestPath = path.join(cwd, ".harness/manifest.json");
+  const manifest = await readJson<{
+    registries: {
+      default: string;
+      entries: Record<string, { type: "local" | "git"; url?: string; ref?: string }>;
+    };
+    entities: Array<{ id: string; type: string; registry: string }>;
+  }>(cwd, ".harness/manifest.json");
+
+  manifest.registries.entries.mirror = { type: "local" };
+  const entity = manifest.entities.find((entry) => entry.type === "skill" && entry.id === "local-skill");
+  assert.ok(entity);
+  entity.registry = "mirror";
+  await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
+
+  const lockPath = path.join(cwd, ".harness/manifest.lock.json");
+  const managedIndexPath = path.join(cwd, ".harness/managed-index.json");
+  const lockBefore = await fs.readFile(lockPath, "utf8");
+  const managedIndexBefore = await fs.readFile(managedIndexPath, "utf8");
+
+  const result = await engine.pullRegistry();
+  assert.deepEqual(result.updatedEntities, []);
+
+  const lockAfter = await fs.readFile(lockPath, "utf8");
+  const managedIndexAfter = await fs.readFile(managedIndexPath, "utf8");
+  assert.equal(lockAfter, lockBefore);
+  assert.equal(managedIndexAfter, managedIndexBefore);
+});
+
 test("git registry with tokenEnvVar requires env var at runtime", async () => {
   const cwd = await mkTmpRepo();
   const registryRepo = await mkTmpGitRegistry({
     files: {
-      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry" }, null, 2),
+      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
       "skills/reviewer/SKILL.md": "# reviewer\n\nRemote content\n",
     },
   });
@@ -178,19 +217,191 @@ test("git registry with tokenEnvVar requires env var at runtime", async () => {
   await assert.rejects(async () => engine.addSkill("reviewer", { registry: "corp" }), /REGISTRY_AUTH_MISSING/u);
 });
 
+test("validateRegistryRepo passes for valid registry layout and metadata", async () => {
+  const registryRepo = await mkTmpRegistry({
+    "harness-registry.json": JSON.stringify(
+      { version: 1, title: "Corp Registry", description: "Internal registry resources" },
+      null,
+      2,
+    ),
+    "prompts/system.md": "# System Prompt\n\nGuidance\n",
+    "skills/reviewer/SKILL.md": "# reviewer\n\nSkill\n",
+    "mcp/playwright.json": JSON.stringify({ command: "npx", args: ["@playwright/mcp"] }, null, 2),
+  });
+
+  const result = await validateRegistryRepo({ repoPath: registryRepo });
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.diagnostics, []);
+});
+
+test("validateRegistryRepo reports structural and metadata failures", async () => {
+  const cases: Array<{
+    name: string;
+    files: Record<string, string>;
+    expectedCode: string;
+    expectedPath?: string;
+  }> = [
+    {
+      name: "missing manifest",
+      files: {},
+      expectedCode: "REGISTRY_MANIFEST_MISSING",
+      expectedPath: "harness-registry.json",
+    },
+    {
+      name: "manifest missing description",
+      files: {
+        "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry" }, null, 2),
+      },
+      expectedCode: "REGISTRY_MANIFEST_INVALID",
+      expectedPath: "harness-registry.json",
+    },
+    {
+      name: "prompts contains extra file",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "prompts/system.md": "# System Prompt\n\nBase\n",
+        "prompts/extra.md": "# Extra\n",
+      },
+      expectedCode: "REGISTRY_PROMPT_INVALID",
+      expectedPath: "prompts/extra.md",
+    },
+    {
+      name: "empty prompt content",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "prompts/system.md": "\n\n",
+      },
+      expectedCode: "REGISTRY_PROMPT_INVALID",
+      expectedPath: "prompts/system.md",
+    },
+    {
+      name: "skill without SKILL.md",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "skills/reviewer/readme.md": "# reviewer\n",
+      },
+      expectedCode: "REGISTRY_SKILL_INVALID",
+      expectedPath: "skills/reviewer/SKILL.md",
+    },
+    {
+      name: "invalid skill id",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "skills/bad id/SKILL.md": "# bad\n",
+      },
+      expectedCode: "REGISTRY_SKILL_INVALID",
+      expectedPath: "skills/bad id",
+    },
+    {
+      name: "invalid mcp json",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "mcp/playwright.json": "{invalid",
+      },
+      expectedCode: "REGISTRY_MCP_INVALID",
+      expectedPath: "mcp/playwright.json",
+    },
+    {
+      name: "mcp json must be object",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "mcp/playwright.json": "[]",
+      },
+      expectedCode: "REGISTRY_MCP_INVALID",
+      expectedPath: "mcp/playwright.json",
+    },
+    {
+      name: "mcp rejects non-json files",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "mcp/readme.md": "# docs\n",
+      },
+      expectedCode: "REGISTRY_MCP_INVALID",
+      expectedPath: "mcp/readme.md",
+    },
+  ];
+
+  for (const entry of cases) {
+    const repo = await mkTmpRegistry(entry.files);
+    const result = await validateRegistryRepo({ repoPath: repo });
+    assert.equal(result.valid, false, entry.name);
+    assert.ok(
+      result.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === entry.expectedCode &&
+          (entry.expectedPath ? diagnostic.path === entry.expectedPath : true),
+      ),
+      `${entry.name}: missing expected diagnostic ${entry.expectedCode}`,
+    );
+  }
+});
+
+test("registry validate CLI emits json and failure exit code", async () => {
+  const validRepo = await mkTmpRegistry({
+    "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
+    "skills/reviewer/SKILL.md": "# reviewer\n\nSkill\n",
+  });
+
+  const validRun = await execFileAsync(
+    "pnpm",
+    ["exec", "tsx", "src/cli.ts", "registry", "validate", "--json", "--path", validRepo],
+    {
+      cwd: toolkitDir,
+    },
+  );
+  const validPayload = JSON.parse(validRun.stdout) as { valid: boolean; diagnostics: unknown[] };
+  assert.equal(validPayload.valid, true);
+  assert.deepEqual(validPayload.diagnostics, []);
+
+  const invalidRepo = await mkTmpRegistry({
+    "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry" }, null, 2),
+  });
+
+  await assert.rejects(
+    async () =>
+      execFileAsync("pnpm", ["exec", "tsx", "src/cli.ts", "registry", "validate", "--path", invalidRepo], {
+        cwd: toolkitDir,
+      }),
+    (error: unknown) =>
+      typeof error === "object" && error !== null && "code" in error && (error as { code?: number }).code === 1,
+  );
+});
+
 async function readJson<T>(cwd: string, relativePath: string): Promise<T> {
   const text = await fs.readFile(path.join(cwd, relativePath), "utf8");
   return JSON.parse(text) as T;
 }
 
 async function mkTmpGitRegistry(input: { files: Record<string, string> }): Promise<string> {
-  const repo = await fs.mkdtemp(path.join(os.tmpdir(), "agent-harness-registry-test-"));
-  for (const [relativePath, content] of Object.entries(input.files)) {
-    const absolute = path.join(repo, relativePath);
-    await fs.mkdir(path.dirname(absolute), { recursive: true });
-    await fs.writeFile(absolute, content, "utf8");
-  }
-
+  const repo = await mkTmpRegistry(input.files, "agent-harness-registry-test-");
   await execFileAsync("git", ["init"], { cwd: repo });
   await execFileAsync("git", ["checkout", "-b", "main"], { cwd: repo }).catch(() => {
     // no-op when default branch is already main
@@ -199,6 +410,19 @@ async function mkTmpGitRegistry(input: { files: Record<string, string> }): Promi
   await execFileAsync("git", ["config", "user.email", "harness-test@example.com"], { cwd: repo });
   await gitCommit(repo, "initial commit");
 
+  return repo;
+}
+
+async function mkTmpRegistry(
+  files: Record<string, string>,
+  prefix = "agent-harness-registry-validate-test-",
+): Promise<string> {
+  const repo = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
+  for (const [relativePath, content] of Object.entries(files)) {
+    const absolute = path.join(repo, relativePath);
+    await fs.mkdir(path.dirname(absolute), { recursive: true });
+    await fs.writeFile(absolute, content, "utf8");
+  }
   return repo;
 }
 

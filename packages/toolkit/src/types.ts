@@ -168,6 +168,16 @@ export interface RegistryPullResult {
   updatedEntities: Array<{ type: CliEntityType; id: string }>;
 }
 
+export interface RegistryValidationOptions {
+  repoPath?: string;
+  rootPath?: string;
+}
+
+export interface RegistryValidationResult {
+  valid: boolean;
+  diagnostics: Diagnostic[];
+}
+
 export interface LoadedPrompt {
   entity: EntityRef;
   canonical: CanonicalPrompt;
