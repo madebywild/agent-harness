@@ -7,9 +7,23 @@ import type {
   ManifestLock,
   ProviderId,
   ProviderOverride,
+  RegistryDefinition,
+  RegistryId,
+  RegistryManifest,
 } from "@agent-harness/manifest-schema";
 
-export type { AgentsManifest, EntityRef, EntityType, ManifestLock, ManagedIndex, ProviderId, ProviderOverride };
+export type {
+  AgentsManifest,
+  EntityRef,
+  EntityType,
+  ManifestLock,
+  ManagedIndex,
+  ProviderId,
+  ProviderOverride,
+  RegistryDefinition,
+  RegistryId,
+  RegistryManifest,
+};
 
 export const CLI_ENTITY_TYPES = ["prompt", "skill", "mcp"] as const;
 export type CliEntityType = (typeof CLI_ENTITY_TYPES)[number];
@@ -139,6 +153,19 @@ export interface ApplyResult extends PlanResult {
 export interface RemoveResult {
   entityType: CliEntityType;
   id: string;
+}
+
+export type LockEntityRecord = ManifestLock["entities"][number];
+export type RegistryRevision = NonNullable<LockEntityRecord["registryRevision"]>;
+
+export interface RegistryListEntry {
+  id: RegistryId;
+  definition: RegistryDefinition;
+  isDefault: boolean;
+}
+
+export interface RegistryPullResult {
+  updatedEntities: Array<{ type: CliEntityType; id: string }>;
 }
 
 export interface LoadedPrompt {

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { LATEST_VERSION_BY_KIND } from "@agent-harness/manifest-schema";
 import type { ManagedIndex, ManifestLock, ProviderId } from "@agent-harness/manifest-schema";
 import type { HarnessPaths } from "./paths.js";
 import { buildBuiltinAdapters } from "./providers.js";
@@ -194,30 +195,58 @@ export async function buildPlan(
   }
 
   const manifestFingerprint = sha256(JSON.stringify(loaded.manifest));
+  const previousEntityByKey = new Map<string, ManifestLock["entities"][number]>();
+  if (previousLock) {
+    for (const record of previousLock.entities) {
+      previousEntityByKey.set(`${record.type}:${record.id}`, record);
+    }
+  }
+
   const entityRecords = [
     ...(loaded.prompt
       ? [
           {
             id: loaded.prompt.entity.id,
             type: loaded.prompt.entity.type,
+            registry: loaded.prompt.entity.registry,
             sourceSha256: loaded.prompt.sourceSha256,
             overrideSha256ByProvider: loaded.prompt.overrideShaByProvider,
+            ...resolvePriorRegistryProvenance(
+              previousEntityByKey.get(`${loaded.prompt.entity.type}:${loaded.prompt.entity.id}`),
+              loaded.prompt.entity.registry,
+            ),
           },
         ]
       : []),
     ...loaded.skills.map((skill) => ({
       id: skill.entity.id,
       type: skill.entity.type,
+      registry: skill.entity.registry,
       sourceSha256: skill.sourceSha256,
       overrideSha256ByProvider: skill.overrideShaByProvider,
+      ...resolvePriorRegistryProvenance(
+        previousEntityByKey.get(`${skill.entity.type}:${skill.entity.id}`),
+        skill.entity.registry,
+      ),
     })),
     ...loaded.mcps.map((mcp) => ({
       id: mcp.entity.id,
       type: mcp.entity.type,
+      registry: mcp.entity.registry,
       sourceSha256: mcp.sourceSha256,
       overrideSha256ByProvider: mcp.overrideShaByProvider,
+      ...resolvePriorRegistryProvenance(
+        previousEntityByKey.get(`${mcp.entity.type}:${mcp.entity.id}`),
+        mcp.entity.registry,
+      ),
     })),
-  ].sort((left, right) => left.id.localeCompare(right.id));
+  ].sort((left, right) => {
+    const byType = left.type.localeCompare(right.type);
+    if (byType !== 0) {
+      return byType;
+    }
+    return left.id.localeCompare(right.id);
+  });
 
   const outputRecords = [...desiredByPath.values()]
     .map((artifact) => ({
@@ -229,7 +258,7 @@ export async function buildPlan(
     .sort((left, right) => left.path.localeCompare(right.path));
 
   const semanticLockPayload = {
-    version: 1 as const,
+    version: LATEST_VERSION_BY_KIND.lock as ManifestLock["version"],
     manifestFingerprint,
     entities: entityRecords,
     outputs: outputRecords,
@@ -254,7 +283,7 @@ export async function buildPlan(
         };
 
   const nextManagedIndex: ManagedIndex = {
-    version: 1,
+    version: LATEST_VERSION_BY_KIND["managed-index"] as ManagedIndex["version"],
     managedSourcePaths: collectManagedSourcePaths(loaded.manifest),
     managedOutputPaths: [...desiredByPath.keys()].sort((left, right) => left.localeCompare(right)),
   };
@@ -274,5 +303,19 @@ export async function buildPlan(
       ]),
     ),
     nextManagedIndex,
+  };
+}
+
+function resolvePriorRegistryProvenance(
+  previous: ManifestLock["entities"][number] | undefined,
+  registry: string,
+): Pick<ManifestLock["entities"][number], "importedSourceSha256" | "registryRevision"> {
+  if (!previous || previous.registry !== registry) {
+    return {};
+  }
+
+  return {
+    importedSourceSha256: previous.importedSourceSha256,
+    registryRevision: previous.registryRevision,
   };
 }

@@ -21,6 +21,14 @@ export const entityTypes = ["prompt", "skill", "mcp_config"] as const;
 export const entityTypeSchema = z.enum(entityTypes);
 export type EntityType = z.infer<typeof entityTypeSchema>;
 
+export const DEFAULT_REGISTRY_ID = "local" as const;
+
+export const registryIdSchema = z
+  .string()
+  .min(1)
+  .regex(/^[a-zA-Z0-9._-]+$/);
+export type RegistryId = z.infer<typeof registryIdSchema>;
+
 const relativePathSchema = z
   .string()
   .min(1)
@@ -29,6 +37,35 @@ const relativePathSchema = z
   .refine((value) => !/^[a-zA-Z]:/u.test(value), "path must not be Windows drive-prefixed")
   .refine((value) => !value.split("/").includes(".."), "path must not traverse parent")
   .refine((value) => path.posix.normalize(value) !== ".", "path must not resolve to current directory");
+
+export const localRegistryDefinitionSchema = z
+  .object({
+    type: z.literal("local"),
+  })
+  .strict();
+
+export const gitRegistryDefinitionSchema = z
+  .object({
+    type: z.literal("git"),
+    url: z.string().min(1),
+    ref: z.string().min(1),
+    rootPath: relativePathSchema.optional(),
+    tokenEnvVar: z.string().min(1).optional(),
+  })
+  .strict();
+
+export const registryDefinitionSchema = z.discriminatedUnion("type", [
+  localRegistryDefinitionSchema,
+  gitRegistryDefinitionSchema,
+]);
+export type RegistryDefinition = z.infer<typeof registryDefinitionSchema>;
+
+const registriesSchema = z
+  .object({
+    default: registryIdSchema.default(DEFAULT_REGISTRY_ID),
+    entries: z.record(registryIdSchema, registryDefinitionSchema).default({ [DEFAULT_REGISTRY_ID]: { type: "local" } }),
+  })
+  .strict();
 
 const providerRelativePathMapSchema = z
   .object({
@@ -53,6 +90,8 @@ const entityRefBaseSchema = z
       .string()
       .min(1)
       .regex(/^[a-zA-Z0-9._-]+$/),
+    type: entityTypeSchema,
+    registry: registryIdSchema,
     sourcePath: relativePathSchema,
     overrides: providerRelativePathMapSchema.optional(),
     enabled: z.boolean().optional(),
@@ -85,6 +124,7 @@ export const agentsManifestV1Schema = z
         enabled: z.array(providerIdSchema).default([]),
       })
       .strict(),
+    registries: registriesSchema,
     entities: z.array(entityRefSchema).default([]),
   })
   .strict();
@@ -98,6 +138,15 @@ const providerShaMapSchema = z
   })
   .strict();
 
+const registryRevisionSchema = z
+  .object({
+    kind: z.literal("git"),
+    ref: z.string().min(1),
+    commit: z.string().min(1),
+  })
+  .strict();
+export type RegistryRevision = z.infer<typeof registryRevisionSchema>;
+
 export const manifestLockV1Schema = z
   .object({
     version: z.literal(1),
@@ -108,8 +157,11 @@ export const manifestLockV1Schema = z
         .object({
           id: z.string().regex(/^[a-zA-Z0-9._-]+$/),
           type: entityTypeSchema,
+          registry: registryIdSchema,
           sourceSha256: sha256Schema,
           overrideSha256ByProvider: providerShaMapSchema,
+          importedSourceSha256: sha256Schema.optional(),
+          registryRevision: registryRevisionSchema.optional(),
         })
         .strict(),
     ),
@@ -134,6 +186,15 @@ export const managedIndexV1Schema = z
   })
   .strict();
 
+export const registryManifestSchema = z
+  .object({
+    version: z.literal(1),
+    title: z.string().min(1),
+    description: z.string().optional(),
+    metadata: z.record(z.unknown()).optional(),
+  })
+  .strict();
+
 export const agentsManifestSchema = agentsManifestV1Schema;
 export const manifestLockSchema = manifestLockV1Schema;
 export const managedIndexSchema = managedIndexV1Schema;
@@ -144,6 +205,10 @@ export const schemas = {
   manifestLockV1Schema,
   managedIndexV1Schema,
   providerOverrideV1Schema,
+  registryManifestSchema,
+  localRegistryDefinitionSchema,
+  gitRegistryDefinitionSchema,
+  registryDefinitionSchema,
   agentsManifestSchema,
   manifestLockSchema,
   managedIndexSchema,
@@ -162,6 +227,7 @@ export type McpEntityRef = z.infer<typeof mcpEntityRefSchema>;
 export type AgentsManifest = z.infer<typeof agentsManifestV1Schema>;
 export type ManifestLock = z.infer<typeof manifestLockV1Schema>;
 export type ManagedIndex = z.infer<typeof managedIndexV1Schema>;
+export type RegistryManifest = z.infer<typeof registryManifestSchema>;
 
 export function toJsonSchemas(): Record<string, object> {
   return {
@@ -176,6 +242,9 @@ export function toJsonSchemas(): Record<string, object> {
     }),
     "provider-override.schema.json": zodToJsonSchema(providerOverrideSchema, {
       name: "ProviderOverride",
+    }),
+    "registry-manifest.schema.json": zodToJsonSchema(registryManifestSchema, {
+      name: "RegistryManifest",
     }),
   };
 }
@@ -194,6 +263,10 @@ export function parseManagedIndex(input: unknown): ManagedIndex {
 
 export function parseProviderOverride(input: unknown): ProviderOverride {
   return parseVersionedDocument("provider-override", input, providerOverrideV1Schema);
+}
+
+export function parseRegistryManifest(input: unknown): RegistryManifest {
+  return registryManifestSchema.parse(input);
 }
 
 function parseVersionedDocument<TSchema extends z.ZodTypeAny>(

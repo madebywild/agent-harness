@@ -10,10 +10,17 @@ test("parseManifest rejects Windows drive-prefixed source paths", () => {
         providers: {
           enabled: [],
         },
+        registries: {
+          default: "local",
+          entries: {
+            local: { type: "local" },
+          },
+        },
         entities: [
           {
             id: "system",
             type: "prompt",
+            registry: "local",
             sourcePath: "C:/repo/.harness/src/prompts/system.md",
           },
         ],
@@ -40,6 +47,12 @@ test("parseManifest throws VersionError for newer schema versions", () => {
         version: 2,
         providers: {
           enabled: [],
+        },
+        registries: {
+          default: "local",
+          entries: {
+            local: { type: "local" },
+          },
         },
         entities: [],
       }),

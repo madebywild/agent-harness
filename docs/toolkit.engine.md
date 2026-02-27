@@ -9,7 +9,12 @@ Implements the orchestration layer (`HarnessEngine`) for init, CRUD, version pre
 - `HarnessEngine(cwd = process.cwd())`
 - `init({ force? })`: creates or force-recreates `.harness` state files.
 - `enableProvider` / `disableProvider`: mutate `manifest.providers.enabled`.
-- `addPrompt`, `addSkill`, `addMcp`: scaffold source + override sidecars and register manifest entries.
+- `addPrompt`, `addSkill`, `addMcp`: scaffold/import sources + override sidecars and register manifest entries.
+  - Accept optional `{ registry?: string }`.
+  - For git registries, fetches remote entity content and materializes into local `.harness/src`.
+  - Writes lock provenance immediately (registry + imported digest + git revision).
+- `listRegistries`, `addRegistry`, `removeRegistry`, `setDefaultRegistry`, `getDefaultRegistry`: manage manifest registry configuration.
+- `pullRegistry({ entityType?, id?, registry?, force? })`: refresh imported entities from git registries with local-drift protection (`--force` equivalent).
 - `remove(entityType, id, deleteSource)`: removes manifest entry and optionally deletes source and overrides; returns removed `{ entityType, id }`.
   - Prompt removals require `id === "system"` (v1 prompt singleton).
 - `validate()`: returns diagnostics-only validity decision.
