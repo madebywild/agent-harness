@@ -467,8 +467,10 @@ export class HarnessEngine {
     }
 
     const lock = await this.readLockOrDefault(manifest);
-    const updatedEntities: RegistryPullResult["updatedEntities"] = [];
-    let manifestMutated = false;
+    const plannedUpdates: Array<{
+      entity: AgentsManifest["entities"][number];
+      fetched: Awaited<ReturnType<typeof fetchEntityFromRegistry>>;
+    }> = [];
 
     for (const entity of sortEntities(targets)) {
       const registryDef = manifest.registries.entries[entity.registry];
@@ -490,6 +492,18 @@ export class HarnessEngine {
         );
       }
 
+      plannedUpdates.push({ entity, fetched });
+    }
+
+    if (plannedUpdates.length === 0) {
+      return { updatedEntities: [] };
+    }
+
+    const updatedEntities: RegistryPullResult["updatedEntities"] = [];
+    let manifestMutated = false;
+
+    for (const planned of plannedUpdates) {
+      const { entity, fetched } = planned;
       await this.materializeFetchedEntity(entity, fetched);
       const ensuredOverrides = await this.ensureOverrideFiles(entity.type, entity.id, entity.overrides);
       entity.overrides = ensuredOverrides.overrides;

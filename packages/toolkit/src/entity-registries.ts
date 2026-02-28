@@ -73,7 +73,8 @@ export async function fetchEntityFromRegistry(
     throw new RegistryError("REGISTRY_FETCH_FAILED", registryId, "Local registry does not support remote fetch");
   }
 
-  if (definition.tokenEnvVar && !process.env[definition.tokenEnvVar]) {
+  const authToken = definition.tokenEnvVar ? process.env[definition.tokenEnvVar] : undefined;
+  if (definition.tokenEnvVar && !authToken) {
     throw new RegistryError(
       "REGISTRY_AUTH_MISSING",
       registryId,
@@ -85,15 +86,14 @@ export async function fetchEntityFromRegistry(
   const checkoutDir = path.join(tempRoot, "repo");
 
   try {
-    await execFileAsync("git", ["clone", "--depth", "1", "--branch", definition.ref, definition.url, checkoutDir], {
-      env: process.env,
-    });
+    const cloneCommand = buildGitCloneCommand(definition, authToken, checkoutDir);
+    await execFileAsync("git", cloneCommand.args, { env: process.env });
   } catch (error) {
     await cleanupTempDir(tempRoot);
     throw new RegistryError(
       "REGISTRY_FETCH_FAILED",
       registryId,
-      `Failed to fetch git registry '${registryId}': ${error instanceof Error ? error.message : "unknown error"}`,
+      `Failed to fetch git registry '${registryId}': ${cloneErrorMessage(error, authToken)}`,
     );
   }
 
@@ -334,4 +334,42 @@ function isNotFound(error: unknown): boolean {
   return (
     typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "ENOENT"
   );
+}
+
+function buildGitCloneCommand(
+  definition: Extract<RegistryDefinition, { type: "git" }>,
+  authToken: string | undefined,
+  checkoutDir: string,
+): { args: string[] } {
+  const args = ["clone", "--depth", "1", "--branch", definition.ref];
+  if (authToken) {
+    args.push("-c", `http.extraHeader=Authorization: ${toAuthHeader(authToken)}`);
+  }
+  args.push(definition.url, checkoutDir);
+  return { args };
+}
+
+function toAuthHeader(rawToken: string): string {
+  const token = rawToken.trim();
+  if (/^(Bearer|Basic)\s+/u.test(token)) {
+    return token;
+  }
+
+  return `Basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`;
+}
+
+function cloneErrorMessage(error: unknown, authToken: string | undefined): string {
+  if (!(error instanceof Error)) {
+    return "unknown error";
+  }
+
+  if (!authToken) {
+    return error.message;
+  }
+
+  const headerValue = toAuthHeader(authToken);
+  return error.message
+    .replaceAll(authToken, "<redacted>")
+    .replaceAll(headerValue, "<redacted>")
+    .replaceAll(Buffer.from(`x-access-token:${authToken.trim()}`).toString("base64"), "<redacted>");
 }

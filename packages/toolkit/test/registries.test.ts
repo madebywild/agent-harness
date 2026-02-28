@@ -160,6 +160,34 @@ test("registry pull blocks local drift unless --force", async () => {
   assert.match(refreshed, /Version 2/u);
 });
 
+test("registry pull preflight avoids partial updates when later entity conflicts", async () => {
+  const cwd = await mkTmpRepo();
+  const registryRepo = await mkTmpGitRegistry({
+    files: {
+      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
+      "skills/alpha/SKILL.md": "# alpha\n\nVersion 1\n",
+      "skills/zeta/SKILL.md": "# zeta\n\nVersion 1\n",
+    },
+  });
+
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+  await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
+  await engine.addSkill("alpha", { registry: "corp" });
+  await engine.addSkill("zeta", { registry: "corp" });
+
+  await fs.writeFile(path.join(cwd, ".harness/src/skills/zeta/SKILL.md"), "# zeta\n\nLocal edits\n", "utf8");
+
+  await fs.writeFile(path.join(registryRepo, "skills/alpha/SKILL.md"), "# alpha\n\nVersion 2\n", "utf8");
+  await fs.writeFile(path.join(registryRepo, "skills/zeta/SKILL.md"), "# zeta\n\nVersion 2\n", "utf8");
+  await gitCommit(registryRepo, "update all skills");
+
+  await assert.rejects(async () => engine.pullRegistry(), /REGISTRY_PULL_CONFLICT/u);
+
+  const alphaAfter = await fs.readFile(path.join(cwd, ".harness/src/skills/alpha/SKILL.md"), "utf8");
+  assert.match(alphaAfter, /Version 1/u);
+});
+
 test("registry pull does not rewrite lock/index when all targets are non-git", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);
@@ -215,6 +243,86 @@ test("git registry with tokenEnvVar requires env var at runtime", async () => {
   });
 
   await assert.rejects(async () => engine.addSkill("reviewer", { registry: "corp" }), /REGISTRY_AUTH_MISSING/u);
+});
+
+test("git registry fetch passes token via git clone auth header", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+
+  const fakeBin = await fs.mkdtemp(path.join(os.tmpdir(), "agent-harness-fake-git-bin-"));
+  const fakeGit = path.join(fakeBin, "git");
+  const logFile = path.join(fakeBin, "git.log");
+
+  await fs.writeFile(
+    fakeGit,
+    `#!/bin/sh
+echo "$@" >> "$HARNESS_GIT_LOG"
+if [ "$1" = "clone" ]; then
+  checkout=""
+  for arg in "$@"; do
+    checkout="$arg"
+  done
+  mkdir -p "$checkout/skills/reviewer"
+  cat > "$checkout/harness-registry.json" <<'JSON'
+{"version":1,"title":"Stub Registry","description":"Stub"}
+JSON
+  cat > "$checkout/skills/reviewer/SKILL.md" <<'MD'
+# reviewer
+
+Remote content
+MD
+  exit 0
+fi
+if [ "$1" = "-C" ] && [ "$3" = "rev-parse" ] && [ "$4" = "HEAD" ]; then
+  echo "0123456789abcdef0123456789abcdef01234567"
+  exit 0
+fi
+echo "unsupported git invocation: $@" >&2
+exit 1
+`,
+    "utf8",
+  );
+  await fs.chmod(fakeGit, 0o755);
+
+  const tokenEnvVar = findMissingEnvVarName("REGISTRY_TOKEN_SET_");
+  const tokenValue = "test-token-123";
+  const previousPath = process.env.PATH;
+  const previousToken = process.env[tokenEnvVar];
+  const previousLog = process.env.HARNESS_GIT_LOG;
+
+  process.env[tokenEnvVar] = tokenValue;
+  process.env.HARNESS_GIT_LOG = logFile;
+  process.env.PATH = `${fakeBin}${path.delimiter}${previousPath ?? ""}`;
+
+  try {
+    await engine.addRegistry("corp", {
+      gitUrl: "https://example.com/private/repo.git",
+      ref: "main",
+      tokenEnvVar,
+    });
+    await engine.addSkill("reviewer", { registry: "corp" });
+  } finally {
+    if (previousToken === undefined) {
+      delete process.env[tokenEnvVar];
+    } else {
+      process.env[tokenEnvVar] = previousToken;
+    }
+    if (previousLog === undefined) {
+      delete process.env.HARNESS_GIT_LOG;
+    } else {
+      process.env.HARNESS_GIT_LOG = previousLog;
+    }
+    if (previousPath === undefined) {
+      delete process.env.PATH;
+    } else {
+      process.env.PATH = previousPath;
+    }
+  }
+
+  const logText = await fs.readFile(logFile, "utf8");
+  const authHeader = `Authorization: Basic ${Buffer.from(`x-access-token:${tokenValue}`).toString("base64")}`;
+  assert.match(logText, new RegExp(`http\\.extraHeader=${escapeRegExp(authHeader)}`, "u"));
 });
 
 test("validateRegistryRepo passes for valid registry layout and metadata", async () => {
@@ -440,4 +548,8 @@ function findMissingEnvVarName(prefix: string): string {
   }
 
   throw new Error(`Could not find an unused environment variable name for prefix '${prefix}'`);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
