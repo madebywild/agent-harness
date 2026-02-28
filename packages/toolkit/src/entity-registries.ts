@@ -136,6 +136,7 @@ export async function fetchEntityFromRegistry(
       const skillDir = path.join(checkoutDir, rootPath, "skills", id);
       const files = await readSkillFiles(skillDir, registryId, id);
       const normalizedFiles = files
+        .filter((entry) => !isSkillOverrideFile(entry.path))
         .map((entry) => ({ path: entry.path, sha256: entry.sha256 }))
         .sort((left, right) => left.path.localeCompare(right.path));
 
@@ -328,6 +329,10 @@ async function cleanupTempDir(tempDir: string): Promise<void> {
   await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {
     // best-effort temp cleanup
   });
+}
+
+function isSkillOverrideFile(relativePath: string): boolean {
+  return /^OVERRIDES\.[^.]+\.ya?ml$/u.test(path.basename(relativePath));
 }
 
 function isNotFound(error: unknown): boolean {

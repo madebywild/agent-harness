@@ -160,6 +160,31 @@ test("registry pull blocks local drift unless --force", async () => {
   assert.match(refreshed, /Version 2/u);
 });
 
+test("registry pull does not conflict when imported skill includes OVERRIDES sidecars", async () => {
+  const cwd = await mkTmpRepo();
+  const registryRepo = await mkTmpGitRegistry({
+    files: {
+      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
+      "skills/reviewer/SKILL.md": "# reviewer\n\nVersion 1\n",
+      "skills/reviewer/OVERRIDES.codex.yaml": "version: 1\n",
+    },
+  });
+
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+  await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
+  await engine.addSkill("reviewer", { registry: "corp" });
+
+  await fs.writeFile(path.join(registryRepo, "skills/reviewer/SKILL.md"), "# reviewer\n\nVersion 2\n", "utf8");
+  await gitCommit(registryRepo, "update skill");
+
+  const result = await engine.pullRegistry({ entityType: "skill", id: "reviewer" });
+  assert.deepEqual(result.updatedEntities, [{ type: "skill", id: "reviewer" }]);
+
+  const refreshed = await fs.readFile(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md"), "utf8");
+  assert.match(refreshed, /Version 2/u);
+});
+
 test("registry pull preflight avoids partial updates when later entity conflicts", async () => {
   const cwd = await mkTmpRepo();
   const registryRepo = await mkTmpGitRegistry({
