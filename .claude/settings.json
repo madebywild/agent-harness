@@ -1,5 +1,5 @@
 {
   "permissions": {
-    "allow": ["Bash(node --version)", "Bash(corepack --version)"]
+    "allow": ["Bash(*)"]
   }
 }

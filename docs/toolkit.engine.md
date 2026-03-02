@@ -1,8 +1,12 @@
-# `packages/toolkit/src/engine.ts`
+# `packages/toolkit/src/engine.ts` + `engine/`
 
 ## Purpose
 
-Implements the orchestration layer (`HarnessEngine`) for init, CRUD, version preflight/diagnostics/migration, planning, applying, and watch mode.
+Implements the orchestration layer (`HarnessEngine`) for init, CRUD, version preflight/diagnostics/migration, planning, applying, and watch mode. Supporting logic is split across three sub-modules in `engine/`:
+
+- **`engine/entities.ts`** — entity CRUD: `addPromptEntity`, `addSkillEntity`, `addMcpEntity`, `pullRegistryEntities`, `removeEntity`, `materializeFetchedEntity`, `ensureOverrideFiles`, `readCurrentSourceSha`, `loadSkillSourceHashes`.
+- **`engine/state.ts`** — manifest/lock state helpers: `readManifestOrThrow`, `readLockOrDefault`, `readManagedIndexOrDefault`, `setLockEntityRecord`, `upsertLockEntityRecord`, `removeLockEntityRecord`, `writeManagedSourceIndex`.
+- **`engine/utils.ts`** — pure utilities and validators: sort/validate/resolve helpers, `printDiagnostics`, `printApplySummary`, `preflightDiagnosticsFromDoctor`, `loadConfig`, `validateConfig`, `validateLock`, `validateManagedIndex`, `loadOverride`.
 
 ## Main class
 
@@ -32,7 +36,7 @@ Implements the orchestration layer (`HarnessEngine`) for init, CRUD, version pre
 - If manifest is missing, planning returns empty operations and carries manifest diagnostics.
 - Apply short-circuits when any `error` diagnostic exists.
 
-## Exported utilities
+## Exported utilities (from `engine/utils.ts`)
 
 - `loadConfig(path?)`: read+parse manifest from disk.
 - `validateConfig`, `validateLock`, `validateManagedIndex`: schema-based validators returning diagnostics.

@@ -1,4 +1,5 @@
-import { HarnessEngine, loadConfig, validateConfig, validateLock } from "./engine.js";
+import { HarnessEngine } from "./engine.js";
+import { loadConfig, validateConfig, validateLock } from "./engine/utils.js";
 import { validateRegistryRepo } from "./registry-validator.js";
 import type { ApplyOptions, ApplyResult, DoctorResult, MigrationResult, PlanOptions, PlanResult } from "./types.js";
 
