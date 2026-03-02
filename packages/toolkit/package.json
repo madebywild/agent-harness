@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
+    "testcontainers": "^11.5.1",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   },
@@ -37,7 +38,8 @@
     "format:write": "biome format --write .",
     "check": "biome check .",
     "check:write": "biome check --write .",
-    "test": "pnpm exec tsx --test test/**/*.test.ts",
+    "test": "pnpm exec tsx --test test/*.test.ts",
+    "test:e2e:containers": "pnpm exec tsx --test test/e2e/**/*.e2e.test.ts",
     "typecheck": "pnpm exec tsc -b --pretty false"
   }
 }

@@ -186,12 +186,22 @@ pnpm typecheck
 # Run tests
 pnpm test
 
+# Run containerized registry end-to-end tests
+pnpm test:e2e:containers
+
 # Lint and format
 pnpm check:write
 
 # Watch mode during development
 pnpm --filter @agent-harness/toolkit watch
 ```
+
+## Containerized E2E Tests
+
+- `pnpm test` remains fast and does not require Docker.
+- `pnpm test:e2e:containers` runs Docker-backed CLI end-to-end tests for remote git registries.
+- A Docker-compatible container runtime is required for `pnpm test:e2e:containers`.
+- The first run may be slower because it can pull the Gitea container image.
 
 ## Architecture
 
