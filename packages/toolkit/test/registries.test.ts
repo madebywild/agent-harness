@@ -276,35 +276,60 @@ test("git registry fetch passes token via git clone auth header", async () => {
   await engine.init();
 
   const fakeBin = await fs.mkdtemp(path.join(os.tmpdir(), "agent-harness-fake-git-bin-"));
+  const fakeGitImpl = path.join(fakeBin, "fake-git.js");
   const fakeGit = path.join(fakeBin, "git");
+  const fakeGitCmd = path.join(fakeBin, "git.cmd");
   const logFile = path.join(fakeBin, "git.log");
 
   await fs.writeFile(
-    fakeGit,
-    `#!/bin/sh
-echo "$@" >> "$HARNESS_GIT_LOG"
-if [ "$1" = "clone" ]; then
-  checkout=""
-  for arg in "$@"; do
-    checkout="$arg"
-  done
-  mkdir -p "$checkout/skills/reviewer"
-  cat > "$checkout/harness-registry.json" <<'JSON'
-{"version":1,"title":"Stub Registry","description":"Stub"}
-JSON
-  cat > "$checkout/skills/reviewer/SKILL.md" <<'MD'
-# reviewer
+    fakeGitImpl,
+    `import fs from "node:fs/promises";
+import path from "node:path";
 
-Remote content
-MD
-  exit 0
-fi
-if [ "$1" = "-C" ] && [ "$3" = "rev-parse" ] && [ "$4" = "HEAD" ]; then
-  echo "0123456789abcdef0123456789abcdef01234567"
-  exit 0
-fi
-echo "unsupported git invocation: $@" >&2
-exit 1
+const args = process.argv.slice(2);
+const logFile = process.env.HARNESS_GIT_LOG;
+if (logFile) {
+  await fs.appendFile(logFile, \`\${args.join(" ")}\\n\`, "utf8");
+}
+
+if (args[0] === "clone") {
+  const checkout = args.at(-1);
+  if (!checkout) {
+    process.stderr.write("missing checkout path\\n");
+    process.exit(1);
+  }
+
+  await fs.mkdir(path.join(checkout, "skills", "reviewer"), { recursive: true });
+  await fs.writeFile(
+    path.join(checkout, "harness-registry.json"),
+    '{"version":1,"title":"Stub Registry","description":"Stub"}\\n',
+    "utf8",
+  );
+  await fs.writeFile(path.join(checkout, "skills", "reviewer", "SKILL.md"), "# reviewer\\n\\nRemote content\\n", "utf8");
+  process.exit(0);
+}
+
+if (args[0] === "-C" && args[2] === "rev-parse" && args[3] === "HEAD") {
+  process.stdout.write("0123456789abcdef0123456789abcdef01234567\\n");
+  process.exit(0);
+}
+
+process.stderr.write(\`unsupported git invocation: \${args.join(" ")}\\n\`);
+process.exit(1);
+`,
+    "utf8",
+  );
+  await fs.writeFile(
+    fakeGit,
+    `#!/usr/bin/env sh
+node "$(dirname "$0")/fake-git.js" "$@"
+`,
+    "utf8",
+  );
+  await fs.writeFile(
+    fakeGitCmd,
+    `@echo off
+node "%~dp0\\fake-git.js" %*
 `,
     "utf8",
   );

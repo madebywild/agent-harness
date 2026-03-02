@@ -24,6 +24,7 @@ import { buildPlan } from "./planner.js";
 import {
   collectManagedSourcePaths,
   emptyManagedIndex,
+  listFilesRecursively,
   loadLock,
   loadManagedIndex,
   loadManifest,
@@ -167,7 +168,12 @@ export class HarnessEngine {
       type: "git",
       url: options.gitUrl,
       ref: options.ref ?? "main",
-      rootPath: options.rootPath ? normalizeRelativePath(options.rootPath) : undefined,
+      rootPath:
+        options.rootPath === "." || options.rootPath === "./"
+          ? undefined
+          : options.rootPath
+            ? normalizeRelativePath(options.rootPath)
+            : undefined,
       tokenEnvVar: options.tokenEnvVar,
     };
 
@@ -1169,30 +1175,6 @@ function computeSkillSourceSha(files: Array<{ path: string; sha256: string }>): 
     .map((file) => ({ path: file.path, sha256: file.sha256 }))
     .sort((left, right) => left.path.localeCompare(right.path));
   return sha256(stableStringify(normalized));
-}
-
-async function listFilesRecursively(baseDir: string): Promise<string[]> {
-  if (!(await exists(baseDir))) {
-    return [];
-  }
-
-  const output: string[] = [];
-  const queue = [baseDir];
-
-  while (queue.length > 0) {
-    const current = queue.pop() as string;
-    const entries = await fs.readdir(current, { withFileTypes: true });
-    for (const entry of entries) {
-      const nextPath = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        queue.push(nextPath);
-      } else if (entry.isFile()) {
-        output.push(nextPath);
-      }
-    }
-  }
-
-  return output.sort((left, right) => left.localeCompare(right));
 }
 
 function resolveRemoveTargetId(entityType: CliEntityType, id: string): string {

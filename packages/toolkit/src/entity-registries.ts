@@ -87,7 +87,13 @@ export async function fetchEntityFromRegistry(
 
   try {
     const cloneCommand = buildGitCloneCommand(definition, authToken, checkoutDir);
-    await execFileAsync("git", cloneCommand.args, { env: process.env });
+    await execFileAsync("git", cloneCommand.args, {
+      env: {
+        ...process.env,
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_ASKPASS: "",
+      },
+    });
   } catch (error) {
     await cleanupTempDir(tempRoot);
     throw new RegistryError(
