@@ -17,6 +17,7 @@
     "check": "biome check .",
     "check:write": "biome check --write .",
     "test": "pnpm exec turbo run test",
+    "test:e2e:containers": "pnpm --filter @agent-harness/toolkit test:e2e:containers",
     "typecheck": "pnpm exec turbo run typecheck",
     "prepare": "lefthook install"
   },

@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { providerIdSchema } from "@agent-harness/manifest-schema";
 import { Command } from "commander";
 import { HarnessEngine } from "./engine.js";
+import { validateRegistryRepo } from "./registry-validator.js";
 import { CLI_ENTITY_TYPES, isCliEntityType } from "./types.js";
 
 const require = createRequire(import.meta.url);
@@ -48,14 +49,154 @@ providerCommand
     console.log(`Disabled provider '${parsed}'.`);
   });
 
+const registryCommand = program.command("registry").description("Manage registries and pull imported entities");
+
+registryCommand
+  .command("list")
+  .description("List configured registries")
+  .option("--json", "emit machine-readable JSON")
+  .action(async (options: { json?: boolean }) => {
+    const engine = new HarnessEngine(program.opts().cwd as string);
+    const registries = await engine.listRegistries();
+    if (options.json) {
+      console.log(JSON.stringify(registries, null, 2));
+      return;
+    }
+
+    for (const entry of registries) {
+      const marker = entry.isDefault ? " (default)" : "";
+      if (entry.definition.type === "local") {
+        console.log(`${entry.id}${marker} - local`);
+      } else {
+        const root = entry.definition.rootPath ? ` root=${entry.definition.rootPath}` : "";
+        const token = entry.definition.tokenEnvVar ? ` tokenEnv=${entry.definition.tokenEnvVar}` : "";
+        console.log(
+          `${entry.id}${marker} - git url=${entry.definition.url} ref=${entry.definition.ref}${root}${token}`,
+        );
+      }
+    }
+  });
+
+registryCommand
+  .command("validate")
+  .description("Validate a git registry repository structure and metadata")
+  .option("--path <dir>", "registry repository path", ".")
+  .option("--root <relative>", "registry root path inside repository", ".")
+  .option("--json", "emit machine-readable JSON")
+  .action(async (options: { path?: string; root?: string; json?: boolean }) => {
+    const result = await validateRegistryRepo({
+      repoPath: options.path,
+      rootPath: options.root,
+    });
+
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else if (result.diagnostics.length === 0) {
+      console.log("Registry validation passed.");
+    } else {
+      for (const diagnostic of result.diagnostics) {
+        const location = diagnostic.path ? ` (${diagnostic.path})` : "";
+        console.log(`[${diagnostic.severity}] ${diagnostic.code}: ${diagnostic.message}${location}`);
+      }
+    }
+
+    if (!result.valid) {
+      process.exitCode = 1;
+    }
+  });
+
+registryCommand
+  .command("add")
+  .description("Add a git registry")
+  .argument("<name>", "registry id")
+  .requiredOption("--git-url <url>", "git remote url")
+  .option("--ref <ref>", "git branch/tag/ref to track", "main")
+  .option("--root <path>", "root path inside the git repository")
+  .option("--token-env <name>", "environment variable name containing registry token")
+  .action(async (name: string, options: { gitUrl: string; ref?: string; root?: string; tokenEnv?: string }) => {
+    const engine = new HarnessEngine(program.opts().cwd as string);
+    await engine.addRegistry(name, {
+      gitUrl: options.gitUrl,
+      ref: options.ref,
+      rootPath: options.root,
+      tokenEnvVar: options.tokenEnv,
+    });
+    console.log(`Added registry '${name}'.`);
+  });
+
+registryCommand
+  .command("remove")
+  .description("Remove a configured registry")
+  .argument("<name>", "registry id")
+  .action(async (name: string) => {
+    const engine = new HarnessEngine(program.opts().cwd as string);
+    await engine.removeRegistry(name);
+    console.log(`Removed registry '${name}'.`);
+  });
+
+const registryDefaultCommand = registryCommand.command("default").description("Manage default registry");
+
+registryDefaultCommand
+  .command("show")
+  .description("Show the current default registry")
+  .action(async () => {
+    const engine = new HarnessEngine(program.opts().cwd as string);
+    const registry = await engine.getDefaultRegistry();
+    console.log(registry);
+  });
+
+registryDefaultCommand
+  .command("set")
+  .description("Set the default registry")
+  .argument("<name>", "registry id")
+  .action(async (name: string) => {
+    const engine = new HarnessEngine(program.opts().cwd as string);
+    await engine.setDefaultRegistry(name);
+    console.log(`Default registry set to '${name}'.`);
+  });
+
+registryCommand
+  .command("pull")
+  .description("Refresh imported entities from configured registries")
+  .argument("[entity-type]", CLI_ENTITY_TYPES.join("|"))
+  .argument("[id]", "entity id; use 'system' for prompt")
+  .option("--registry <registry>", "limit pull to one registry")
+  .option("--force", "overwrite locally modified imported sources", false)
+  .action(
+    async (entityType: string | undefined, id: string | undefined, options: { registry?: string; force?: boolean }) => {
+      if (entityType && !isCliEntityType(entityType)) {
+        throw new Error(`entity-type must be one of: ${CLI_ENTITY_TYPES.join(", ")}`);
+      }
+      const parsedEntityType = entityType && isCliEntityType(entityType) ? entityType : undefined;
+
+      const engine = new HarnessEngine(program.opts().cwd as string);
+      const result = await engine.pullRegistry({
+        entityType: parsedEntityType,
+        id,
+        registry: options.registry,
+        force: options.force,
+      });
+
+      if (result.updatedEntities.length === 0) {
+        console.log("No imported entities matched pull criteria.");
+        return;
+      }
+
+      for (const updated of result.updatedEntities) {
+        console.log(`Pulled ${updated.type} '${updated.id}'.`);
+      }
+    },
+  );
+
 const addCommand = program.command("add").description("Add source entities under .harness/src");
 
 addCommand
   .command("prompt")
   .description("Create the v1 system prompt entity")
-  .action(async () => {
+  .option("--registry <registry>", "registry id (defaults to configured default/local)")
+  .action(async (options: { registry?: string }) => {
     const engine = new HarnessEngine(program.opts().cwd as string);
-    await engine.addPrompt();
+    await engine.addPrompt({ registry: options.registry });
     console.log("Added prompt entity 'system'.");
   });
 
@@ -63,9 +204,10 @@ addCommand
   .command("skill")
   .description("Create a skill entity")
   .argument("<skill-id>", "skill id")
-  .action(async (skillId: string) => {
+  .option("--registry <registry>", "registry id (defaults to configured default/local)")
+  .action(async (skillId: string, options: { registry?: string }) => {
     const engine = new HarnessEngine(program.opts().cwd as string);
-    await engine.addSkill(skillId);
+    await engine.addSkill(skillId, { registry: options.registry });
     console.log(`Added skill '${skillId}'.`);
   });
 
@@ -73,9 +215,10 @@ addCommand
   .command("mcp")
   .description("Create an MCP config entity")
   .argument("<config-id>", "MCP config id")
-  .action(async (configId: string) => {
+  .option("--registry <registry>", "registry id (defaults to configured default/local)")
+  .action(async (configId: string, options: { registry?: string }) => {
     const engine = new HarnessEngine(program.opts().cwd as string);
-    await engine.addMcp(configId);
+    await engine.addMcp(configId, { registry: options.registry });
     console.log(`Added MCP config '${configId}'.`);
   });
 

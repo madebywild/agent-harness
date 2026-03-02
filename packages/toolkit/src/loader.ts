@@ -1,7 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { AgentsManifest, EntityRef, ProviderId, ProviderOverride } from "@agent-harness/manifest-schema";
-import { providerIdSchema } from "@agent-harness/manifest-schema";
+import type {
+  AgentsManifest,
+  EntityRef,
+  ProviderId,
+  ProviderOverride,
+  RegistryDefinition,
+} from "@agent-harness/manifest-schema";
+import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@agent-harness/manifest-schema";
 import matter from "gray-matter";
 import {
   DEFAULT_PROMPT_SOURCE_PATH,
@@ -99,6 +105,7 @@ function buildProviderEnablementDiagnostics(manifest: AgentsManifest): Diagnosti
 
 export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
+  const registryEntries = manifest.registries.entries;
 
   const providerSet = new Set<string>();
   for (const provider of manifest.providers.enabled) {
@@ -111,6 +118,31 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
       });
     }
     providerSet.add(provider);
+  }
+
+  const localRegistry = registryEntries[DEFAULT_REGISTRY_ID];
+  if (!localRegistry || localRegistry.type !== "local") {
+    diagnostics.push({
+      code: "REGISTRY_NOT_FOUND",
+      severity: "error",
+      message: "Manifest registries.entries must include built-in 'local' registry with type 'local'",
+      path: ".harness/manifest.json",
+    });
+  }
+
+  if (!registryEntries[manifest.registries.default]) {
+    diagnostics.push({
+      code: "REGISTRY_DEFAULT_INVALID",
+      severity: "error",
+      message: `Default registry '${manifest.registries.default}' is not defined in registries.entries`,
+      path: ".harness/manifest.json",
+    });
+  }
+
+  const registryIds = new Set(Object.keys(registryEntries));
+  const gitRegistryEntries = Object.entries(registryEntries).filter(([, entry]) => entry.type === "git");
+  for (const [registryId, definition] of gitRegistryEntries) {
+    validateGitRegistryEntry(registryId, definition, diagnostics);
   }
 
   const entityIdSet = new Set<string>();
@@ -127,6 +159,16 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
       });
     }
     entityIdSet.add(entity.id);
+
+    if (!registryIds.has(entity.registry)) {
+      diagnostics.push({
+        code: "REGISTRY_NOT_FOUND",
+        severity: "error",
+        message: `Entity '${entity.id}' references unknown registry '${entity.registry}'`,
+        path: ".harness/manifest.json",
+        entityId: entity.id,
+      });
+    }
 
     const sourcePath = normalizeRelativePath(entity.sourcePath);
     if (entity.type === "prompt") {
@@ -189,6 +231,21 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
   }
 
   return diagnostics;
+}
+
+function validateGitRegistryEntry(registryId: string, definition: RegistryDefinition, diagnostics: Diagnostic[]): void {
+  if (definition.type !== "git") {
+    return;
+  }
+
+  if (definition.tokenEnvVar && !/^[A-Z_][A-Z0-9_]*$/u.test(definition.tokenEnvVar)) {
+    diagnostics.push({
+      code: "REGISTRY_INVALID",
+      severity: "error",
+      message: `Registry '${registryId}' tokenEnvVar must be a valid environment variable name`,
+      path: ".harness/manifest.json",
+    });
+  }
 }
 
 async function loadPrompt(

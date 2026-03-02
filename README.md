@@ -17,6 +17,8 @@ Agent Harness is a TypeScript CLI tool and library that manages AI agent configu
 - System prompt management with provider-specific overrides
 - Reusable skill management synchronized across providers
 - Centralized MCP server configuration with merged outputs
+- Per-entity registry provenance with built-in `local` and Git-backed external registries
+- Explicit `registry pull` workflow for refreshing imported entities
 - Watch mode for automatic regeneration on file changes
 - Strict file ownership with manifest-based integrity enforcement
 - Explicit schema version management with `doctor` + `migrate`
@@ -38,6 +40,10 @@ harness init
 harness provider enable codex
 harness provider enable claude
 harness provider enable copilot
+
+# Configure a git registry and set it as default
+harness registry add corp --git-url git@github.com:acme/harness-registry.git --ref main
+harness registry default set corp
 
 # Add a system prompt
 harness add prompt
@@ -85,9 +91,14 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | `harness migrate`               | Upgrade schema files to latest supported version    |
 | `harness provider enable <id>`  | Enable a provider (codex/claude/copilot)            |
 | `harness provider disable <id>` | Disable a provider                                  |
-| `harness add prompt`            | Add system prompt entity                            |
-| `harness add skill <id>`        | Add a skill entity                                  |
-| `harness add mcp <id>`          | Add an MCP config entity                            |
+| `harness registry list`         | List configured registries                          |
+| `harness registry add <name> --git-url <url>` | Add a Git registry entry                |
+| `harness registry remove <name>` | Remove a configured registry                       |
+| `harness registry default show/set <name>` | Show or set default registry              |
+| `harness registry pull [<type> <id>] [--registry <name>] [--force]` | Refresh imported entities |
+| `harness add prompt [--registry <name>]` | Add system prompt entity                     |
+| `harness add skill <id> [--registry <name>]` | Add a skill entity                     |
+| `harness add mcp <id> [--registry <name>]` | Add an MCP config entity                 |
 | `harness remove <type> <id> [--no-delete-source]` | Remove an entity (deletes source by default) |
 | `harness validate`              | Validate manifest and files                         |
 | `harness plan`                  | Preview changes (dry-run)                           |
@@ -108,8 +119,8 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 
 ```
 .harness/
-├── manifest.json          # Entity registry
-├── manifest.lock.json     # Generated state lock
+├── manifest.json          # Entity + registry config
+├── manifest.lock.json     # Generated state lock + registry provenance
 ├── managed-index.json     # Managed file index
 └── src/
     ├── prompts/
@@ -175,12 +186,22 @@ pnpm typecheck
 # Run tests
 pnpm test
 
+# Run containerized registry end-to-end tests
+pnpm test:e2e:containers
+
 # Lint and format
 pnpm check:write
 
 # Watch mode during development
 pnpm --filter @agent-harness/toolkit watch
 ```
+
+## Containerized E2E Tests
+
+- `pnpm test` remains fast and does not require Docker.
+- `pnpm test:e2e:containers` runs Docker-backed CLI end-to-end tests for remote git registries.
+- A Docker-compatible container runtime is required for `pnpm test:e2e:containers`.
+- The first run may be slower because it can pull the Gitea container image.
 
 ## Architecture
 
