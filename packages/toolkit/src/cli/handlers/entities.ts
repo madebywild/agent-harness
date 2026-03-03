@@ -1,0 +1,118 @@
+import { HarnessEngine } from "../../engine.js";
+import { CLI_ENTITY_TYPES, isCliEntityType } from "../../types.js";
+import type { CliResolvedContext, EntityMutationOutput } from "../contracts.js";
+
+export async function handleAddPrompt(
+  input: { registry?: string },
+  context: CliResolvedContext,
+): Promise<EntityMutationOutput> {
+  const engine = new HarnessEngine(context.cwd);
+  await engine.addPrompt({ registry: input.registry });
+
+  return {
+    family: "entity-mutation",
+    command: "add.prompt",
+    ok: true,
+    diagnostics: [],
+    exitCode: 0,
+    data: {
+      operation: "add",
+      entityType: "prompt",
+      id: "system",
+      message: "Added prompt entity 'system'.",
+    },
+  };
+}
+
+export async function handleAddSkill(
+  input: { skillId: string; registry?: string },
+  context: CliResolvedContext,
+): Promise<EntityMutationOutput> {
+  const engine = new HarnessEngine(context.cwd);
+  await engine.addSkill(input.skillId, { registry: input.registry });
+
+  return {
+    family: "entity-mutation",
+    command: "add.skill",
+    ok: true,
+    diagnostics: [],
+    exitCode: 0,
+    data: {
+      operation: "add",
+      entityType: "skill",
+      id: input.skillId,
+      message: `Added skill '${input.skillId}'.`,
+    },
+  };
+}
+
+export async function handleAddMcp(
+  input: { configId: string; registry?: string },
+  context: CliResolvedContext,
+): Promise<EntityMutationOutput> {
+  const engine = new HarnessEngine(context.cwd);
+  await engine.addMcp(input.configId, { registry: input.registry });
+
+  return {
+    family: "entity-mutation",
+    command: "add.mcp",
+    ok: true,
+    diagnostics: [],
+    exitCode: 0,
+    data: {
+      operation: "add",
+      entityType: "mcp",
+      id: input.configId,
+      message: `Added MCP config '${input.configId}'.`,
+    },
+  };
+}
+
+export async function handleAddSubagent(
+  input: { subagentId: string; registry?: string },
+  context: CliResolvedContext,
+): Promise<EntityMutationOutput> {
+  const engine = new HarnessEngine(context.cwd);
+  await engine.addSubagent(input.subagentId, { registry: input.registry });
+
+  return {
+    family: "entity-mutation",
+    command: "add.subagent",
+    ok: true,
+    diagnostics: [],
+    exitCode: 0,
+    data: {
+      operation: "add",
+      entityType: "subagent",
+      id: input.subagentId,
+      message: `Added subagent '${input.subagentId}'.`,
+    },
+  };
+}
+
+export async function handleRemoveEntity(
+  input: { entityType: string; id: string; deleteSource: boolean },
+  context: CliResolvedContext,
+): Promise<EntityMutationOutput> {
+  if (!isCliEntityType(input.entityType)) {
+    throw new Error(`entity-type must be one of: ${CLI_ENTITY_TYPES.join(", ")}`);
+  }
+
+  const engine = new HarnessEngine(context.cwd);
+  const removed = await engine.remove(input.entityType, input.id, input.deleteSource);
+
+  return {
+    family: "entity-mutation",
+    command: "remove",
+    ok: true,
+    diagnostics: [],
+    exitCode: 0,
+    data: {
+      operation: "remove",
+      entityType: removed.entityType,
+      id: removed.id,
+      removed,
+      message: `Removed ${removed.entityType} '${removed.id}'.`,
+    },
+  };
+}

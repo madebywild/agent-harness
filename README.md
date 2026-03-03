@@ -90,6 +90,8 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | Command                         | Description                                         |
 | ------------------------------- | --------------------------------------------------- |
 | `harness init`                  | Initialize `.harness/` structure                    |
+| `harness ui`                    | Launch interactive prompt wizard                    |
+| `harness`                       | No-arg: interactive on TTY, `plan` on non-TTY/CI   |
 | `harness --version`             | Print CLI version                                   |
 | `harness doctor`                | Report schema version health and migration blockers |
 | `harness migrate`               | Upgrade schema files to latest supported version    |
@@ -109,6 +111,12 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | `harness plan`                  | Preview changes (dry-run)                           |
 | `harness apply`                 | Generate provider outputs                           |
 | `harness watch`                 | Watch mode with auto-apply                          |
+
+Global flags:
+- `--cwd <path>`: run against a specific workspace root.
+- `--json`: emit a stable machine-readable envelope (`schemaVersion: "1"`).
+- `--interactive`: force interactive mode when available.
+- `--no-interactive`: force command mode.
 
 ## Schema Version Policy
 

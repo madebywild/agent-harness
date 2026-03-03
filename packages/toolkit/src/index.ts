@@ -1,3 +1,4 @@
+import { runCliArgv, runCliCommand } from "./cli/main.js";
 import { HarnessEngine } from "./engine.js";
 import { loadConfig, validateConfig, validateLock } from "./engine/utils.js";
 import { validateRegistryRepo } from "./registry-validator.js";
@@ -5,6 +6,7 @@ import type { ApplyOptions, ApplyResult, DoctorResult, MigrationResult, PlanOpti
 
 export { HarnessEngine, loadConfig, validateConfig, validateLock };
 export { validateRegistryRepo };
+export { runCliArgv, runCliCommand };
 
 export type {
   AgentsManifest,
@@ -37,6 +39,15 @@ export type {
   ValidationResult,
   VersionDiagnostic,
 } from "./types.js";
+
+export type {
+  CliEnvelope,
+  CliExecutionContext,
+  CliResolvedContext,
+  CommandId,
+  CommandInput,
+  CommandOutput,
+} from "./cli/contracts.js";
 
 export async function plan(opts: PlanOptions = {}): Promise<PlanResult> {
   return new HarnessEngine(opts.cwd).plan();
