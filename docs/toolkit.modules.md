@@ -31,4 +31,5 @@ This set documents every source file under `packages/toolkit/src`.
 - `provider-adapters/mcp.ts`: [`toolkit.provider.mcp.md`](./toolkit.provider.mcp.md)
 - `provider-adapters/registry.ts`: [`toolkit.provider.registry.md`](./toolkit.provider.registry.md)
 - `provider-adapters/renderers.ts`: [`toolkit.provider.renderers.md`](./toolkit.provider.renderers.md)
+- `provider-adapters/subagents.ts`: [`toolkit.provider.subagents.md`](./toolkit.provider.subagents.md)
 - `provider-adapters/types.ts`: [`toolkit.provider.types.md`](./toolkit.provider.types.md)

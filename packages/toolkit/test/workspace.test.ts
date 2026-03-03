@@ -13,21 +13,23 @@ test("init + add commands scaffold manifest and source files", async () => {
   await engine.addPrompt();
   await engine.addSkill("reviewer");
   await engine.addMcp("playwright");
+  await engine.addSubagent("review-bot");
 
   const manifestText = await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8");
   const manifest = JSON.parse(manifestText) as {
     entities: Array<{ id: string; type: string }>;
   };
 
-  assert.equal(manifest.entities.length, 3);
+  assert.equal(manifest.entities.length, 4);
   assert.deepEqual(
     manifest.entities.map((entity) => `${entity.type}:${entity.id}`),
-    ["prompt:system", "skill:reviewer", "mcp_config:playwright"],
+    ["prompt:system", "skill:reviewer", "mcp_config:playwright", "subagent:review-bot"],
   );
 
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/prompts/system.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/mcp/playwright.json")));
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/subagents/review-bot.md")));
 });
 
 test("init fails when .harness already exists without force", async () => {
@@ -103,6 +105,27 @@ test("remove prompt rejects non-system id and preserves manifest entity", async 
   );
 });
 
+test("remove subagent deletes scaffolded source by default", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addSubagent("researcher");
+
+  const removed = await engine.remove("subagent", "researcher", true);
+  assert.deepEqual(removed, { entityType: "subagent", id: "researcher" });
+
+  const manifestText = await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8");
+  const manifest = JSON.parse(manifestText) as {
+    entities: Array<{ id: string; type: string }>;
+  };
+  assert.equal(
+    manifest.entities.some((entity) => entity.type === "subagent" && entity.id === "researcher"),
+    false,
+  );
+  await assert.rejects(async () => fs.stat(path.join(cwd, ".harness/src/subagents/researcher.md")));
+});
+
 test("remove returns the actual removed entity id", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);
@@ -112,4 +135,19 @@ test("remove returns the actual removed entity id", async () => {
 
   const removed = await engine.remove("prompt", "system", false);
   assert.deepEqual(removed, { entityType: "prompt", id: "system" });
+});
+
+test("validate reports subagent frontmatter/body requirements", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addSubagent("invalid-subagent");
+  await fs.writeFile(path.join(cwd, ".harness/src/subagents/invalid-subagent.md"), "---\nname: \n---\n\n", "utf8");
+
+  const validation = await engine.validate();
+  assert.equal(validation.valid, false);
+  assert.ok(validation.diagnostics.some((diagnostic) => diagnostic.code === "SUBAGENT_NAME_REQUIRED"));
+  assert.ok(validation.diagnostics.some((diagnostic) => diagnostic.code === "SUBAGENT_DESCRIPTION_REQUIRED"));
+  assert.ok(validation.diagnostics.some((diagnostic) => diagnostic.code === "SUBAGENT_EMPTY"));
 });

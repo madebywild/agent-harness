@@ -8,7 +8,7 @@
 
 Unified AI agent configuration management for Codex, Claude, and Copilot.
 
-Agent Harness is a TypeScript CLI tool and library that manages AI agent configurations (prompts, skills, and MCP server configs) from a single source of truth, generating provider-specific outputs for OpenAI Codex, Anthropic Claude Code, and GitHub Copilot.
+Agent Harness is a TypeScript CLI tool and library that manages AI agent configurations (prompts, skills, MCP server configs, and subagents) from a single source of truth, generating provider-specific outputs for OpenAI Codex, Anthropic Claude Code, and GitHub Copilot.
 
 ## Features
 
@@ -17,6 +17,7 @@ Agent Harness is a TypeScript CLI tool and library that manages AI agent configu
 - System prompt management with provider-specific overrides
 - Reusable skill management synchronized across providers
 - Centralized MCP server configuration with merged outputs
+- Subagent management with provider-specific rendering
 - Per-entity registry provenance with built-in `local` and Git-backed external registries
 - Explicit `registry pull` workflow for refreshing imported entities
 - Watch mode for automatic regeneration on file changes
@@ -53,6 +54,9 @@ harness add skill my-skill
 
 # Add MCP config
 harness add mcp my-mcp
+
+# Add subagent
+harness add subagent researcher
 
 # Generate outputs
 harness apply
@@ -99,6 +103,7 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | `harness add prompt [--registry <name>]` | Add system prompt entity                     |
 | `harness add skill <id> [--registry <name>]` | Add a skill entity                     |
 | `harness add mcp <id> [--registry <name>]` | Add an MCP config entity                 |
+| `harness add subagent <id> [--registry <name>]` | Add a subagent entity               |
 | `harness remove <type> <id> [--no-delete-source]` | Remove an entity (deletes source by default) |
 | `harness validate`              | Validate manifest and files                         |
 | `harness plan`                  | Preview changes (dry-run)                           |
@@ -134,11 +139,16 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
     │       ├── OVERRIDES.codex.yaml
     │       ├── OVERRIDES.claude.yaml
     │       └── OVERRIDES.copilot.yaml
-    └── mcp/
+    ├── mcp/
         ├── my-mcp.json
         ├── my-mcp.overrides.codex.yaml
         ├── my-mcp.overrides.claude.yaml
         └── my-mcp.overrides.copilot.yaml
+    └── subagents/
+        ├── researcher.md
+        ├── researcher.overrides.codex.yaml
+        ├── researcher.overrides.claude.yaml
+        └── researcher.overrides.copilot.yaml
 ```
 
 ## Generated Outputs
@@ -148,6 +158,7 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | Prompt | `AGENTS.md`          | `CLAUDE.md`       | `.github/copilot-instructions.md` |
 | Skills | `.codex/skills/`     | `.claude/skills/` | `.github/skills/`                 |
 | MCP    | `.codex/config.toml` | `.mcp.json`       | `.vscode/mcp.json`                |
+| Subagents | `.codex/config.toml` (merged `agents.*`) | `.claude/agents/<id>.md` | `.github/agents/<id>.agent.md` |
 
 ## Monorepo Packages
 

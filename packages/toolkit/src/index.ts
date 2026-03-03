@@ -9,6 +9,7 @@ export { validateRegistryRepo };
 export type {
   AgentsManifest,
   ApplyResult,
+  CanonicalSubagent,
   CanonicalMcpConfig,
   CanonicalPrompt,
   CanonicalSkill,

@@ -60,6 +60,31 @@ test("parseManifest throws VersionError for newer schema versions", () => {
   );
 });
 
+test("parseManifest accepts subagent entities", () => {
+  assert.doesNotThrow(() =>
+    parseManifest({
+      version: 1,
+      providers: {
+        enabled: [],
+      },
+      registries: {
+        default: "local",
+        entries: {
+          local: { type: "local" },
+        },
+      },
+      entities: [
+        {
+          id: "researcher",
+          type: "subagent",
+          registry: "local",
+          sourcePath: ".harness/src/subagents/researcher.md",
+        },
+      ],
+    }),
+  );
+});
+
 test("parseProviderOverride throws VersionError for missing version", () => {
   assert.throws(
     () => parseProviderOverride({ enabled: true }),

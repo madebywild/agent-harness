@@ -8,6 +8,7 @@ import {
   addMcpEntity,
   addPromptEntity,
   addSkillEntity,
+  addSubagentEntity,
   pullRegistryEntities,
   removeEntity,
 } from "./engine/entities.js";
@@ -86,6 +87,7 @@ export class HarnessEngine {
     await fs.mkdir(paths.promptDir, { recursive: true });
     await fs.mkdir(paths.skillDir, { recursive: true });
     await fs.mkdir(paths.mcpDir, { recursive: true });
+    await fs.mkdir(paths.subagentDir, { recursive: true });
 
     const manifest: AgentsManifest = {
       version: LATEST_VERSION_BY_KIND.manifest as AgentsManifest["version"],
@@ -229,6 +231,11 @@ export class HarnessEngine {
   async addMcp(configId: string, options?: { registry?: string }): Promise<void> {
     await this.assertWorkspaceVersionCurrent();
     await addMcpEntity(this.cwd, configId, options);
+  }
+
+  async addSubagent(subagentId: string, options?: { registry?: string }): Promise<void> {
+    await this.assertWorkspaceVersionCurrent();
+    await addSubagentEntity(this.cwd, subagentId, options);
   }
 
   async pullRegistry(options?: {

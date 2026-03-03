@@ -4,7 +4,7 @@
 
 Implements the orchestration layer (`HarnessEngine`) for init, CRUD, version preflight/diagnostics/migration, planning, applying, and watch mode. Supporting logic is split across three sub-modules in `engine/`:
 
-- **`engine/entities.ts`** — entity CRUD: `addPromptEntity`, `addSkillEntity`, `addMcpEntity`, `pullRegistryEntities`, `removeEntity`, `materializeFetchedEntity`, `ensureOverrideFiles`, `readCurrentSourceSha`, `loadSkillSourceHashes`.
+- **`engine/entities.ts`** — entity CRUD: `addPromptEntity`, `addSkillEntity`, `addMcpEntity`, `addSubagentEntity`, `pullRegistryEntities`, `removeEntity`, `materializeFetchedEntity`, `ensureOverrideFiles`, `readCurrentSourceSha`, `loadSkillSourceHashes`.
 - **`engine/state.ts`** — manifest/lock state helpers: `readManifestOrThrow`, `readLockOrDefault`, `readManagedIndexOrDefault`, `setLockEntityRecord`, `upsertLockEntityRecord`, `removeLockEntityRecord`, `writeManagedSourceIndex`.
 - **`engine/utils.ts`** — pure utilities and validators: sort/validate/resolve helpers, `printDiagnostics`, `printApplySummary`, `preflightDiagnosticsFromDoctor`, `loadConfig`, `validateConfig`, `validateLock`, `validateManagedIndex`, `loadOverride`.
 
@@ -13,7 +13,7 @@ Implements the orchestration layer (`HarnessEngine`) for init, CRUD, version pre
 - `HarnessEngine(cwd = process.cwd())`
 - `init({ force? })`: creates or force-recreates `.harness` state files.
 - `enableProvider` / `disableProvider`: mutate `manifest.providers.enabled`.
-- `addPrompt`, `addSkill`, `addMcp`: scaffold/import sources + override sidecars and register manifest entries.
+- `addPrompt`, `addSkill`, `addMcp`, `addSubagent`: scaffold/import sources + override sidecars and register manifest entries.
   - Accept optional `{ registry?: string }`.
   - For git registries, fetches remote entity content and materializes into local `.harness/src`.
   - Writes lock provenance immediately (registry + imported digest + git revision).
