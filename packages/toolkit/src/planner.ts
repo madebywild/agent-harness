@@ -66,7 +66,33 @@ export async function buildPlan(
       }
     }
 
-    if (adapter.renderMcp) {
+    if (adapter.renderProviderState) {
+      try {
+        const mcpOverrideByEntity = new Map(
+          loaded.mcps.map((mcp) => [mcp.entity.id, mcp.overrideByProvider.get(provider)] as const),
+        );
+        const subagentOverrideByEntity = new Map(
+          loaded.subagents.map((subagent) => [subagent.entity.id, subagent.overrideByProvider.get(provider)] as const),
+        );
+        artifacts.push(
+          ...(await adapter.renderProviderState({
+            mcps: loaded.mcps.map((mcp) => mcp.canonical),
+            mcpOverrideByEntity,
+            subagents: loaded.subagents.map((subagent) => subagent.canonical),
+            subagentOverrideByEntity,
+          })),
+        );
+      } catch (error) {
+        const parsed = parseCodedError(error);
+        diagnostics.push({
+          code: parsed?.code ?? "MCP_RENDER_FAILED",
+          severity: "error",
+          message: parsed?.message ?? (error instanceof Error ? error.message : "Provider state render failed"),
+          entityId: parsed?.entityId,
+          provider,
+        });
+      }
+    } else if (adapter.renderMcp) {
       try {
         const overrideByEntity = new Map(
           loaded.mcps.map((mcp) => [mcp.entity.id, mcp.overrideByProvider.get(provider)] as const),
@@ -82,6 +108,26 @@ export async function buildPlan(
           code: "MCP_RENDER_FAILED",
           severity: "error",
           message: error instanceof Error ? error.message : "MCP render failed",
+          provider,
+        });
+      }
+    }
+
+    for (const subagent of loaded.subagents) {
+      if (!adapter.renderSubagent) {
+        continue;
+      }
+
+      try {
+        artifacts.push(
+          ...(await adapter.renderSubagent(subagent.canonical, subagent.overrideByProvider.get(provider))),
+        );
+      } catch (error) {
+        diagnostics.push({
+          code: "SUBAGENT_RENDER_FAILED",
+          severity: "error",
+          message: error instanceof Error ? error.message : "Subagent render failed",
+          entityId: subagent.entity.id,
           provider,
         });
       }
@@ -240,6 +286,17 @@ export async function buildPlan(
         mcp.entity.registry,
       ),
     })),
+    ...loaded.subagents.map((subagent) => ({
+      id: subagent.entity.id,
+      type: subagent.entity.type,
+      registry: subagent.entity.registry,
+      sourceSha256: subagent.sourceSha256,
+      overrideSha256ByProvider: subagent.overrideShaByProvider,
+      ...resolvePriorRegistryProvenance(
+        previousEntityByKey.get(`${subagent.entity.type}:${subagent.entity.id}`),
+        subagent.entity.registry,
+      ),
+    })),
   ].sort((left, right) => {
     const byType = left.type.localeCompare(right.type);
     if (byType !== 0) {
@@ -317,5 +374,27 @@ function resolvePriorRegistryProvenance(
   return {
     importedSourceSha256: previous.importedSourceSha256,
     registryRevision: previous.registryRevision,
+  };
+}
+
+function parseCodedError(error: unknown): { code: string; message: string; entityId?: string } | undefined {
+  if (!(error instanceof Error)) {
+    return undefined;
+  }
+
+  const match = /^(?<code>[A-Z0-9_]+):\s*(?<message>.+)$/u.exec(error.message);
+  if (!match || !match.groups) {
+    return undefined;
+  }
+
+  const code = match.groups.code;
+  const message = match.groups.message;
+  if (!code || !message) {
+    return undefined;
+  }
+
+  return {
+    code,
+    message,
   };
 }

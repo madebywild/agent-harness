@@ -21,6 +21,7 @@ export function sortEntities(entities: AgentsManifest["entities"]): AgentsManife
     prompt: 0,
     skill: 1,
     mcp_config: 2,
+    subagent: 3,
   };
 
   return [...entities].sort((left, right) => {
@@ -71,6 +72,8 @@ export function manifestEntityTypeToCliEntityType(type: EntityType): CliEntityTy
       return "skill";
     case "mcp_config":
       return "mcp";
+    case "subagent":
+      return "subagent";
   }
 }
 

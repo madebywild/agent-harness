@@ -10,6 +10,8 @@ import {
   defaultPromptOverridePath,
   defaultSkillOverridePath,
   defaultSkillSourcePath,
+  defaultSubagentOverridePath,
+  defaultSubagentSourcePath,
   resolveHarnessPaths,
 } from "../paths.js";
 import { listFilesRecursively, removeIfExists, writeLock, writeManifest } from "../repository.js";
@@ -61,7 +63,9 @@ export async function ensureOverrideFiles(
         ? defaultPromptOverridePath(provider)
         : entityType === "skill"
           ? defaultSkillOverridePath(entityId, provider)
-          : defaultMcpOverridePath(entityId, provider));
+          : entityType === "mcp_config"
+            ? defaultMcpOverridePath(entityId, provider)
+            : defaultSubagentOverridePath(entityId, provider));
     overrides[provider] = overridePath;
 
     const absolute = path.join(cwd, overridePath);
@@ -80,6 +84,11 @@ export async function ensureOverrideFiles(
 export async function readCurrentSourceSha(cwd: string, entity: AgentsManifest["entities"][number]): Promise<string> {
   const sourceAbs = path.join(cwd, entity.sourcePath);
   if (entity.type === "prompt") {
+    const text = await fs.readFile(sourceAbs, "utf8");
+    return sha256(text);
+  }
+
+  if (entity.type === "subagent") {
     const text = await fs.readFile(sourceAbs, "utf8");
     return sha256(text);
   }
@@ -132,6 +141,13 @@ export async function materializeFetchedEntity(
     const sourceAbs = path.join(cwd, entity.sourcePath);
     await ensureParentDir(sourceAbs);
     await fs.writeFile(sourceAbs, stableStringify(fetched.sourceJson), "utf8");
+    return;
+  }
+
+  if (entity.type === "subagent" && fetched.type === "subagent") {
+    const sourceAbs = path.join(cwd, entity.sourcePath);
+    await ensureParentDir(sourceAbs);
+    await fs.writeFile(sourceAbs, fetched.sourceText, "utf8");
     return;
   }
 
@@ -362,6 +378,72 @@ export async function addMcpEntity(cwd: string, configId: string, options?: { re
     type: "mcp_config",
     registry: registry.id,
     sourceSha256: sha256(stableStringify(sourceJson)),
+    overrideSha256ByProvider: overrideShaByProvider,
+    importedSourceSha256,
+    registryRevision,
+  });
+}
+
+export async function addSubagentEntity(
+  cwd: string,
+  subagentId: string,
+  options?: { registry?: string },
+): Promise<void> {
+  validateEntityId(subagentId, "subagent");
+  const paths = resolveHarnessPaths(cwd);
+  const manifest = await readManifestOrThrow(paths);
+
+  if (manifest.entities.some((entity) => entity.type === "subagent" && entity.id === subagentId)) {
+    throw new Error(`Subagent '${subagentId}' already exists`);
+  }
+
+  const sourcePath = defaultSubagentSourcePath(subagentId);
+  const sourceAbs = path.join(cwd, sourcePath);
+  if (await exists(sourceAbs)) {
+    throw new Error(`Cannot add subagent because '${sourcePath}' already exists`);
+  }
+
+  const registry = resolveEntityRegistrySelection(manifest, options?.registry);
+  let sourceText: string;
+  let importedSourceSha256: string | undefined;
+  let registryRevision: RegistryRevision | undefined;
+
+  if (registry.definition.type === "git") {
+    const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "subagent", subagentId);
+    if (fetched.type !== "subagent") {
+      throw new Error(`REGISTRY_FETCH_FAILED: expected subagent '${subagentId}' from registry '${registry.id}'`);
+    }
+    sourceText = fetched.sourceText;
+    importedSourceSha256 = fetched.importedSourceSha256;
+    registryRevision = fetched.registryRevision;
+  } else {
+    sourceText =
+      `---\nname: ${subagentId}\ndescription: Describe what this subagent does.\n---\n\n` +
+      `You are the ${subagentId} subagent.\n\nAdd instructions here.\n`;
+  }
+
+  await ensureParentDir(sourceAbs);
+  await fs.writeFile(sourceAbs, sourceText, "utf8");
+
+  const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "subagent", subagentId);
+
+  manifest.entities.push({
+    id: subagentId,
+    type: "subagent",
+    registry: registry.id,
+    sourcePath,
+    overrides,
+    enabled: true,
+  });
+  manifest.entities = sortEntities(manifest.entities);
+
+  await writeManifest(paths, manifest);
+  await writeManagedSourceIndex(paths, manifest);
+  await upsertLockEntityRecord(paths, manifest, {
+    id: subagentId,
+    type: "subagent",
+    registry: registry.id,
+    sourceSha256: sha256(sourceText),
     overrideSha256ByProvider: overrideShaByProvider,
     importedSourceSha256,
     registryRevision,

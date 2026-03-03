@@ -27,6 +27,7 @@ There is not yet a broadly adopted, "native" `.agents/` standard across major CL
 | Prompt | `AGENTS.md` | Markdown |
 | Skills | `.codex/skills/<skill-id>/` | Markdown/JSON |
 | MCP Config | `.codex/config.toml` | TOML |
+| Subagents | `.codex/config.toml` (`[agents.<id>]`) | TOML |
 
 **MCP Configuration Structure:**
 
@@ -35,6 +36,18 @@ There is not yet a broadly adopted, "native" `.agents/` standard across major CL
 [mcp_servers.server-name]
 command = "node"
 args = ["/path/to/server.js"]
+```
+
+**Subagent Structure (same file as MCP):**
+
+```toml
+experimental_use_role = true
+
+[agents.researcher]
+description = "Research helper"
+prompt = "You are a research specialist..."
+model = "gpt-5"
+tools = ["web_search"]
 ```
 
 **References:**
@@ -59,6 +72,7 @@ args = ["/path/to/server.js"]
 | Prompt | `CLAUDE.md` | Markdown |
 | Skills | `.claude/skills/<skill-id>/` | Markdown/JSON |
 | MCP Config | `.mcp.json` | JSON |
+| Subagents | `.claude/agents/<id>.md` | Markdown (frontmatter + body) |
 
 **MCP Configuration Structure:**
 
@@ -76,6 +90,7 @@ args = ["/path/to/server.js"]
 **References:**
 
 - [Claude Code Settings](https://docs.claude.com/en/docs/claude-code/settings)
+- [Claude Code Subagents](https://docs.anthropic.com/en/docs/claude-code/sub-agents)
 
 ---
 
@@ -94,6 +109,7 @@ args = ["/path/to/server.js"]
 | Prompt | `.github/copilot-instructions.md` | Markdown |
 | Skills | `.github/skills/<skill-id>/` | Markdown/JSON |
 | MCP Config | `.vscode/mcp.json` | JSON |
+| Subagents | `.github/agents/<id>.agent.md` | Markdown (frontmatter + body) |
 
 **MCP Configuration Structure:**
 
@@ -113,6 +129,7 @@ args = ["/path/to/server.js"]
 **References:**
 
 - [GitHub Copilot Repository Instructions](https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions)
+- [GitHub Copilot Custom Agents Configuration](https://docs.github.com/en/copilot/reference/custom-agents-configuration)
 - [VS Code Copilot Agent Skills](https://code.visualstudio.com/docs/copilot/customization/agent-skills)
 - [VS Code Copilot MCP Servers](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)
 

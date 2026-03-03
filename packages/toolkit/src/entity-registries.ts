@@ -61,7 +61,12 @@ export interface FetchedMcpEntity extends FetchedEntityBase {
   readonly sourceJson: Record<string, unknown>;
 }
 
-export type FetchedRegistryEntity = FetchedPromptEntity | FetchedSkillEntity | FetchedMcpEntity;
+export interface FetchedSubagentEntity extends FetchedEntityBase {
+  readonly type: "subagent";
+  readonly sourceText: string;
+}
+
+export type FetchedRegistryEntity = FetchedPromptEntity | FetchedSkillEntity | FetchedMcpEntity | FetchedSubagentEntity;
 
 export async function fetchEntityFromRegistry(
   registryId: RegistryId,
@@ -161,40 +166,63 @@ export async function fetchEntityFromRegistry(
       };
     }
 
-    const mcpPath = path.join(checkoutDir, rootPath, "mcp", `${id}.json`);
-    const mcpText = await readFileWithNotFound(
-      mcpPath,
-      registryId,
-      `MCP config '${id}' not found in registry '${registryId}'`,
-    );
-
-    let sourceJson: Record<string, unknown>;
-    try {
-      const parsed = JSON.parse(mcpText) as unknown;
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        throw new Error("MCP config must be a JSON object");
-      }
-      sourceJson = parsed as Record<string, unknown>;
-    } catch (error) {
-      throw new RegistryError(
-        "REGISTRY_FETCH_FAILED",
+    if (entityType === "mcp_config") {
+      const mcpPath = path.join(checkoutDir, rootPath, "mcp", `${id}.json`);
+      const mcpText = await readFileWithNotFound(
+        mcpPath,
         registryId,
-        `MCP config '${id}' in registry '${registryId}' is invalid: ${error instanceof Error ? error.message : "unknown error"}`,
+        `MCP config '${id}' not found in registry '${registryId}'`,
       );
+
+      let sourceJson: Record<string, unknown>;
+      try {
+        const parsed = JSON.parse(mcpText) as unknown;
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          throw new Error("MCP config must be a JSON object");
+        }
+        sourceJson = parsed as Record<string, unknown>;
+      } catch (error) {
+        throw new RegistryError(
+          "REGISTRY_FETCH_FAILED",
+          registryId,
+          `MCP config '${id}' in registry '${registryId}' is invalid: ${error instanceof Error ? error.message : "unknown error"}`,
+        );
+      }
+
+      return {
+        type: "mcp_config",
+        id,
+        registry: registryId,
+        sourceJson,
+        registryManifest,
+        registryRevision: {
+          kind: "git",
+          ref: definition.ref,
+          commit,
+        },
+        importedSourceSha256: sha256(stableStringify(sourceJson)),
+      };
     }
 
+    const subagentPath = path.join(checkoutDir, rootPath, "subagents", `${id}.md`);
+    const sourceText = await readFileWithNotFound(
+      subagentPath,
+      registryId,
+      `Subagent '${id}' not found in registry '${registryId}'`,
+    );
+
     return {
-      type: "mcp_config",
+      type: "subagent",
       id,
       registry: registryId,
-      sourceJson,
+      sourceText,
       registryManifest,
       registryRevision: {
         kind: "git",
         ref: definition.ref,
         commit,
       },
-      importedSourceSha256: sha256(stableStringify(sourceJson)),
+      importedSourceSha256: sha256(sourceText),
     };
   } finally {
     await cleanupTempDir(tempRoot);

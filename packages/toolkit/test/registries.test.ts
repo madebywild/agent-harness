@@ -114,6 +114,44 @@ test("add from git registry imports sources and records registry provenance", as
   assert.ok(lockEntity?.importedSourceSha256);
 });
 
+test("add from git registry imports subagent and records provenance", async () => {
+  const cwd = await mkTmpRepo();
+  const registryRepo = await mkTmpGitRegistry({
+    files: {
+      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
+      "subagents/researcher.md":
+        "---\nname: researcher\ndescription: Research helper\n---\n\nFocus on synthesis and citations.\n",
+    },
+  });
+
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+  await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
+
+  await engine.addSubagent("researcher", { registry: "corp" });
+
+  const localSubagent = await fs.readFile(path.join(cwd, ".harness/src/subagents/researcher.md"), "utf8");
+  assert.match(localSubagent, /Research helper/u);
+
+  const lock = await readJson<{
+    entities: Array<{
+      id: string;
+      type: string;
+      registry: string;
+      importedSourceSha256?: string;
+      registryRevision?: { kind: string; ref: string; commit: string };
+    }>;
+  }>(cwd, ".harness/manifest.lock.json");
+
+  const lockEntity = lock.entities.find((entry) => entry.type === "subagent" && entry.id === "researcher");
+  assert.ok(lockEntity);
+  assert.equal(lockEntity?.registry, "corp");
+  assert.equal(lockEntity?.registryRevision?.kind, "git");
+  assert.equal(lockEntity?.registryRevision?.ref, "main");
+  assert.ok(lockEntity?.registryRevision?.commit);
+  assert.ok(lockEntity?.importedSourceSha256);
+});
+
 test("git registry import fails when harness-registry.json is missing", async () => {
   const cwd = await mkTmpRepo();
   const registryRepo = await mkTmpGitRegistry({
@@ -158,6 +196,45 @@ test("registry pull blocks local drift unless --force", async () => {
 
   const refreshed = await fs.readFile(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md"), "utf8");
   assert.match(refreshed, /Version 2/u);
+});
+
+test("registry pull supports subagent entities", async () => {
+  const cwd = await mkTmpRepo();
+  const registryRepo = await mkTmpGitRegistry({
+    files: {
+      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
+      "subagents/researcher.md":
+        "---\nname: researcher\ndescription: Research helper\n---\n\nVersion 1 instructions.\n",
+    },
+  });
+
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+  await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
+  await engine.addSubagent("researcher", { registry: "corp" });
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/subagents/researcher.md"),
+    "---\nname: researcher\ndescription: Research helper\n---\n\nLocal edits.\n",
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(registryRepo, "subagents/researcher.md"),
+    "---\nname: researcher\ndescription: Research helper\n---\n\nVersion 2 instructions.\n",
+    "utf8",
+  );
+  await gitCommit(registryRepo, "update subagent");
+
+  await assert.rejects(
+    async () => engine.pullRegistry({ entityType: "subagent", id: "researcher" }),
+    /REGISTRY_PULL_CONFLICT/u,
+  );
+
+  const forced = await engine.pullRegistry({ entityType: "subagent", id: "researcher", force: true });
+  assert.deepEqual(forced.updatedEntities, [{ type: "subagent", id: "researcher" }]);
+
+  const refreshed = await fs.readFile(path.join(cwd, ".harness/src/subagents/researcher.md"), "utf8");
+  assert.match(refreshed, /Version 2 instructions/u);
 });
 
 test("registry pull does not conflict when imported skill includes OVERRIDES sidecars", async () => {
@@ -385,6 +462,7 @@ test("validateRegistryRepo passes for valid registry layout and metadata", async
     "prompts/system.md": "# System Prompt\n\nGuidance\n",
     "skills/reviewer/SKILL.md": "# reviewer\n\nSkill\n",
     "mcp/playwright.json": JSON.stringify({ command: "npx", args: ["@playwright/mcp"] }, null, 2),
+    "subagents/researcher.md": "---\nname: researcher\ndescription: Research helper\n---\n\nResearch instructions.\n",
   });
 
   const result = await validateRegistryRepo({ repoPath: registryRepo });
@@ -504,6 +582,32 @@ test("validateRegistryRepo reports structural and metadata failures", async () =
       },
       expectedCode: "REGISTRY_MCP_INVALID",
       expectedPath: "mcp/readme.md",
+    },
+    {
+      name: "subagent missing required description",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "subagents/researcher.md": "---\nname: researcher\n---\n\nInstructions\n",
+      },
+      expectedCode: "REGISTRY_SUBAGENT_INVALID",
+      expectedPath: "subagents/researcher.md",
+    },
+    {
+      name: "subagent rejects non-markdown files",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "subagents/researcher.json": "{}\n",
+      },
+      expectedCode: "REGISTRY_SUBAGENT_INVALID",
+      expectedPath: "subagents/researcher.json",
     },
   ];
 

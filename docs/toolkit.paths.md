@@ -13,9 +13,11 @@ Centralizes all path conventions for `.harness` workspace files and canonical so
   - `defaultPromptOverridePath(provider)`
   - `defaultSkillOverridePath(skillId, provider)`
   - `defaultMcpOverridePath(id, provider)`
+  - `defaultSubagentOverridePath(id, provider)`
 - Source path helpers:
   - `defaultSkillSourcePath(skillId)`
   - `defaultMcpSourcePath(id)`
+  - `defaultSubagentSourcePath(id)`
 
 ## Contract
 

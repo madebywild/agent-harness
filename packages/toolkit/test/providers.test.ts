@@ -228,3 +228,156 @@ test("codex MCP config uses TOML format with mcp_servers property", async () => 
   assert.ok(tomlContent.includes('command = "node"'), "TOML should include command");
   assert.ok(!tomlContent.includes("[mcp_servers]\n"), "TOML should NOT have bare [mcp_servers] header");
 });
+
+test("claude subagent renders frontmatter and body", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addSubagent("researcher");
+  await engine.enableProvider("claude");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/subagents/researcher.overrides.claude.yaml"),
+    "version: 1\noptions:\n  model: claude-sonnet-4-5\n  tools:\n    - bash\n    - web_search\n",
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
+
+  const rendered = await fs.readFile(path.join(cwd, ".claude/agents/researcher.md"), "utf8");
+  assert.match(rendered, /name: "researcher"/u);
+  assert.match(rendered, /description: "Describe what this subagent does\."/u);
+  assert.match(rendered, /model: "claude-sonnet-4-5"/u);
+  assert.match(rendered, /tools: \["bash","web_search"\]/u);
+  assert.match(rendered, /You are the researcher subagent\./u);
+});
+
+test("copilot subagent renders .agent.md with handoffs", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addSubagent("reviewer");
+  await engine.enableProvider("copilot");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/subagents/reviewer.overrides.copilot.yaml"),
+    "version: 1\noptions:\n  model: gpt-5\n  tools:\n    - code_search\n  handoffs:\n    - planner\n",
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
+
+  const rendered = await fs.readFile(path.join(cwd, ".github/agents/reviewer.agent.md"), "utf8");
+  assert.match(rendered, /name: "reviewer"/u);
+  assert.match(rendered, /model: "gpt-5"/u);
+  assert.match(rendered, /tools: \["code_search"\]/u);
+  assert.match(rendered, /handoffs: \["planner"\]/u);
+});
+
+test("codex merges MCP and subagents into shared config", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addMcp("test-server");
+  await engine.addSubagent("researcher");
+  await engine.enableProvider("codex");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/mcp/test-server.json"),
+    JSON.stringify(
+      {
+        servers: {
+          test: {
+            command: "node",
+            args: ["server.js"],
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/subagents/researcher.overrides.codex.yaml"),
+    "version: 1\noptions:\n  model: gpt-5\n  tools:\n    - web_search\n",
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
+
+  const tomlContent = await fs.readFile(path.join(cwd, ".codex/config.toml"), "utf8");
+  assert.match(tomlContent, /\[mcp_servers\.test\]/u);
+  assert.match(tomlContent, /experimental_use_role = true/u);
+  assert.match(tomlContent, /\[agents\.researcher\]/u);
+  assert.match(tomlContent, /model = "gpt-5"/u);
+  assert.match(tomlContent, /tools = \[\s*"web_search"\s*\]/u);
+});
+
+test("codex shared config target conflict reports CODEX_CONFIG_TARGET_CONFLICT", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addMcp("test-server");
+  await engine.addSubagent("researcher");
+  await engine.enableProvider("codex");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/mcp/test-server.overrides.codex.yaml"),
+    "version: 1\ntargetPath: .codex/mcp.toml\n",
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/subagents/researcher.overrides.codex.yaml"),
+    "version: 1\ntargetPath: .codex/agents.toml\n",
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.ok(apply.diagnostics.some((diagnostic) => diagnostic.code === "CODEX_CONFIG_TARGET_CONFLICT"));
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    true,
+  );
+});
+
+test("unknown subagent override option emits warning and is ignored", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addSubagent("researcher");
+  await engine.enableProvider("claude");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/subagents/researcher.overrides.claude.yaml"),
+    "version: 1\noptions:\n  model: claude-sonnet-4-5\n  unsupported: true\n",
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
+  assert.ok(apply.diagnostics.some((diagnostic) => diagnostic.code === "SUBAGENT_OPTIONS_UNKNOWN"));
+
+  const rendered = await fs.readFile(path.join(cwd, ".claude/agents/researcher.md"), "utf8");
+  assert.doesNotMatch(rendered, /unsupported/u);
+});

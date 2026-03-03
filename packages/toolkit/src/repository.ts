@@ -297,6 +297,11 @@ export async function collectSourceCandidates(paths: HarnessPaths): Promise<stri
       continue;
     }
 
+    if (/^\.harness\/src\/subagents\/[^/]+\.md$/u.test(relative)) {
+      candidates.push(relative);
+      continue;
+    }
+
     if (/^\.harness\/src\/prompts\/[^/]+\.overrides\.[^.\/]+\.ya?ml$/u.test(relative)) {
       candidates.push(relative);
       continue;
@@ -308,6 +313,11 @@ export async function collectSourceCandidates(paths: HarnessPaths): Promise<stri
     }
 
     if (/^\.harness\/src\/mcp\/[^/]+\.overrides\.[^.\/]+\.ya?ml$/u.test(relative)) {
+      candidates.push(relative);
+      continue;
+    }
+
+    if (/^\.harness\/src\/subagents\/[^/]+\.overrides\.[^.\/]+\.ya?ml$/u.test(relative)) {
       candidates.push(relative);
     }
   }

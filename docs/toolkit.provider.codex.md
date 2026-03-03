@@ -12,6 +12,9 @@ Builds the Codex provider adapter.
 
 - Defaults from `PROVIDER_DEFAULTS.codex`.
 - MCP format: `toml`.
+- Uses `renderProviderState` to merge MCP + subagent data into one TOML artifact.
 - TOML payload shape:
-  - top-level key: `mcp_servers`
+  - `mcp_servers` for merged MCP servers (when present)
+  - `experimental_use_role = true` when at least one subagent is enabled
+  - `agents.<id>` entries for enabled subagents
 - Output string is normalized to one trailing newline.

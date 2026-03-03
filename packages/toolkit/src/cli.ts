@@ -222,6 +222,17 @@ addCommand
     console.log(`Added MCP config '${configId}'.`);
   });
 
+addCommand
+  .command("subagent")
+  .description("Create a subagent entity")
+  .argument("<subagent-id>", "subagent id")
+  .option("--registry <registry>", "registry id (defaults to configured default/local)")
+  .action(async (subagentId: string, options: { registry?: string }) => {
+    const engine = new HarnessEngine(program.opts().cwd as string);
+    await engine.addSubagent(subagentId, { registry: options.registry });
+    console.log(`Added subagent '${subagentId}'.`);
+  });
+
 program
   .command("remove")
   .description("Remove an existing entity")

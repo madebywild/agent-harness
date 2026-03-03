@@ -34,8 +34,8 @@ This plan uses strict ownership rules:
 
 ## Final Scope (Locked)
 1. Providers in v1: `codex`, `claude`, `copilot`.
-2. Entities in v1: `prompt`, `skill`, `mcp_config`.
-3. `lifecycle_hooks` and `subagents`: not implemented in v1.
+2. Entities in v1: `prompt`, `skill`, `mcp_config`, `subagent`.
+3. `lifecycle_hooks`: not implemented in v1.
 4. Prompt cardinality: zero or one system prompt entity (optional).
 5. Provider enablement: global opt-in at CLI level; enabled providers receive all entity types.
 6. Output location: provider-native paths directly in repo.
@@ -93,28 +93,35 @@ CLI owns and maintains:
       <config-id>.overrides.codex.yaml
       <config-id>.overrides.claude.yaml
       <config-id>.overrides.copilot.yaml
+    /subagents
+      <subagent-id>.md
+      <subagent-id>.overrides.codex.yaml
+      <subagent-id>.overrides.claude.yaml
+      <subagent-id>.overrides.copilot.yaml
 ```
 
 Generated targets (examples when all providers enabled):
 1. Codex:
    - `/Users/tom/Github/agent-harness/AGENTS.md`
    - `/Users/tom/Github/agent-harness/.codex/skills/<skill-id>/...`
-   - `/Users/tom/Github/agent-harness/.codex/config.toml`
+   - `/Users/tom/Github/agent-harness/.codex/config.toml` (MCP + subagents)
 2. Claude:
    - `/Users/tom/Github/agent-harness/CLAUDE.md`
    - `/Users/tom/Github/agent-harness/.claude/skills/<skill-id>/...`
    - `/Users/tom/Github/agent-harness/.mcp.json`
+   - `/Users/tom/Github/agent-harness/.claude/agents/<subagent-id>.md`
 3. Copilot:
    - `/Users/tom/Github/agent-harness/.github/copilot-instructions.md`
    - `/Users/tom/Github/agent-harness/.github/skills/<skill-id>/...`
    - `/Users/tom/Github/agent-harness/.vscode/mcp.json`
+   - `/Users/tom/Github/agent-harness/.github/agents/<subagent-id>.agent.md`
 
 ## Public APIs / Interfaces / Types
 Expose from toolkit package:
 
 ```ts
 export type ProviderId = "codex" | "claude" | "copilot";
-export type EntityType = "prompt" | "skill" | "mcp_config";
+export type EntityType = "prompt" | "skill" | "mcp_config" | "subagent";
 
 export interface AgentsManifest {
   version: 1;
@@ -142,7 +149,11 @@ export interface McpEntityRef extends EntityRefBase {
   type: "mcp_config";
 }
 
-export type EntityRef = PromptEntityRef | SkillEntityRef | McpEntityRef;
+export interface SubagentEntityRef extends EntityRefBase {
+  type: "subagent";
+}
+
+export type EntityRef = PromptEntityRef | SkillEntityRef | McpEntityRef | SubagentEntityRef;
 
 export interface ProviderOverride {
   version: 1;
@@ -154,6 +165,13 @@ export interface ProviderOverride {
 export interface CanonicalPrompt { id: string; body: string; frontmatter: Record<string, unknown>; }
 export interface CanonicalSkill { id: string; files: Array<{ path: string; sha256: string }>; }
 export interface CanonicalMcpConfig { id: string; json: Record<string, unknown>; }
+export interface CanonicalSubagent {
+  id: string;
+  name: string;
+  description: string;
+  body: string;
+  metadata: Record<string, unknown>;
+}
 
 export interface RenderedArtifact {
   path: string;
@@ -168,6 +186,13 @@ export interface ProviderAdapter {
   renderPrompt?(input: CanonicalPrompt, override?: ProviderOverride): Promise<RenderedArtifact[]>;
   renderSkill?(input: CanonicalSkill, override?: ProviderOverride): Promise<RenderedArtifact[]>;
   renderMcp?(input: CanonicalMcpConfig[], overrideByEntity?: Map<string, ProviderOverride>): Promise<RenderedArtifact[]>;
+  renderSubagent?(input: CanonicalSubagent, override?: ProviderOverride): Promise<RenderedArtifact[]>;
+  renderProviderState?(input: {
+    mcps: CanonicalMcpConfig[];
+    mcpOverrideByEntity?: Map<string, ProviderOverride>;
+    subagents: CanonicalSubagent[];
+    subagentOverrideByEntity?: Map<string, ProviderOverride>;
+  }): Promise<RenderedArtifact[]>;
 }
 
 export interface ManifestLock {
@@ -213,16 +238,18 @@ This keeps one canonical content source while allowing provider-specific behavio
    - Creates `.harness/src/skills/<skill-id>/SKILL.md` and manifest entry.
 6. `harness add mcp <config-id>`
    - Creates `.harness/src/mcp/<config-id>.json` and manifest entry.
-7. `harness remove <prompt|skill|mcp> <id>`
+7. `harness add subagent <subagent-id>`
+   - Creates `.harness/src/subagents/<subagent-id>.md` and manifest entry.
+8. `harness remove <prompt|skill|mcp|subagent> <id>`
    - Removes entity from manifest; deletes source by default (opt out with `--no-delete-source`).
    - For prompts in v1, id must be `system`.
-8. `harness validate`
+9. `harness validate`
    - Schema, ownership, collisions, and drift checks.
-9. `harness plan [--json]`
+10. `harness plan [--json]`
    - Lists create/update/delete operations and diagnostics.
-10. `harness apply [--json]`
+11. `harness apply [--json]`
    - Executes plan and rewrites managed files.
-11. `harness watch [--debounce 250]`
+12. `harness watch [--debounce 250]`
    - Foreground watcher; initial apply on startup.
 
 ## Strict Ownership and Collision Rules
@@ -245,7 +272,11 @@ This keeps one canonical content source while allowing provider-specific behavio
 3. MCP:
    - Merge all MCP entities into provider-specific single config artifact.
    - Duplicate server IDs with differing definitions are hard errors.
-4. Override sidecars:
+4. Subagent:
+   - Claude: one markdown file per subagent at `.claude/agents/<id>.md`.
+   - Copilot: one markdown file per subagent at `.github/agents/<id>.agent.md`.
+   - Codex: merged into `.codex/config.toml` under `[agents.<id>]`, sharing the file with `mcp_servers`.
+5. Override sidecars:
    - Can change target path and typed options.
    - Cannot override canonical body/content.
 
@@ -292,7 +323,7 @@ This keeps one canonical content source while allowing provider-specific behavio
 2. Node runtime baseline: `>=22`.
 3. Monorepo uses `pnpm` workspaces + Turborepo.
 4. Single prompt entity in v1.
-5. No lifecycle hooks or subagents in v1.
+5. No lifecycle hooks in v1.
 6. No provider import/adoption flow in v1.
 7. Generated files are fully CLI-managed artifacts.
 

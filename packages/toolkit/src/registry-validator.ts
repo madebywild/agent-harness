@@ -2,6 +2,7 @@ import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { parseRegistryManifest } from "@agent-harness/manifest-schema";
+import matter from "gray-matter";
 import { listFilesRecursively } from "./repository.js";
 import type { Diagnostic, RegistryValidationOptions, RegistryValidationResult } from "./types.js";
 import { isNotFoundError, normalizeRelativePath, readTextIfExists, toPosixRelative } from "./utils.js";
@@ -172,6 +173,90 @@ export async function validateRegistryRepo(options: RegistryValidationOptions = 
       }
 
       await readJsonObject(mcpPath, "REGISTRY_MCP_INVALID", `MCP config '${id}' is invalid`, diagnostics, repoPath);
+    }
+  }
+
+  const subagentsDir = path.join(rootAbs, "subagents");
+  let subagentEntries: Dirent[] | null = null;
+  try {
+    subagentEntries = await fs.readdir(subagentsDir, { withFileTypes: true });
+  } catch (err) {
+    if (!isNotFoundError(err)) {
+      throw err;
+    }
+  }
+
+  if (subagentEntries) {
+    for (const entry of subagentEntries) {
+      const subagentPath = path.join(subagentsDir, entry.name);
+      const subagentPathRel = toPosixRelative(subagentPath, repoPath);
+
+      if (!entry.isFile() || !entry.name.endsWith(".md")) {
+        diagnostics.push(error("REGISTRY_SUBAGENT_INVALID", "subagents/ may only contain .md files", subagentPathRel));
+        continue;
+      }
+
+      const id = entry.name.slice(0, -".md".length);
+      if (!isValidEntityId(id)) {
+        diagnostics.push(error("REGISTRY_SUBAGENT_INVALID", `Invalid subagent id '${id}'`, subagentPathRel));
+      }
+
+      const text = await readTextIfExists(subagentPath);
+      if (text === null || text.trim().length === 0) {
+        diagnostics.push(error("REGISTRY_SUBAGENT_INVALID", `Subagent '${id}' must be non-empty`, subagentPathRel));
+        continue;
+      }
+
+      try {
+        const parsed = matter(text);
+        const body = parsed.content.trim();
+        const frontmatter = parsed.data;
+
+        if (!frontmatter || typeof frontmatter !== "object" || Array.isArray(frontmatter)) {
+          diagnostics.push(
+            error("REGISTRY_SUBAGENT_INVALID", `Subagent '${id}' frontmatter must be a YAML object`, subagentPathRel),
+          );
+          continue;
+        }
+
+        const frontmatterMap = frontmatter as Record<string, unknown>;
+        const name = typeof frontmatterMap.name === "string" ? frontmatterMap.name.trim() : "";
+        const description = typeof frontmatterMap.description === "string" ? frontmatterMap.description.trim() : "";
+
+        if (!name) {
+          diagnostics.push(
+            error(
+              "REGISTRY_SUBAGENT_INVALID",
+              `Subagent '${id}' frontmatter requires non-empty 'name'`,
+              subagentPathRel,
+            ),
+          );
+        }
+
+        if (!description) {
+          diagnostics.push(
+            error(
+              "REGISTRY_SUBAGENT_INVALID",
+              `Subagent '${id}' frontmatter requires non-empty 'description'`,
+              subagentPathRel,
+            ),
+          );
+        }
+
+        if (!body) {
+          diagnostics.push(
+            error("REGISTRY_SUBAGENT_INVALID", `Subagent '${id}' body must be non-empty`, subagentPathRel),
+          );
+        }
+      } catch (err) {
+        diagnostics.push(
+          error(
+            "REGISTRY_SUBAGENT_INVALID",
+            `Subagent '${id}' frontmatter is invalid: ${err instanceof Error ? err.message : "unknown error"}`,
+            subagentPathRel,
+          ),
+        );
+      }
     }
   }
 

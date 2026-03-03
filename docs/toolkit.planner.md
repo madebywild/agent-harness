@@ -16,7 +16,8 @@ Transforms canonical loaded state into:
 
 ## Planning flow
 
-- Build provider adapters and render prompt/skill/MCP artifacts for enabled providers.
+- Build provider adapters and render prompt/skill/MCP/subagent artifacts for enabled providers.
+- Supports composite provider-state rendering (`renderProviderState`) for shared artifacts (Codex `.codex/config.toml`).
 - Normalize artifact paths and coalesce by path.
 - Detect output path collisions (`OUTPUT_PATH_COLLISION`):
   - cross-provider same-path collisions are always errors in v1, even with identical content.

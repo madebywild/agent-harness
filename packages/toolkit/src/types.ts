@@ -25,13 +25,14 @@ export type {
   RegistryManifest,
 };
 
-export const CLI_ENTITY_TYPES = ["prompt", "skill", "mcp"] as const;
+export const CLI_ENTITY_TYPES = ["prompt", "skill", "mcp", "subagent"] as const;
 export type CliEntityType = (typeof CLI_ENTITY_TYPES)[number];
 
 export const CLI_ENTITY_TO_MANIFEST_ENTITY: Record<CliEntityType, EntityType> = {
   prompt: "prompt",
   skill: "skill",
   mcp: "mcp_config",
+  subagent: "subagent",
 };
 
 export function isCliEntityType(value: string): value is CliEntityType {
@@ -54,12 +55,27 @@ export interface CanonicalMcpConfig {
   json: Record<string, unknown>;
 }
 
+export interface CanonicalSubagent {
+  id: string;
+  name: string;
+  description: string;
+  body: string;
+  metadata: Record<string, unknown>;
+}
+
 export interface RenderedArtifact {
   path: string;
   content: string;
   ownerEntityId: string;
   provider: ProviderId;
   format: "markdown" | "json" | "toml";
+}
+
+export interface ProviderStateInput {
+  mcps: CanonicalMcpConfig[];
+  mcpOverrideByEntity?: Map<string, ProviderOverride | undefined>;
+  subagents: CanonicalSubagent[];
+  subagentOverrideByEntity?: Map<string, ProviderOverride | undefined>;
 }
 
 export interface ProviderAdapter {
@@ -70,6 +86,8 @@ export interface ProviderAdapter {
     input: CanonicalMcpConfig[],
     overrideByEntity?: Map<string, ProviderOverride | undefined>,
   ): Promise<RenderedArtifact[]>;
+  renderSubagent?(input: CanonicalSubagent, override?: ProviderOverride): Promise<RenderedArtifact[]>;
+  renderProviderState?(input: ProviderStateInput): Promise<RenderedArtifact[]>;
 }
 
 export type DiagnosticSeverity = "info" | "warning" | "error";
@@ -209,6 +227,14 @@ export interface LoadedMcp {
   overrideShaByProvider: Partial<Record<ProviderId, string>>;
 }
 
+export interface LoadedSubagent {
+  entity: EntityRef;
+  canonical: CanonicalSubagent;
+  sourceSha256: string;
+  overrideByProvider: Map<ProviderId, ProviderOverride | undefined>;
+  overrideShaByProvider: Partial<Record<ProviderId, string>>;
+}
+
 export interface InternalPlanResult extends PlanResult {
   artifactsByPath: Map<string, { content: string; provider: ProviderId; ownerEntityIds: string[] }>;
   nextManagedIndex: ManagedIndex;
@@ -220,4 +246,5 @@ export interface LoadResult {
   prompt?: LoadedPrompt;
   skills: LoadedSkill[];
   mcps: LoadedMcp[];
+  subagents: LoadedSubagent[];
 }

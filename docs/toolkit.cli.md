@@ -14,9 +14,9 @@ Defines the `harness` CLI using Commander and maps CLI commands to `HarnessEngin
 - `registry add <name> --git-url <url> [--ref <ref>] [--root <path>] [--token-env <name>]`: add git registry.
 - `registry remove <name>`: remove registry config (except built-in `local`).
 - `registry default show|set <name>`: read/update default registry.
-- `registry pull [<prompt|skill|mcp> <id>] [--registry <name>] [--force]`: refresh imported entities.
-- `add prompt|skill|mcp [--registry <name>]`: scaffold source entities from default or explicit registry.
-- `remove <prompt|skill|mcp> <id> [--no-delete-source]`: remove an entity from manifest and delete scaffolded source files by default (`prompt` requires id `system`).
+- `registry pull [<prompt|skill|mcp|subagent> <id>] [--registry <name>] [--force]`: refresh imported entities.
+- `add prompt|skill|mcp|subagent [--registry <name>]`: scaffold source entities from default or explicit registry.
+- `remove <prompt|skill|mcp|subagent> <id> [--no-delete-source]`: remove an entity from manifest and delete scaffolded source files by default (`prompt` requires id `system`).
 - `validate`: print diagnostics and set exit code `1` if invalid.
 - `plan [--json]`: show proposed file operations and diagnostics.
 - `apply [--json]`: execute write/delete operations if no error diagnostics.

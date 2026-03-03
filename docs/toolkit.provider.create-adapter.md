@@ -23,6 +23,9 @@ Implements the shared adapter builder used by all concrete providers.
   - resolves single target path via `resolveMcpTargetPath`.
   - merges servers via `mergeMcpServers`.
   - delegates serialization to provider `mcpRenderer`.
+- Subagents:
+  - not handled in this shared builder.
+  - provider-specific adapters implement `renderSubagent` (Claude/Copilot) or `renderProviderState` (Codex shared TOML).
 
 ## Ownership tagging
 

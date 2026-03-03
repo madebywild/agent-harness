@@ -1,8 +1,10 @@
 import * as TOML from "@iarna/toml";
 import type { ProviderAdapter } from "../types.js";
-import { withSingleTrailingNewline } from "../utils.js";
+import { normalizeRelativePath, uniqSorted, withSingleTrailingNewline } from "../utils.js";
 import { PROVIDER_DEFAULTS } from "./constants.js";
 import { createProviderAdapter } from "./create-adapter.js";
+import { mergeMcpServers } from "./mcp.js";
+import { parseCodexSubagentOptions } from "./subagents.js";
 import type { ProviderDefinition, SkillFileIndex } from "./types.js";
 
 const CODEX_DEFINITION: ProviderDefinition = {
@@ -21,5 +23,102 @@ const CODEX_DEFINITION: ProviderDefinition = {
 };
 
 export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): ProviderAdapter {
-  return createProviderAdapter(CODEX_DEFINITION, skillFilesByEntityId);
+  const base = createProviderAdapter(CODEX_DEFINITION, skillFilesByEntityId);
+  return {
+    ...base,
+    async renderProviderState(input) {
+      const enabledMcps = input.mcps.filter((entry) => input.mcpOverrideByEntity?.get(entry.id)?.enabled !== false);
+      const enabledSubagents = input.subagents.filter(
+        (entry) => input.subagentOverrideByEntity?.get(entry.id)?.enabled !== false,
+      );
+
+      if (enabledMcps.length === 0 && enabledSubagents.length === 0) {
+        return [];
+      }
+
+      const targetPath = resolveCodexConfigTargetPath(
+        input,
+        enabledMcps.map((entry) => entry.id),
+        enabledSubagents,
+      );
+      const payload: Record<string, unknown> = {};
+
+      if (enabledMcps.length > 0) {
+        payload.mcp_servers = mergeMcpServers(enabledMcps) as unknown as TOML.AnyJson;
+      }
+
+      if (enabledSubagents.length > 0) {
+        payload.experimental_use_role = true;
+        const agents = Object.fromEntries(
+          enabledSubagents
+            .slice()
+            .sort((left, right) => left.id.localeCompare(right.id))
+            .map((subagent) => {
+              const options = parseCodexSubagentOptions(input.subagentOverrideByEntity?.get(subagent.id));
+              const agentState: Record<string, unknown> = {
+                description: subagent.description,
+                prompt: subagent.body,
+              };
+              if (options.model) {
+                agentState.model = options.model;
+              }
+              if (options.tools) {
+                agentState.tools = options.tools;
+              }
+              return [subagent.id, agentState] as const;
+            }),
+        );
+        payload.agents = agents as unknown as TOML.AnyJson;
+      }
+
+      const ownerEntityId = uniqSorted([
+        ...enabledMcps.map((entry) => entry.id),
+        ...enabledSubagents.map((entry) => entry.id),
+      ]).join(",");
+
+      return [
+        {
+          path: targetPath,
+          content: withSingleTrailingNewline(TOML.stringify(payload as unknown as TOML.JsonMap)),
+          ownerEntityId,
+          provider: "codex",
+          format: "toml",
+        },
+      ];
+    },
+  };
+}
+
+function resolveCodexConfigTargetPath(
+  input: Parameters<NonNullable<ProviderAdapter["renderProviderState"]>>[0],
+  enabledMcpIds: string[],
+  enabledSubagents: Array<{ id: string }>,
+): string {
+  const targets = new Set<string>();
+
+  for (const id of enabledMcpIds) {
+    const targetPath = input.mcpOverrideByEntity?.get(id)?.targetPath;
+    if (targetPath) {
+      targets.add(normalizeRelativePath(targetPath));
+    }
+  }
+
+  for (const subagent of enabledSubagents) {
+    const targetPath = input.subagentOverrideByEntity?.get(subagent.id)?.targetPath;
+    if (targetPath) {
+      targets.add(normalizeRelativePath(targetPath));
+    }
+  }
+
+  if (targets.size > 1) {
+    throw new Error(
+      `CODEX_CONFIG_TARGET_CONFLICT: conflicting codex config targetPath overrides: ${[...targets].join(", ")}`,
+    );
+  }
+
+  if (targets.size === 1) {
+    return [...targets][0] as string;
+  }
+
+  return normalizeRelativePath(PROVIDER_DEFAULTS.codex.mcpTarget);
 }

@@ -14,6 +14,7 @@ import {
   defaultMcpOverridePath,
   defaultPromptOverridePath,
   defaultSkillOverridePath,
+  defaultSubagentOverridePath,
 } from "./paths.js";
 import type { HarnessPaths } from "./paths.js";
 import {
@@ -22,7 +23,7 @@ import {
   listFilesRecursively,
   readProviderOverrideFile,
 } from "./repository.js";
-import type { Diagnostic, LoadResult, LoadedMcp, LoadedPrompt, LoadedSkill } from "./types.js";
+import type { Diagnostic, LoadResult, LoadedMcp, LoadedPrompt, LoadedSkill, LoadedSubagent } from "./types.js";
 import { normalizeRelativePath, sha256, stableStringify, toPosixRelative } from "./utils.js";
 
 export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsManifest): Promise<LoadResult> {
@@ -77,12 +78,23 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
     }
   }
 
+  const subagentEntities = manifest.entities.filter((entity) => entity.type === "subagent" && entity.enabled !== false);
+  const subagents: LoadedSubagent[] = [];
+  for (const subagentEntity of subagentEntities) {
+    const loadedSubagent = await loadSubagent(paths, subagentEntity);
+    diagnostics.push(...loadedSubagent.diagnostics);
+    if (loadedSubagent.subagent) {
+      subagents.push(loadedSubagent.subagent);
+    }
+  }
+
   return {
     manifest,
     diagnostics,
     prompt,
     skills: skills.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     mcps: mcps.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
+    subagents: subagents.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
   };
 }
 
@@ -214,6 +226,19 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
           code: "MCP_SOURCE_INVALID",
           severity: "error",
           message: `MCP config '${entity.id}' sourcePath must be '${expectedPath}'`,
+          path: sourcePath,
+          entityId: entity.id,
+        });
+      }
+    }
+
+    if (entity.type === "subagent") {
+      const expectedPath = `.harness/src/subagents/${entity.id}.md`;
+      if (sourcePath !== expectedPath) {
+        diagnostics.push({
+          code: "SUBAGENT_SOURCE_INVALID",
+          severity: "error",
+          message: `Subagent '${entity.id}' sourcePath must be '${expectedPath}'`,
           path: sourcePath,
           entityId: entity.id,
         });
@@ -481,6 +506,124 @@ async function loadMcp(
   };
 }
 
+async function loadSubagent(
+  paths: HarnessPaths,
+  entity: EntityRef,
+): Promise<{ subagent?: LoadedSubagent; diagnostics: Diagnostic[] }> {
+  const diagnostics: Diagnostic[] = [];
+  const sourcePath = normalizeRelativePath(entity.sourcePath);
+  const sourceAbs = path.join(paths.root, sourcePath);
+
+  let text: string;
+  try {
+    text = await fs.readFile(sourceAbs, "utf8");
+  } catch {
+    diagnostics.push({
+      code: "SUBAGENT_SOURCE_MISSING",
+      severity: "error",
+      message: `Subagent source '${sourcePath}' could not be read`,
+      path: sourcePath,
+      entityId: entity.id,
+    });
+    return { diagnostics };
+  }
+
+  let parsed: matter.GrayMatterFile<string>;
+  try {
+    parsed = matter(text);
+  } catch (error) {
+    diagnostics.push({
+      code: "SUBAGENT_FRONTMATTER_INVALID",
+      severity: "error",
+      message: `Subagent '${entity.id}' frontmatter is invalid: ${error instanceof Error ? error.message : "unknown error"}`,
+      path: sourcePath,
+      entityId: entity.id,
+    });
+    return { diagnostics };
+  }
+
+  if (!parsed.data || typeof parsed.data !== "object" || Array.isArray(parsed.data)) {
+    diagnostics.push({
+      code: "SUBAGENT_FRONTMATTER_INVALID",
+      severity: "error",
+      message: `Subagent '${entity.id}' frontmatter must be a YAML object`,
+      path: sourcePath,
+      entityId: entity.id,
+    });
+    return { diagnostics };
+  }
+
+  const frontmatter = parsed.data as Record<string, unknown>;
+  const name = typeof frontmatter.name === "string" ? frontmatter.name.trim() : "";
+  const description = typeof frontmatter.description === "string" ? frontmatter.description.trim() : "";
+  const body = parsed.content.trim();
+
+  if (!name) {
+    diagnostics.push({
+      code: "SUBAGENT_NAME_REQUIRED",
+      severity: "error",
+      message: `Subagent '${entity.id}' requires a non-empty frontmatter name`,
+      path: sourcePath,
+      entityId: entity.id,
+    });
+  }
+
+  if (!description) {
+    diagnostics.push({
+      code: "SUBAGENT_DESCRIPTION_REQUIRED",
+      severity: "error",
+      message: `Subagent '${entity.id}' requires a non-empty frontmatter description`,
+      path: sourcePath,
+      entityId: entity.id,
+    });
+  }
+
+  if (!body) {
+    diagnostics.push({
+      code: "SUBAGENT_EMPTY",
+      severity: "error",
+      message: `Subagent '${entity.id}' cannot be empty`,
+      path: sourcePath,
+      entityId: entity.id,
+    });
+  }
+
+  const metadata = Object.fromEntries(
+    Object.entries(frontmatter).filter(([key]) => key !== "name" && key !== "description"),
+  ) as Record<string, unknown>;
+
+  const overrideByProvider = new Map<ProviderId, ProviderOverride | undefined>();
+  const overrideShaByProvider: Partial<Record<ProviderId, string>> = {};
+
+  for (const provider of providerIdSchema.options) {
+    const overridePath = entity.overrides?.[provider] ?? defaultSubagentOverridePath(entity.id, provider);
+    const parsedOverride = await parseOverride(paths, provider, entity, overridePath);
+    diagnostics.push(...parsedOverride.diagnostics);
+    diagnostics.push(...validateSubagentOverrideOptions(entity.id, provider, parsedOverride.override, overridePath));
+    overrideByProvider.set(provider, parsedOverride.override);
+    if (parsedOverride.sha256) {
+      overrideShaByProvider[provider] = parsedOverride.sha256;
+    }
+  }
+
+  return {
+    diagnostics,
+    subagent: {
+      entity,
+      canonical: {
+        id: entity.id,
+        name: name || entity.id,
+        description,
+        body,
+        metadata,
+      },
+      sourceSha256: sha256(text),
+      overrideByProvider,
+      overrideShaByProvider,
+    },
+  };
+}
+
 async function parseOverride(paths: HarnessPaths, provider: ProviderId, entity: EntityRef, pathValue: string) {
   return readProviderOverrideFile(paths.root, provider, pathValue).then((result) => ({
     ...result,
@@ -489,4 +632,41 @@ async function parseOverride(paths: HarnessPaths, provider: ProviderId, entity: 
       entityId: diagnostic.entityId ?? entity.id,
     })),
   }));
+}
+
+function validateSubagentOverrideOptions(
+  entityId: string,
+  provider: ProviderId,
+  override: ProviderOverride | undefined,
+  overridePath: string,
+): Diagnostic[] {
+  const options = override?.options;
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    return [];
+  }
+
+  const allowed = new Set<string>(
+    provider === "codex"
+      ? ["model", "tools"]
+      : provider === "claude"
+        ? ["model", "tools"]
+        : ["model", "tools", "handoffs"],
+  );
+
+  const unknown = Object.keys(options).filter((key) => !allowed.has(key));
+  if (unknown.length === 0) {
+    return [];
+  }
+
+  return [
+    {
+      code: "SUBAGENT_OPTIONS_UNKNOWN",
+      severity: "warning",
+      message: `Subagent '${entityId}' has unknown ${provider} override option(s): ${unknown.sort().join(", ")}`,
+      path: normalizeRelativePath(overridePath),
+      entityId,
+      provider,
+      hint: "Unknown keys are ignored.",
+    },
+  ];
 }
