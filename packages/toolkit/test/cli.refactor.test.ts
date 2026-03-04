@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { runCommanderAdapter } from "../src/cli/adapters/commander.js";
 import { runCliArgv } from "../src/cli/main.js";
+import { isNoArgShortcutEligible } from "../src/cli/utils/runtime.js";
 import { mkTmpRepo } from "./helpers.ts";
 
 function createCapturedContext(cwd: string, options?: { isTty?: boolean; isCi?: boolean }) {
@@ -93,4 +95,70 @@ test("runCliArgv applies --json envelope to explicit commands", async () => {
   assert.equal(planPayload.command, "plan");
   assert.equal(planPayload.ok, true);
   assert.equal(Array.isArray(planPayload.data.result.operations), true);
+});
+
+test("isNoArgShortcutEligible rejects commander-owned option-only invocations", () => {
+  assert.equal(isNoArgShortcutEligible([]), true);
+  assert.equal(isNoArgShortcutEligible(["--interactive"]), true);
+  assert.equal(isNoArgShortcutEligible(["--no-interactive"]), true);
+  assert.equal(isNoArgShortcutEligible(["--json"]), true);
+  assert.equal(isNoArgShortcutEligible(["--cwd", "/tmp/workspace"]), true);
+  assert.equal(isNoArgShortcutEligible(["--cwd=/tmp/workspace"]), true);
+
+  assert.equal(isNoArgShortcutEligible(["--help"]), false);
+  assert.equal(isNoArgShortcutEligible(["-h"]), false);
+  assert.equal(isNoArgShortcutEligible(["--version"]), false);
+  assert.equal(isNoArgShortcutEligible(["-V"]), false);
+  assert.equal(isNoArgShortcutEligible(["--unknown"]), false);
+  assert.equal(isNoArgShortcutEligible(["--cwd"]), false);
+  assert.equal(isNoArgShortcutEligible(["--cwd="]), false);
+});
+
+test("runCommanderAdapter forwards resolved json mode into watch command input", async () => {
+  const cwd = await mkTmpRepo();
+  const calls: Array<{ json: boolean; commandJson: boolean | undefined }> = [];
+
+  const result = await runCommanderAdapter(
+    ["watch", "--json"],
+    {
+      cwd,
+      env: {},
+      stdout: () => {},
+      stderr: () => {},
+      now: () => 100,
+      isTty: false,
+      isCi: false,
+    },
+    {
+      execute: async (input) => {
+        calls.push({
+          json: false,
+          commandJson: typeof input.options?.json === "boolean" ? input.options.json : undefined,
+        });
+        return {
+          family: "watch",
+          command: "watch",
+          ok: true,
+          diagnostics: [],
+          exitCode: 0,
+          data: {
+            debounceMs: 250,
+            started: true,
+          },
+        };
+      },
+      renderOutput: (_output, _durationMs, json) => {
+        const latest = calls.at(-1);
+        if (latest) {
+          latest.json = json;
+        }
+      },
+      runInteractive: async () => ({ exitCode: 0 }),
+    },
+  );
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.commandJson, true);
+  assert.equal(calls[0]?.json, true);
 });

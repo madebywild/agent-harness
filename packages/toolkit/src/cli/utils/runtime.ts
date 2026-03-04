@@ -57,6 +57,47 @@ export function parseGlobalCwd(argv: readonly string[], fallbackCwd: string): st
   return fallbackCwd;
 }
 
+export function isNoArgShortcutEligible(argv: readonly string[]): boolean {
+  let expectingCwdValue = false;
+
+  for (const token of argv) {
+    if (expectingCwdValue) {
+      if (token.length === 0 || token.startsWith("-")) {
+        return false;
+      }
+      expectingCwdValue = false;
+      continue;
+    }
+
+    if (token === "--cwd") {
+      expectingCwdValue = true;
+      continue;
+    }
+
+    if (token.startsWith("--cwd=")) {
+      const [, value] = token.split("=", 2);
+      if (!value) {
+        return false;
+      }
+      continue;
+    }
+
+    if (token === "--interactive" || token === "--no-interactive" || token === "--json") {
+      continue;
+    }
+
+    // Let commander own help/version/unknown option handling.
+    if (token.startsWith("-")) {
+      return false;
+    }
+
+    // Positional args should not enter the no-arg shortcut path.
+    return false;
+  }
+
+  return !expectingCwdValue;
+}
+
 export function detectPrimaryCommand(argv: readonly string[]): string | null {
   let skipNext = false;
   for (const token of argv) {

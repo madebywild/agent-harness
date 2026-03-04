@@ -7,6 +7,7 @@ import { renderTextOutput } from "./renderers/text.js";
 import {
   detectPrimaryCommand,
   ensureInteractiveFeasible,
+  isNoArgShortcutEligible,
   parseGlobalCwd,
   parseGlobalJsonFlag,
   parseRuntimeFlags,
@@ -54,7 +55,7 @@ export async function runCliArgv(
     const hasJsonFlag = parseGlobalJsonFlag(argv);
     const primaryCommand = detectPrimaryCommand(argv);
 
-    if (primaryCommand === null && !runtimeFlags.forceNonInteractive) {
+    if (primaryCommand === null && !runtimeFlags.forceNonInteractive && isNoArgShortcutEligible(argv)) {
       const mode =
         hasJsonFlag && !runtimeFlags.forceInteractive
           ? "command"

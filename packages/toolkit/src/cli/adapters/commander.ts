@@ -465,12 +465,13 @@ export async function runCommanderAdapter(
       .description("Watch source files and apply on changes")
       .option("--debounce <ms>", "debounce window in milliseconds", "250")
       .action(async (options: { debounce: string; json?: boolean }) => {
+        const json = resolveInvocationJson(program, options);
         await runCommand(
           {
             command: "watch",
             options: {
               debounceMs: options.debounce,
-              json: Boolean(options.json),
+              json,
             },
           },
           options,
