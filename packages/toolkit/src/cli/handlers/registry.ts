@@ -22,10 +22,10 @@ export async function handleRegistryList(context: CliResolvedContext): Promise<R
 
 export async function handleRegistryValidate(
   input: { path?: string; root?: string },
-  _context: CliResolvedContext,
+  context: CliResolvedContext,
 ): Promise<RegistryOutput> {
   const result = await validateRegistryRepo({
-    repoPath: input.path,
+    repoPath: input.path ?? context.cwd,
     rootPath: input.root,
   });
 

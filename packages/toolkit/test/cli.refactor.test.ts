@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { test } from "node:test";
 import { runCommanderAdapter } from "../src/cli/adapters/commander.js";
-import { runCliArgv } from "../src/cli/main.js";
+import { runCliArgv, runCliCommand } from "../src/cli/main.js";
 import { isNoArgShortcutEligible } from "../src/cli/utils/runtime.js";
 import { mkTmpRepo } from "./helpers.ts";
 
@@ -95,6 +97,49 @@ test("runCliArgv applies --json envelope to explicit commands", async () => {
   assert.equal(planPayload.command, "plan");
   assert.equal(planPayload.ok, true);
   assert.equal(Array.isArray(planPayload.data.result.operations), true);
+});
+
+test("runCliArgv watch --json surfaces startup failures", async () => {
+  const cwd = await mkTmpRepo();
+  const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
+
+  const result = await runCliArgv(["watch", "--json"], capture.context);
+
+  assert.equal(result.exitCode, 1);
+  assert.equal(capture.stdout.length, 0);
+  assert.match(capture.stderr.join("\n"), /WORKSPACE_NOT_INITIALIZED/u);
+});
+
+test("runCliCommand registry.validate defaults to context cwd when path is omitted", async () => {
+  const cwd = await mkTmpRepo();
+  await fs.mkdir(path.join(cwd, "skills/reviewer"), { recursive: true });
+  await fs.writeFile(
+    path.join(cwd, "harness-registry.json"),
+    JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
+    "utf8",
+  );
+  await fs.writeFile(path.join(cwd, "skills/reviewer/SKILL.md"), "# reviewer\n\nSkill\n", "utf8");
+
+  const output = await runCliCommand(
+    {
+      command: "registry.validate",
+    },
+    {
+      cwd,
+      env: {},
+      isTty: false,
+      isCi: false,
+      stdout: () => {},
+      stderr: () => {},
+    },
+  );
+
+  assert.equal(output.family, "registry");
+  assert.equal(output.command, "registry.validate");
+  if (output.data.operation !== "validate") {
+    assert.fail(`Expected validate operation, got '${output.data.operation}'`);
+  }
+  assert.equal(output.data.result.valid, true);
 });
 
 test("isNoArgShortcutEligible rejects commander-owned option-only invocations", () => {
