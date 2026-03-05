@@ -27,7 +27,7 @@ The CLI **never** auto-upgrades schema versions during normal operations. This i
 
 The architecture separates **diagnosis** from **action**:
 
-- **`harness doctor`**: Scans all workspace files and reports their version status (current, outdated, unsupported, invalid, missing). Returns machine-readable output (`--json`) with deterministic exit codes for CI/CD integration.
+- **`harness doctor`**: Scans workspace versioned files and reports their version status (current, outdated, unsupported, invalid, missing).
 - **`harness migrate`**: Performs the actual migration after diagnostics confirm it's safe.
 
 This pattern appears across the ecosystem:
@@ -60,7 +60,7 @@ Each workspace file can be in one of these states:
 | `outdated` | File is at an older version that can be migrated forward |
 | `unsupported` | File is at a newer version than this CLI supports (forward compatibility block) |
 | `invalid` | File has missing, malformed, or wrong-type version metadata |
-| `missing` | Expected file does not exist |
+| `missing` | Required file does not exist |
 
 ### Version Detection Edge Cases
 
@@ -70,6 +70,8 @@ The CLI handles these edge cases explicitly:
 - **Wrong type version** (string `"1"`, float `1.0`, null): Explicit `invalid_version_type` error
 - **Unknown integer version**: `unsupported_version` error with clear messaging
 - **Malformed JSON/YAML**: Parse error (separate from version errors to preserve diagnostic clarity)
+
+**Current implementation detail**: `manifest.json` is required and can report `missing`; `manifest.lock.json` and `managed-index.json` are optional for doctor/migration preflight and are omitted from doctor file status output when absent.
 
 ## Migration Mechanics
 
@@ -148,20 +150,19 @@ The versioning system supports non-interactive usage:
 - `harness doctor --json`: Machine-readable output with deterministic exit codes
 - `harness migrate --json`: Scripted migration with structured output
 - Exit codes: 
-  - `0`: Success / nothing to do
-  - `1`: Error / migration failed
-  - `2`: Blocked due to unsupported version (distinguishable for CI scripting)
+  - `0`: Success / healthy workspace
+  - `1`: Non-healthy doctor result or migration failure
 
 **Recommended CI workflow**:
 
 ```bash
-# Fail fast if version issues exist
-harness doctor --json || exit 1
-
-# Apply any needed migrations
+# Apply any needed migrations first (no-op when already current)
 harness migrate --json || exit 1
 
-# Normal operations
+# Optionally assert healthy post-migration state
+harness doctor --json || exit 1
+
+# Normal operation
 harness apply
 ```
 
