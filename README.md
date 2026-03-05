@@ -67,10 +67,10 @@ harness watch
 
 ## Installation
 
-### From npm (not yet published)
+### From npm
 
 ```bash
-npm install --save-dev @agent-harness/toolkit
+npm install --save-dev @madebywild/agent-harness-framework
 npx harness init
 ```
 
@@ -162,7 +162,7 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 
 ## Monorepo Packages
 
-### `@agent-harness/manifest-schema`
+### `@madebywild/agent-harness-manifest`
 
 Zod schemas and TypeScript types for manifests, locks, and sidecars.
 
@@ -171,15 +171,15 @@ import type {
   AgentsManifest,
   ProviderId,
   EntityRef,
-} from "@agent-harness/manifest-schema";
+} from "@madebywild/agent-harness-manifest";
 ```
 
-### `@agent-harness/toolkit`
+### `@madebywild/agent-harness-framework`
 
 The main toolkit with CLI and core engine.
 
 ```typescript
-import { Planner, ProviderAdapter } from "@agent-harness/toolkit";
+import { Planner, ProviderAdapter } from "@madebywild/agent-harness-framework";
 ```
 
 ## Development
@@ -204,8 +204,35 @@ pnpm test:e2e:containers
 pnpm check:write
 
 # Watch mode during development
-pnpm --filter @agent-harness/toolkit watch
+pnpm --filter @madebywild/agent-harness-framework watch
 ```
+
+## Private npm Release
+
+This repository publishes two private npm packages in lockstep:
+
+- `@madebywild/agent-harness-manifest`
+- `@madebywild/agent-harness-framework`
+
+### Required setup
+
+- npm organization `@madebywild` with private package publishing enabled
+- Repository secret `NPM_TOKEN` with publish/read access to the `@madebywild` scope
+
+### Release flow
+
+1. Update `version` in both package manifests to the same semver:
+   - `packages/manifest-schema/package.json`
+   - `packages/toolkit/package.json`
+2. Merge the version bump PR.
+3. Create and push a release tag that matches the package version:
+   - `vX.Y.Z` (for example, `v0.2.0`)
+4. GitHub Actions workflow `.github/workflows/publish-npm.yml` runs automatically and:
+   - validates both package versions are equal
+   - validates tag version matches package version
+   - validates the version is not already published
+   - publishes manifest first, then framework
+   - validates both packages are published at the tagged version
 
 ## Containerized E2E Tests
 

@@ -1,0 +1,52 @@
+name: Publish npm packages
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      GITHUB_REF_NAME: ${{ github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      - name: Release guard (prepublish)
+        run: pnpm run release:guard
+
+      - name: Publish manifest package
+        run: pnpm --filter @madebywild/agent-harness-manifest publish --access restricted --no-git-checks
+
+      - name: Publish framework package
+        run: pnpm --filter @madebywild/agent-harness-framework publish --access restricted --no-git-checks
+
+      - name: Release guard (verify published)
+        run: pnpm run release:verify-published

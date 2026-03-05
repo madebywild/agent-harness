@@ -1,7 +1,7 @@
 import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { parseRegistryManifest } from "@agent-harness/manifest-schema";
+import { parseRegistryManifest } from "@madebywild/agent-harness-manifest";
 import matter from "gray-matter";
 import { listFilesRecursively } from "./repository.js";
 import type { Diagnostic, RegistryValidationOptions, RegistryValidationResult } from "./types.js";

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
-import { providerIdSchema } from "@agent-harness/manifest-schema";
+import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { Command } from "commander";
 import { HarnessEngine } from "./engine.js";
 import { validateRegistryRepo } from "./registry-validator.js";

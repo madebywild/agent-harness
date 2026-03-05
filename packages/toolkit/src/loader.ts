@@ -6,8 +6,8 @@ import type {
   ProviderId,
   ProviderOverride,
   RegistryDefinition,
-} from "@agent-harness/manifest-schema";
-import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@agent-harness/manifest-schema";
+} from "@madebywild/agent-harness-manifest";
+import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness-manifest";
 import matter from "gray-matter";
 import {
   DEFAULT_PROMPT_SOURCE_PATH,

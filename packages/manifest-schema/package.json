@@ -1,5 +1,5 @@
 {
-  "name": "@agent-harness/manifest-schema",
+  "name": "@madebywild/agent-harness-manifest",
   "version": "0.1.0",
   "private": false,
   "type": "module",
@@ -12,6 +12,9 @@
     }
   },
   "files": ["dist"],
+  "publishConfig": {
+    "access": "restricted"
+  },
   "dependencies": {
     "zod": "^3.24.1",
     "zod-to-json-schema": "^3.24.6"
@@ -22,7 +25,8 @@
   },
   "scripts": {
     "build": "pnpm exec tsc -b",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "prepack": "pnpm run clean && pnpm run build",
     "lint": "biome lint .",
     "lint:write": "biome lint --write .",
     "format": "biome format .",

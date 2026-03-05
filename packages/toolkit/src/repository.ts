@@ -7,7 +7,7 @@ import {
   parseManifestLock,
   parseProviderOverride,
   providerIdSchema,
-} from "@agent-harness/manifest-schema";
+} from "@madebywild/agent-harness-manifest";
 import type { HarnessPaths } from "./paths.js";
 import type {
   AgentsManifest,

@@ -10,7 +10,7 @@ import type {
   RegistryDefinition,
   RegistryId,
   RegistryManifest,
-} from "@agent-harness/manifest-schema";
+} from "@madebywild/agent-harness-manifest";
 
 export type {
   AgentsManifest,

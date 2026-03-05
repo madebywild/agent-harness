@@ -17,8 +17,10 @@
     "check": "biome check .",
     "check:write": "biome check --write .",
     "test": "pnpm exec turbo run test",
-    "test:e2e:containers": "pnpm --filter @agent-harness/toolkit test:e2e:containers",
+    "test:e2e:containers": "pnpm --filter @madebywild/agent-harness-framework test:e2e:containers",
     "typecheck": "pnpm exec turbo run typecheck",
+    "release:guard": "node scripts/release/release-guard.mjs prepublish",
+    "release:verify-published": "node scripts/release/release-guard.mjs verify-published",
     "prepare": "lefthook install"
   },
   "devDependencies": {

@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { DEFAULT_REGISTRY_ID } from "@agent-harness/manifest-schema";
-import { agentsManifestSchema, managedIndexSchema, manifestLockSchema } from "@agent-harness/manifest-schema";
+import { DEFAULT_REGISTRY_ID } from "@madebywild/agent-harness-manifest";
+import { agentsManifestSchema, managedIndexSchema, manifestLockSchema } from "@madebywild/agent-harness-manifest";
 import type {
   AgentsManifest,
   CliEntityType,
@@ -197,5 +197,5 @@ export function validateManagedIndex(index: ManagedIndex): ValidationResult {
 export async function loadOverride(pathValue: string): Promise<ProviderOverride> {
   const text = await fs.readFile(pathValue, "utf8");
   const YAML = await import("yaml");
-  return (await import("@agent-harness/manifest-schema")).parseProviderOverride(YAML.parse(text));
+  return (await import("@madebywild/agent-harness-manifest")).parseProviderOverride(YAML.parse(text));
 }
