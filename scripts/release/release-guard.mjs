@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+// Order matters: manifest must be published before framework (framework depends on manifest).
 const PACKAGE_CONFIGS = [
   {
     expectedName: "@madebywild/agent-harness-manifest",
@@ -16,7 +17,11 @@ const PACKAGE_CONFIGS = [
   },
 ];
 
-const mode = process.argv[2] ?? "prepublish";
+const args = process.argv.slice(2);
+const dryRun = args.includes("--dry-run");
+const tagFlagIndex = args.indexOf("--tag");
+const tagFlagValue = tagFlagIndex !== -1 ? args[tagFlagIndex + 1] : undefined;
+const mode = args.find((a) => !a.startsWith("--") && (tagFlagIndex === -1 || a !== tagFlagValue)) ?? "prepublish";
 
 if (mode !== "prepublish" && mode !== "publish" && mode !== "verify-published") {
   fail(`Unknown mode '${mode}'. Use 'prepublish', 'publish', or 'verify-published'.`);
@@ -87,17 +92,16 @@ function validateLockstepVersions(packagesWithVersion) {
 }
 
 function readTagVersionFromEnvironment() {
-  const rawTag = (process.env.GITHUB_REF_NAME ?? "").trim();
+  const rawTag = (tagFlagValue ?? process.env.GITHUB_REF_NAME ?? "").trim();
   if (!rawTag) {
-    fail("GITHUB_REF_NAME is required (expected format: vX.Y.Z).");
+    fail("GITHUB_REF_NAME is required (expected format: vX.Y.Z). For local testing, use --tag vX.Y.Z.");
   }
 
-  const normalizedTag = rawTag.startsWith("refs/tags/") ? rawTag.slice("refs/tags/".length) : rawTag;
-  if (!/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(normalizedTag)) {
-    fail(`Invalid tag format '${normalizedTag}'. Expected 'vX.Y.Z'.`);
+  if (!/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(rawTag)) {
+    fail(`Invalid tag format '${rawTag}'. Expected 'vX.Y.Z'.`);
   }
 
-  return normalizedTag.slice(1);
+  return rawTag.slice(1);
 }
 
 function assertPackageVersionNotBlocked(packageName, version) {
@@ -114,6 +118,11 @@ function publishPackageIfMissing(packageName, version) {
   const state = inspectPackageVersion(packageName, version);
   if (state === "exists") {
     log(`Skipping publish for existing version: ${packageName}@${version}`);
+    return;
+  }
+
+  if (dryRun) {
+    log(`[dry-run] Would publish ${packageName}@${version}`);
     return;
   }
 
