@@ -3,7 +3,7 @@ import type { CliResolvedContext, DoctorOutput } from "../contracts.js";
 
 export async function handleDoctor(context: CliResolvedContext): Promise<DoctorOutput> {
   const engine = new HarnessEngine(context.cwd);
-  const result = await engine.doctor({ json: true });
+  const result = await engine.doctor();
 
   return {
     family: "doctor",

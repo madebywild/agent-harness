@@ -70,6 +70,9 @@ interface CommandOutputBase<TFamily extends string, TData> {
   data: TData;
   diagnostics: Diagnostic[];
   exitCode: number;
+  runtime?: {
+    blockUntilExit: Promise<unknown>;
+  };
 }
 
 export interface InitOutput

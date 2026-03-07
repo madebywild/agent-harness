@@ -175,7 +175,6 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         name: "path",
         description: "registry repository path",
         takesValue: true,
-        defaultValue: ".",
       },
       {
         name: "root",

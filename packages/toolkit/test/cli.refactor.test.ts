@@ -142,6 +142,34 @@ test("runCliCommand registry.validate defaults to context cwd when path is omitt
   assert.equal(output.data.result.valid, true);
 });
 
+test("runCliArgv registry.validate defaults to invocation cwd when --path is omitted", async () => {
+  const cwd = await mkTmpRepo();
+  const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
+  await fs.mkdir(path.join(cwd, "skills/reviewer"), { recursive: true });
+  await fs.writeFile(
+    path.join(cwd, "harness-registry.json"),
+    JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
+    "utf8",
+  );
+  await fs.writeFile(path.join(cwd, "skills/reviewer/SKILL.md"), "# reviewer\n\nSkill\n", "utf8");
+
+  const result = await runCliArgv(["registry", "validate", "--json"], capture.context);
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(capture.stderr.length, 0);
+  assert.equal(capture.stdout.length, 1);
+  const payload = JSON.parse(capture.stdout[0]) as {
+    command: string;
+    ok: boolean;
+    meta: { cwd: string };
+    data: { result: { valid: boolean } };
+  };
+  assert.equal(payload.command, "registry.validate");
+  assert.equal(payload.ok, true);
+  assert.equal(payload.meta.cwd, cwd);
+  assert.equal(payload.data.result.valid, true);
+});
+
 test("isNoArgShortcutEligible rejects commander-owned option-only invocations", () => {
   assert.equal(isNoArgShortcutEligible([]), true);
   assert.equal(isNoArgShortcutEligible(["--interactive"]), true);
@@ -206,4 +234,67 @@ test("runCommanderAdapter forwards resolved json mode into watch command input",
   assert.equal(calls.length, 1);
   assert.equal(calls[0]?.commandJson, true);
   assert.equal(calls[0]?.json, true);
+});
+
+test("runCommanderAdapter renders watch output before awaiting long-running runtime block", async () => {
+  const cwd = await mkTmpRepo();
+  const calls: Array<{ rendered: boolean; json: boolean }> = [];
+  let resolveBlock: (() => void) | undefined;
+  const blockUntilExit = new Promise<void>((resolve) => {
+    resolveBlock = resolve;
+  });
+  let resolveRendered: (() => void) | undefined;
+  const rendered = new Promise<void>((resolve) => {
+    resolveRendered = resolve;
+  });
+
+  const runPromise = runCommanderAdapter(
+    ["watch", "--json"],
+    {
+      cwd,
+      env: {},
+      stdout: () => {},
+      stderr: () => {},
+      now: () => 100,
+      isTty: false,
+      isCi: false,
+    },
+    {
+      execute: async () => ({
+        family: "watch",
+        command: "watch",
+        ok: true,
+        diagnostics: [],
+        exitCode: 0,
+        data: {
+          debounceMs: 250,
+          started: true,
+        },
+        runtime: {
+          blockUntilExit,
+        },
+      }),
+      renderOutput: (_output, _durationMs, json) => {
+        calls.push({ rendered: true, json });
+        resolveRendered?.();
+      },
+      runInteractive: async () => ({ exitCode: 0 }),
+    },
+  );
+
+  await rendered;
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.rendered, true);
+  assert.equal(calls[0]?.json, true);
+
+  let settled = false;
+  void runPromise.then(() => {
+    settled = true;
+  });
+  await Promise.resolve();
+  assert.equal(settled, false);
+
+  resolveBlock?.();
+  const result = await runPromise;
+  assert.equal(result.exitCode, 0);
 });

@@ -16,7 +16,6 @@ export async function handleMigrate(
   const result = await engine.migrate({
     to: "latest",
     dryRun: input.dryRun,
-    json: true,
   });
 
   return {

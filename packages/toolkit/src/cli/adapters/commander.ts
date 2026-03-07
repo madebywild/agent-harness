@@ -58,6 +58,9 @@ async function executeWithRendering(
   const output = await api.execute(input, context);
   const durationMs = context.now() - startedAt;
   api.renderOutput(output, durationMs, json, context);
+  if (output.runtime) {
+    await output.runtime.blockUntilExit;
+  }
   return output.exitCode;
 }
 
@@ -159,7 +162,7 @@ export async function runCommanderAdapter(
     registryCommand
       .command("validate")
       .description("Validate a git registry repository structure and metadata")
-      .option("--path <dir>", "registry repository path", ".")
+      .option("--path <dir>", "registry repository path")
       .option("--root <relative>", "registry root path inside repository", ".")
       .action(async (options: { path?: string; root?: string; json?: boolean }) => {
         await runCommand(
@@ -502,6 +505,7 @@ export async function runCommanderAdapter(
     await runCommand({ command: "default.plan" }, options);
   });
 
+  // Commander parseAsync expects argv in [node, script, ...args] form.
   await program.parseAsync(["harness", "harness", ...argv]);
   return { exitCode };
 }

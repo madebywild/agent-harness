@@ -327,7 +327,7 @@ export class HarnessEngine {
     };
   }
 
-  async watch(debounceMs = 250): Promise<void> {
+  async watch(debounceMs = 250, options?: { onReady?: () => void }): Promise<void> {
     await this.assertWorkspaceVersionCurrent();
     const runApply = async (): Promise<void> => {
       const result = await this.apply();
@@ -391,6 +391,7 @@ export class HarnessEngine {
       console.error(`[harness] watcher error: ${String(error)}`);
     });
 
+    options?.onReady?.();
     process.stdin.resume();
     await new Promise<void>(() => {
       // intentional never-resolve to keep foreground watch alive
