@@ -39,7 +39,7 @@ importers:
 
   packages/toolkit:
     dependencies:
-      '@agent-harness/manifest-schema':
+      '@madebywild/agent-harness-manifest':
         specifier: workspace:*
         version: link:../manifest-schema
       '@iarna/toml':

@@ -6,7 +6,7 @@ import {
   detectDocumentVersion,
   parseManifest,
   parseProviderOverride,
-} from "@agent-harness/manifest-schema";
+} from "@madebywild/agent-harness-manifest";
 import { loadCanonicalState } from "../loader.js";
 import type { HarnessPaths } from "../paths.js";
 import { buildPlan } from "../planner.js";

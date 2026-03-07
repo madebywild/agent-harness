@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { DEFAULT_REGISTRY_ID } from "@agent-harness/manifest-schema";
-import type { ProviderId } from "@agent-harness/manifest-schema";
-import { LATEST_VERSION_BY_KIND } from "@agent-harness/manifest-schema";
+import { DEFAULT_REGISTRY_ID } from "@madebywild/agent-harness-manifest";
+import type { ProviderId } from "@madebywild/agent-harness-manifest";
+import { LATEST_VERSION_BY_KIND } from "@madebywild/agent-harness-manifest";
 import chokidar from "chokidar";
 import {
   addMcpEntity,

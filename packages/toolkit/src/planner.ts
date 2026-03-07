@@ -1,6 +1,6 @@
 import path from "node:path";
-import { LATEST_VERSION_BY_KIND } from "@agent-harness/manifest-schema";
-import type { ManagedIndex, ManifestLock, ProviderId } from "@agent-harness/manifest-schema";
+import { LATEST_VERSION_BY_KIND } from "@madebywild/agent-harness-manifest";
+import type { ManagedIndex, ManifestLock, ProviderId } from "@madebywild/agent-harness-manifest";
 import type { HarnessPaths } from "./paths.js";
 import { buildBuiltinAdapters } from "./providers.js";
 import { collectManagedSourcePaths } from "./repository.js";

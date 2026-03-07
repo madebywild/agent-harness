@@ -1,5 +1,5 @@
 {
-  "name": "@agent-harness/toolkit",
+  "name": "@madebywild/agent-harness-framework",
   "version": "0.1.0",
   "private": false,
   "type": "module",
@@ -15,8 +15,11 @@
     }
   },
   "files": ["dist"],
+  "publishConfig": {
+    "access": "restricted"
+  },
   "dependencies": {
-    "@agent-harness/manifest-schema": "workspace:*",
+    "@madebywild/agent-harness-manifest": "workspace:*",
     "@iarna/toml": "^2.2.5",
     "chokidar": "^4.0.3",
     "commander": "^12.1.0",
@@ -31,7 +34,8 @@
   },
   "scripts": {
     "build": "pnpm exec tsc -b",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "prepack": "pnpm run clean && pnpm run build",
     "lint": "biome lint .",
     "lint:write": "biome lint --write .",
     "format": "biome format .",
