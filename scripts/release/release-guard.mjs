@@ -18,8 +18,8 @@ const PACKAGE_CONFIGS = [
 
 const mode = process.argv[2] ?? "prepublish";
 
-if (mode !== "prepublish" && mode !== "verify-published") {
-  fail(`Unknown mode '${mode}'. Use 'prepublish' or 'verify-published'.`);
+if (mode !== "prepublish" && mode !== "publish" && mode !== "verify-published") {
+  fail(`Unknown mode '${mode}'. Use 'prepublish', 'publish', or 'verify-published'.`);
 }
 
 const repoRoot = path.resolve(fileURLToPath(new URL("../../", import.meta.url)));
@@ -33,10 +33,19 @@ if (tagVersion !== targetVersion) {
 
 if (mode === "prepublish") {
   for (const pkg of packages) {
-    assertPackageVersionDoesNotExist(pkg.name, targetVersion);
+    assertPackageVersionNotBlocked(pkg.name, targetVersion);
   }
 
   log(`Prepublish checks passed for ${targetVersion}.`);
+  process.exit(0);
+}
+
+if (mode === "publish") {
+  for (const pkg of packages) {
+    publishPackageIfMissing(pkg.name, targetVersion);
+  }
+
+  log(`Publish phase completed for ${targetVersion}.`);
   process.exit(0);
 }
 
@@ -91,23 +100,51 @@ function readTagVersionFromEnvironment() {
   return normalizedTag.slice(1);
 }
 
-function assertPackageVersionDoesNotExist(packageName, version) {
-  const lookup = npmView(`${packageName}@${version}`, "version");
-
-  if (lookup.ok) {
-    fail(`Refusing to publish ${packageName}@${version}: version already exists in npm registry.`);
-  }
-
-  const output = `${lookup.stdout}\n${lookup.stderr}`;
-  if (/\bE404\b/.test(output) || /\b404\b/.test(output)) {
-    log(`Confirmed unpublished: ${packageName}@${version}`);
+function assertPackageVersionNotBlocked(packageName, version) {
+  const state = inspectPackageVersion(packageName, version);
+  if (state === "exists") {
+    log(`Already published, will skip publish: ${packageName}@${version}`);
     return;
   }
 
+  log(`Confirmed unpublished: ${packageName}@${version}`);
+}
+
+function publishPackageIfMissing(packageName, version) {
+  const state = inspectPackageVersion(packageName, version);
+  if (state === "exists") {
+    log(`Skipping publish for existing version: ${packageName}@${version}`);
+    return;
+  }
+
+  log(`Publishing ${packageName}@${version}`);
+  const result = spawnSync("pnpm", ["--filter", packageName, "publish", "--access", "restricted", "--no-git-checks"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: process.env,
+  });
+  if (result.status !== 0) {
+    fail(
+      `Failed to publish ${packageName}@${version}. pnpm output:\n${`${result.stdout ?? ""}\n${result.stderr ?? ""}`.trim()}`,
+    );
+  }
+}
+
+function inspectPackageVersion(packageName, version) {
+  const lookup = npmView(`${packageName}@${version}`, "version");
+  if (lookup.ok) {
+    return "exists";
+  }
+
+  const output = `${lookup.stdout}\n${lookup.stderr}`;
   if (/\bE401\b/.test(output) || /\bE403\b/.test(output)) {
     fail(
       `Registry auth failed while checking ${packageName}@${version}. Ensure NODE_AUTH_TOKEN/NPM_TOKEN has read access.`,
     );
+  }
+
+  if (/\bE404\b/.test(output) || /\b404\b/.test(output)) {
+    return "missing";
   }
 
   fail(`Unable to verify existing version for ${packageName}@${version}. npm view output:\n${output.trim()}`);

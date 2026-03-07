@@ -20,6 +20,7 @@
     "test:e2e:containers": "pnpm --filter @madebywild/agent-harness-framework test:e2e:containers",
     "typecheck": "pnpm exec turbo run typecheck",
     "release:guard": "node scripts/release/release-guard.mjs prepublish",
+    "release:publish": "node scripts/release/release-guard.mjs publish",
     "release:verify-published": "node scripts/release/release-guard.mjs verify-published",
     "prepare": "lefthook install"
   },
