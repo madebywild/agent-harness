@@ -8,7 +8,7 @@ import {
   type RegistryManifest,
   type RegistryRevision,
   parseRegistryManifest,
-} from "@agent-harness/manifest-schema";
+} from "@madebywild/agent-harness-manifest";
 import { listFilesRecursively } from "./repository.js";
 import type { EntityType, RegistryId } from "./types.js";
 import { normalizeRelativePath, sha256, stableStringify } from "./utils.js";

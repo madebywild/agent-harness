@@ -1,4 +1,4 @@
-import { providerIdSchema } from "@agent-harness/manifest-schema";
+import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { HarnessEngine } from "../../engine.js";
 import type { CliResolvedContext, ProviderOutput } from "../contracts.js";
 

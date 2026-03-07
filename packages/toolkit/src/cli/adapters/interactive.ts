@@ -1,5 +1,5 @@
-import { providerIdSchema } from "@agent-harness/manifest-schema";
 import { cancel, confirm, intro, isCancel, outro, select, text } from "@clack/prompts";
+import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import ora from "ora";
 import { CLI_ENTITY_TYPES } from "../../types.js";
 import { getCommandDefinition } from "../command-registry.js";

@@ -9,7 +9,7 @@ import {
   parseManifestLock,
   parseProviderOverride,
   providerIdSchema,
-} from "@agent-harness/manifest-schema";
+} from "@madebywild/agent-harness-manifest";
 import type { HarnessPaths } from "../paths.js";
 import { collectSourceCandidates } from "../repository.js";
 import type { Diagnostic, DoctorResult, ProviderId, VersionDiagnostic, VersionStatus } from "../types.js";

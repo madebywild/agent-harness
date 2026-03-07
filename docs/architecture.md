@@ -60,12 +60,30 @@ Create from scratch in `/Users/tom/Github/harness`:
 
 Package roles:
 1. `/Users/tom/Github/agent-harness/packages/manifest-schema`
+   - Published as private npm package `@madebywild/agent-harness-manifest`.
    - Zod schemas + exported TS types for manifest, lock, managed-index, sidecars.
    - JSON Schema export for external tooling.
 2. `/Users/tom/Github/agent-harness/packages/toolkit`
+   - Published as private npm package `@madebywild/agent-harness-framework`.
    - CLI binary `harness`.
    - Core planner/applier/watcher.
    - Provider adapter implementations.
+
+## Private npm Publishing
+
+This monorepo publishes both private packages in lockstep using the tag-triggered workflow at `.github/workflows/publish-npm.yml`.
+
+Prerequisites:
+1. npm org `madebywild` with private publishing enabled.
+2. GitHub Actions secret `NPM_TOKEN` with read/publish access.
+
+Release sequence:
+1. Bump `version` in both package manifests (`packages/manifest-schema/package.json` and `packages/toolkit/package.json`) to the same semver.
+2. Merge to main.
+3. Push tag `vX.Y.Z` that matches the package version.
+4. Workflow validates versions and publishes:
+   - `@madebywild/agent-harness-manifest`
+   - `@madebywild/agent-harness-framework`
 
 ## `.harness` Filesystem Contract
 CLI owns and maintains:

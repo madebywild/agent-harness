@@ -1,4 +1,4 @@
-import type { DocumentKind } from "@agent-harness/manifest-schema";
+import type { DocumentKind } from "@madebywild/agent-harness-manifest";
 
 export interface MigrationStep {
   kind: DocumentKind;

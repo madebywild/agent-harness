@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { providerIdSchema } from "@agent-harness/manifest-schema";
+import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { Command } from "commander";
 import { CLI_ENTITY_TYPES } from "../../types.js";
 import type { CliResolvedContext, CommandId, CommandInput, CommandOutput } from "../contracts.js";

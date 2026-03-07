@@ -3,6 +3,7 @@
 ## Purpose
 
 Public package entrypoint for programmatic use.
+Published as `@madebywild/agent-harness-framework`.
 
 ## Re-exports
 
