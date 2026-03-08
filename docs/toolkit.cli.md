@@ -23,6 +23,7 @@ Implements the layered CLI runtime with shared command execution for both non-in
 - No-arg behavior:
   - TTY and non-CI: launches interactive wizard.
   - Non-TTY or CI: runs default `plan` behavior.
+- If manifest is missing, planning returns empty operations and carries manifest diagnostics.
 - Explicit subcommands run through Commander command mode.
 - `harness ui` is an explicit interactive entrypoint.
 
