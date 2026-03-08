@@ -74,6 +74,15 @@ function readStringOption(input: CommandInput, key: string): string | undefined 
   return value;
 }
 
+function readRequiredStringOption(input: CommandInput, key: string): string {
+  const value = readStringOption(input, key);
+  if (value === undefined || value.trim().length === 0) {
+    throw new Error(`Missing required option: ${key}`);
+  }
+
+  return value;
+}
+
 function readBooleanOption(input: CommandInput, key: string, fallback = false): boolean {
   const value = input.options?.[key];
   if (value === undefined) {
@@ -228,7 +237,7 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
       handleRegistryAdd(
         {
           name: readStringArg(input, "name") ?? "",
-          gitUrl: readStringOption(input, "gitUrl") ?? "",
+          gitUrl: readRequiredStringOption(input, "gitUrl"),
           ref: readStringOption(input, "ref"),
           root: readStringOption(input, "root"),
           tokenEnv: readStringOption(input, "tokenEnv"),

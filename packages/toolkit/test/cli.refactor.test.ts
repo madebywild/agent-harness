@@ -110,6 +110,15 @@ test("runCliArgv watch --json surfaces startup failures", async () => {
   assert.match(capture.stderr.join("\n"), /WORKSPACE_NOT_INITIALIZED/u);
 });
 
+test("runCliArgv returns exitCode for commander-managed --help path", async () => {
+  const cwd = await mkTmpRepo();
+  const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
+
+  const result = await runCliArgv(["--help"], capture.context);
+
+  assert.equal(result.exitCode, 0);
+});
+
 test("runCliCommand registry.validate defaults to context cwd when path is omitted", async () => {
   const cwd = await mkTmpRepo();
   await fs.mkdir(path.join(cwd, "skills/reviewer"), { recursive: true });
@@ -168,6 +177,43 @@ test("runCliArgv registry.validate defaults to invocation cwd when --path is omi
   assert.equal(payload.ok, true);
   assert.equal(payload.meta.cwd, cwd);
   assert.equal(payload.data.result.valid, true);
+});
+
+test("runCliCommand registry.add rejects missing required gitUrl option", async () => {
+  const cwd = await mkTmpRepo();
+  await runCliCommand(
+    {
+      command: "init",
+      options: { force: false },
+    },
+    {
+      cwd,
+      env: {},
+      isTty: false,
+      isCi: false,
+      stdout: () => {},
+      stderr: () => {},
+    },
+  );
+
+  await assert.rejects(
+    () =>
+      runCliCommand(
+        {
+          command: "registry.add",
+          args: { name: "x" },
+        },
+        {
+          cwd,
+          env: {},
+          isTty: false,
+          isCi: false,
+          stdout: () => {},
+          stderr: () => {},
+        },
+      ),
+    /Missing required option: gitUrl/u,
+  );
 });
 
 test("isNoArgShortcutEligible rejects commander-owned option-only invocations", () => {

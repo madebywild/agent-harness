@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { providerIdSchema } from "@madebywild/agent-harness-manifest";
-import { Command } from "commander";
+import { Command, CommanderError } from "commander";
 import { CLI_ENTITY_TYPES } from "../../types.js";
 import type { CliResolvedContext, CommandId, CommandInput, CommandOutput } from "../contracts.js";
 import { ensureInteractiveFeasible } from "../utils/runtime.js";
@@ -71,6 +71,7 @@ export async function runCommanderAdapter(
 ): Promise<CommanderRunResult> {
   const program = new Command();
   let exitCode = 0;
+  program.exitOverride();
 
   const runCommand = async (input: CommandInput, options?: JsonOption): Promise<void> => {
     const cwd = resolveInvocationCwd(program, baseContext);
@@ -506,6 +507,14 @@ export async function runCommanderAdapter(
   });
 
   // Commander parseAsync expects argv in [node, script, ...args] form.
-  await program.parseAsync(["harness", "harness", ...argv]);
+  try {
+    await program.parseAsync(["harness", "harness", ...argv]);
+  } catch (error) {
+    if (error instanceof CommanderError) {
+      return { exitCode: error.exitCode };
+    }
+    throw error;
+  }
+
   return { exitCode };
 }
