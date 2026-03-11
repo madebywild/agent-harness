@@ -32,11 +32,12 @@ There is not yet a broadly adopted, "native" `.agents/` standard across major CL
 **MCP Configuration Structure:**
 
 ```toml
-[mcp_servers]
 [mcp_servers.server-name]
 command = "node"
 args = ["/path/to/server.js"]
 ```
+
+**Note:** Generated Codex TOML uses per-server tables (`[mcp_servers.<name>]`) and does not emit a bare `[mcp_servers]` header.
 
 **Subagent Structure (same file as MCP):**
 
