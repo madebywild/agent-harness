@@ -1,263 +1,103 @@
-# Agent Harness v1 Plan: Unified `.harness` Source With Provider Generators
+# Architecture
 
-## Summary
-Build a TypeScript + `pnpm` monorepo CLI (`harness`) where `.harness` is the only editable source for agent config entities, and provider outputs are generated directly into provider-native paths.
+This document describes the architecture implemented in the current codebase.
 
-## Schema Versioning Architecture
+## System model
 
-Agent Harness uses a **"current-major runtime, explicit migration"** model for workspace state files. This architecture ensures safe evolution of schema versions while preventing data corruption from version mismatches.
+`harness` is a source-of-truth generator:
 
-### Key Concepts
+- Canonical input lives under `.harness/src/*`.
+- Runtime state lives in `.harness/manifest.json`, `.harness/manifest.lock.json`, and `.harness/managed-index.json`.
+- Provider-native artifacts are generated into repository paths (for example `AGENTS.md`, `.claude/*`, `.github/*`, `.vscode/mcp.json`).
 
-- **Current-Major Runtime**: Normal commands (plan, apply, watch) operate only on the current schema version. Outdated or newer versions block writes.
-- **Explicit Migration**: Schema upgrades require an intentional `harness migrate` command — never auto-upgraded during normal operations.
-- **Doctor Diagnostics**: `harness doctor` scans all workspace files and reports per-file status (`current|outdated|unsupported|invalid|missing`).
-- **Backup Safety**: Every migration creates a complete backup at `.harness/.backup/<timestamp>/` before making changes.
-- **Forward Compatibility**: Older CLIs can read but never write newer schema versions, preventing data loss from field stripping.
+Only enabled providers receive generated artifacts. Supported providers are currently `codex`, `claude`, and `copilot`.
 
-### Architecture Details
+## Workspace contract
 
-See [Schema Versioning Architecture](./architecture/versioning.md) for comprehensive documentation covering:
+Canonical entity types:
 
-- Migration mechanics and write ordering
-- Per-kind versioning strategy
-- Derived state handling (lock/index rebuild)
-- Atomicity guarantees and trade-offs
-- CI/CD integration patterns
-- Industry comparison (Terraform, Prisma, Kubernetes, Helm)
+- `prompt` (0 or 1 entity; id must be `system`)
+- `skill`
+- `mcp_config`
+- `subagent`
 
-This plan uses strict ownership rules:
-1. Entity files are created only via CLI commands.
-2. Source content is user-editable.
-3. Generated provider files are immutable and always regenerated.
-4. Unmanaged collisions fail with actionable errors.
+Default source locations:
 
-## Final Scope (Locked)
-1. Providers in v1: `codex`, `claude`, `copilot`.
-2. Entities in v1: `prompt`, `skill`, `mcp_config`, `subagent`.
-3. `lifecycle_hooks`: not implemented in v1.
-4. Prompt cardinality: zero or one system prompt entity (optional).
-5. Provider enablement: global opt-in at CLI level; enabled providers receive all entity types.
-6. Output location: provider-native paths directly in repo.
-7. Ownership mode: strict, registry-enforced.
-8. `add` semantics: scaffold new source entities only (no import in v1).
-9. Sidecars: per-entity sidecar override files in YAML.
-10. Override scope: metadata/path/options only, never full content override.
+- Prompt: `.harness/src/prompts/system.md`
+- Skills: `.harness/src/skills/<id>/SKILL.md`
+- MCP: `.harness/src/mcp/<id>.json`
+- Subagents: `.harness/src/subagents/<id>.md`
 
-## Repository and Package Layout
-Create from scratch in `/Users/tom/Github/harness`:
+Provider override sidecars are YAML files with schema `version: 1` and optional `enabled`, `targetPath`, `options`.
 
-```text
-/Users/tom/Github/agent-harness/
-  package.json
-  pnpm-workspace.yaml
-  turbo.json
-  tsconfig.base.json
-  tsconfig.json
-  /packages/manifest-schema
-  /packages/toolkit
-```
+## Registries
 
-Package roles:
-1. `/Users/tom/Github/agent-harness/packages/manifest-schema`
-   - Published as private npm package `@madebywild/agent-harness-manifest`.
-   - Zod schemas + exported TS types for manifest, lock, managed-index, sidecars.
-   - JSON Schema export for external tooling.
-2. `/Users/tom/Github/agent-harness/packages/toolkit`
-   - Published as private npm package `@madebywild/agent-harness-framework`.
-   - CLI binary `harness`.
-   - Core planner/applier/watcher.
-   - Provider adapter implementations.
+Manifests include a registry section:
 
-## Private npm Publishing
+- Built-in immutable local registry: `local`
+- Optional git registries with `{ url, ref, rootPath?, tokenEnvVar? }`
+- Every entity carries a `registry` field
 
-This monorepo publishes both private packages in lockstep using the tag-triggered workflow at `.github/workflows/publish-npm.yml`.
+CLI registry commands:
 
-Prerequisites:
-1. npm org `madebywild` with private publishing enabled.
-2. GitHub Actions secret `NPM_TOKEN` with read/publish access.
+- `harness registry list|validate|add|remove`
+- `harness registry default show|set`
+- `harness registry pull [entity-type] [id] [--registry <name>] [--force]`
 
-Release sequence:
-1. Bump `version` in both package manifests (`packages/manifest-schema/package.json` and `packages/toolkit/package.json`) to the same semver.
-2. Merge to main.
-3. Push tag `vX.Y.Z` that matches the package version.
-4. Workflow validates versions and publishes:
-   - `@madebywild/agent-harness-manifest`
-   - `@madebywild/agent-harness-framework`
+`add` can materialize from git registries (not only local scaffolding).
 
-## `.harness` Filesystem Contract
-CLI owns and maintains:
+## Planning and apply pipeline
 
-```text
-/Users/tom/Github/agent-harness/.harness/
-  manifest.json
-  manifest.lock.json
-  managed-index.json
-  /src
-    /prompts
-      system.md
-      system.overrides.codex.yaml
-      system.overrides.claude.yaml
-      system.overrides.copilot.yaml
-    /skills
-      /<skill-id>
-        SKILL.md
-        OVERRIDES.codex.yaml
-        OVERRIDES.claude.yaml
-        OVERRIDES.copilot.yaml
-        ...(extra skill files allowed)
-    /mcp
-      <config-id>.json
-      <config-id>.overrides.codex.yaml
-      <config-id>.overrides.claude.yaml
-      <config-id>.overrides.copilot.yaml
-    /subagents
-      <subagent-id>.md
-      <subagent-id>.overrides.codex.yaml
-      <subagent-id>.overrides.claude.yaml
-      <subagent-id>.overrides.copilot.yaml
-```
+High-level flow (`loader.ts` + `planner.ts` + `engine.ts`):
 
-Generated targets (examples when all providers enabled):
-1. Codex:
-   - `/Users/tom/Github/agent-harness/AGENTS.md`
-   - `/Users/tom/Github/agent-harness/.codex/skills/<skill-id>/...`
-   - `/Users/tom/Github/agent-harness/.codex/config.toml` (MCP + subagents)
-2. Claude:
-   - `/Users/tom/Github/agent-harness/CLAUDE.md`
-   - `/Users/tom/Github/agent-harness/.claude/skills/<skill-id>/...`
-   - `/Users/tom/Github/agent-harness/.mcp.json`
-   - `/Users/tom/Github/agent-harness/.claude/agents/<subagent-id>.md`
-3. Copilot:
-   - `/Users/tom/Github/agent-harness/.github/copilot-instructions.md`
-   - `/Users/tom/Github/agent-harness/.github/skills/<skill-id>/...`
-   - `/Users/tom/Github/agent-harness/.vscode/mcp.json`
-   - `/Users/tom/Github/agent-harness/.github/agents/<subagent-id>.agent.md`
+1. Validate workspace versions (doctor preflight for plan/apply/watch; explicit `migrate` for upgrades).
+2. Load and semantically validate manifest.
+3. Enforce source ownership: unmanaged candidate source files emit hard diagnostics.
+4. Load canonical entities + sidecar overrides.
+5. Render provider artifacts through adapters.
+6. Detect output collisions, unmanaged collisions, drift, creates, updates, and stale deletes.
+7. Build deterministic `operations`, `nextLock`, and `nextManagedIndex`.
+8. `plan` returns diagnostics/operations only.
+9. `apply` writes create/update/delete operations and persists lock/index.
 
-## Public APIs / Interfaces / Types
-Expose from toolkit package:
+`watch` runs `apply` in a loop over `.harness/manifest.json` and source/override file changes.
 
-```ts
-export type ProviderId = "codex" | "claude" | "copilot";
-export type EntityType = "prompt" | "skill" | "mcp_config" | "subagent";
+## Ownership and collision rules
 
-export interface AgentsManifest {
-  version: 1;
-  providers: { enabled: ProviderId[] };
-  entities: EntityRef[];
-}
+- Source files are expected to be CLI-managed and registered in manifest.
+- Existing unmanaged output files at generated target paths block apply (`OUTPUT_COLLISION_UNMANAGED`).
+- Multiple providers (or artifacts) targeting the same path with conflicting content fail with `OUTPUT_PATH_COLLISION`.
 
-export interface EntityRefBase {
-  id: string;
-  type: EntityType;
-  sourcePath: string;
-  overrides?: Partial<Record<ProviderId, string>>;
-  enabled?: boolean;
-}
+## Packages
 
-export interface PromptEntityRef extends EntityRefBase {
-  type: "prompt";
-}
+- `packages/manifest-schema`:
+  - Zod schemas and type exports for manifest, lock, managed index, overrides, registries.
+  - Version detection/assertion and JSON schema export.
+- `packages/toolkit`:
+  - CLI entrypoint and programmatic API.
+  - Engine, loader, planner, repository I/O, provider adapters, version doctor/migration.
 
-export interface SkillEntityRef extends EntityRefBase {
-  type: "skill";
-}
+## CLI surface
 
-export interface McpEntityRef extends EntityRefBase {
-  type: "mcp_config";
-}
+Core commands:
 
-export interface SubagentEntityRef extends EntityRefBase {
-  type: "subagent";
-}
+- `init`
+- `provider enable|disable`
+- `add prompt|skill|mcp|subagent`
+- `remove <entity-type> <id>`
+- `registry ...` (management + pull)
+- `validate`
+- `doctor`
+- `migrate`
+- `plan`
+- `apply`
+- `watch`
 
-export type EntityRef = PromptEntityRef | SkillEntityRef | McpEntityRef | SubagentEntityRef;
+## Versioning
 
-export interface ProviderOverride {
-  version: 1;
-  enabled?: boolean;
-  targetPath?: string;
-  options?: Record<string, unknown>;
-}
+Normal runtime commands require current schema versions. Migration is explicit (`harness migrate`) and creates backups before rewriting state files.
 
-export interface CanonicalPrompt { id: string; body: string; frontmatter: Record<string, unknown>; }
-export interface CanonicalSkill { id: string; files: Array<{ path: string; sha256: string }>; }
-export interface CanonicalMcpConfig { id: string; json: Record<string, unknown>; }
-export interface CanonicalSubagent {
-  id: string;
-  name: string;
-  description: string;
-  body: string;
-  metadata: Record<string, unknown>;
-}
-
-export interface RenderedArtifact {
-  path: string;
-  content: string;
-  ownerEntityId: string;
-  provider: ProviderId;
-  format: "markdown" | "json" | "toml";
-}
-
-export interface ProviderAdapter {
-  id: ProviderId;
-  renderPrompt?(input: CanonicalPrompt, override?: ProviderOverride): Promise<RenderedArtifact[]>;
-  renderSkill?(input: CanonicalSkill, override?: ProviderOverride): Promise<RenderedArtifact[]>;
-  renderMcp?(input: CanonicalMcpConfig[], overrideByEntity?: Map<string, ProviderOverride>): Promise<RenderedArtifact[]>;
-  renderSubagent?(input: CanonicalSubagent, override?: ProviderOverride): Promise<RenderedArtifact[]>;
-  renderProviderState?(input: {
-    mcps: CanonicalMcpConfig[];
-    mcpOverrideByEntity?: Map<string, ProviderOverride>;
-    subagents: CanonicalSubagent[];
-    subagentOverrideByEntity?: Map<string, ProviderOverride>;
-  }): Promise<RenderedArtifact[]>;
-}
-
-export interface ManifestLock {
-  version: 1;
-  generatedAt: string;
-  manifestFingerprint: string;
-  entities: Array<{ id: string; type: EntityType; sourceSha256: string; overrideSha256ByProvider: Partial<Record<ProviderId, string>> }>;
-  outputs: Array<{ path: string; provider: ProviderId; contentSha256: string; ownerEntityIds: string[] }>;
-}
-
-export interface ManagedIndex {
-  version: 1;
-  managedSourcePaths: string[];
-  managedOutputPaths: string[];
-}
-```
-
-## Core Data Flow (No Duplication Design)
-1. Load and Zod-validate `manifest.json`.
-2. Enforce source ownership:
-   - Scan `.harness/src` for known entity candidates.
-   - Any candidate not present in manifest is a hard error.
-3. Load canonical entity content.
-4. Load provider sidecars and merge metadata-only overrides.
-5. For each enabled provider, run adapter recipe over canonical models.
-6. Produce desired artifact set with deterministic ordering.
-7. Compare desired outputs to lock/index and filesystem.
-8. `plan`: emit operations and diagnostics only.
-9. `apply`: write managed outputs, update lock/index.
-10. `watch`: monitor source + manifest + sidecars, then run plan/apply loop.
-
-This keeps one canonical content source while allowing provider-specific behavior through typed sidecar metadata and adapter logic.
-
-## CLI Command Contract
-1. `harness init`
-   - Creates `.harness` structure + empty manifest + lock + index.
-2. `harness provider enable <codex|claude|copilot>`
-3. `harness provider disable <codex|claude|copilot>`
-4. `harness add prompt`
-   - Creates only `.harness/src/prompts/system.md` and manifest entry.
-   - Fails if prompt already exists.
-5. `harness add skill <skill-id>`
-   - Creates `.harness/src/skills/<skill-id>/SKILL.md` and manifest entry.
-6. `harness add mcp <config-id>`
-   - Creates `.harness/src/mcp/<config-id>.json` and manifest entry.
-7. `harness add subagent <subagent-id>`
-   - Creates `.harness/src/subagents/<subagent-id>.md` and manifest entry.
+See [architecture/versioning.md](./architecture/versioning.md) for detailed migration and compatibility behavior.
 8. `harness remove <prompt|skill|mcp|subagent> <id>`
    - Removes entity from manifest; deletes source by default (opt out with `--no-delete-source`).
    - For prompts in v1, id must be `system`.
