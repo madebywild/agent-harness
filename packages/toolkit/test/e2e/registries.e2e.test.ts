@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { type TestContext, after, before, test } from "node:test";
+import { after, before, type TestContext, test } from "node:test";
 import { mkTmpRepo } from "../helpers.ts";
 import { readWorkspaceJson, readWorkspaceText, runHarnessCli, runHarnessCliExpectFailure } from "./cli-helpers.ts";
 import { GiteaRegistryFixture } from "./gitea-registry-fixture.ts";

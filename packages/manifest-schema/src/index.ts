@@ -2,14 +2,14 @@ import path from "node:path";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import {
+  assertLatestVersion,
   type DocumentKind,
+  detectDocumentVersion,
+  isLatestVersion,
   LATEST_SCHEMA_MAJOR,
   LATEST_VERSION_BY_KIND,
   type VersionDetectionResult,
   VersionError,
-  assertLatestVersion,
-  detectDocumentVersion,
-  isLatestVersion,
 } from "./versioning.js";
 
 export const PROVIDERS = ["codex", "claude", "copilot"] as const;
@@ -285,5 +285,5 @@ function parseVersionedDocument<TSchema extends z.ZodTypeAny>(
   return schema.parse(input);
 }
 
-export { detectDocumentVersion, isLatestVersion, LATEST_SCHEMA_MAJOR, LATEST_VERSION_BY_KIND, VersionError };
 export type { DocumentKind, VersionDetectionResult };
+export { detectDocumentVersion, isLatestVersion, LATEST_SCHEMA_MAJOR, LATEST_VERSION_BY_KIND, VersionError };

@@ -2,8 +2,8 @@ import path from "node:path";
 import {
   type AgentsManifest,
   type DocumentKind,
-  LATEST_VERSION_BY_KIND,
   detectDocumentVersion,
+  LATEST_VERSION_BY_KIND,
   parseManifest,
   parseProviderOverride,
 } from "@madebywild/agent-harness-manifest";

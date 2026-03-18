@@ -1,8 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { DEFAULT_REGISTRY_ID } from "@madebywild/agent-harness-manifest";
 import type { ProviderId } from "@madebywild/agent-harness-manifest";
-import { LATEST_VERSION_BY_KIND } from "@madebywild/agent-harness-manifest";
+import { DEFAULT_REGISTRY_ID, LATEST_VERSION_BY_KIND } from "@madebywild/agent-harness-manifest";
 import chokidar from "chokidar";
 import {
   addMcpEntity,
@@ -402,11 +401,7 @@ export class HarnessEngine {
     return runDoctor(resolveHarnessPaths(this.cwd));
   }
 
-  async migrate(options?: {
-    to?: "latest";
-    dryRun?: boolean;
-    json?: boolean;
-  }): Promise<MigrationResult> {
+  async migrate(options?: { to?: "latest"; dryRun?: boolean; json?: boolean }): Promise<MigrationResult> {
     return runMigration(resolveHarnessPaths(this.cwd), {
       to: options?.to,
       dryRun: options?.dryRun,
@@ -472,9 +467,7 @@ export class HarnessEngine {
     return planResult;
   }
 
-  private async assertWorkspaceVersionCurrent(options?: {
-    allowMissingManifest?: boolean;
-  }): Promise<void> {
+  private async assertWorkspaceVersionCurrent(options?: { allowMissingManifest?: boolean }): Promise<void> {
     const diagnostics = await this.versionPreflightDiagnostics(options);
     if (diagnostics.length === 0) {
       return;
@@ -491,9 +484,7 @@ export class HarnessEngine {
     throw new Error(`${details}\n${hint}`);
   }
 
-  private async versionPreflightDiagnostics(options?: {
-    allowMissingManifest?: boolean;
-  }): Promise<Diagnostic[]> {
+  private async versionPreflightDiagnostics(options?: { allowMissingManifest?: boolean }): Promise<Diagnostic[]> {
     const missingWorkspace = await this.workspaceInitializationDiagnostics(options);
     if (missingWorkspace.length > 0) {
       return missingWorkspace;

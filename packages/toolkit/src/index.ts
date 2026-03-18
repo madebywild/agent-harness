@@ -1,44 +1,8 @@
 import { runCliArgv, runCliCommand } from "./cli/main.js";
-import { HarnessEngine } from "./engine.js";
 import { loadConfig, validateConfig, validateLock } from "./engine/utils.js";
+import { HarnessEngine } from "./engine.js";
 import { validateRegistryRepo } from "./registry-validator.js";
 import type { ApplyOptions, ApplyResult, DoctorResult, MigrationResult, PlanOptions, PlanResult } from "./types.js";
-
-export { HarnessEngine, loadConfig, validateConfig, validateLock };
-export { validateRegistryRepo };
-export { runCliArgv, runCliCommand };
-
-export type {
-  AgentsManifest,
-  ApplyResult,
-  CanonicalSubagent,
-  CanonicalMcpConfig,
-  CanonicalPrompt,
-  CanonicalSkill,
-  Diagnostic,
-  DoctorResult,
-  EntityRef,
-  EntityType,
-  ManifestLock,
-  ManagedIndex,
-  Operation,
-  PlanResult,
-  MigrationAction,
-  MigrationResult,
-  ProviderAdapter,
-  ProviderId,
-  ProviderOverride,
-  RegistryDefinition,
-  RegistryId,
-  RegistryListEntry,
-  RegistryManifest,
-  RegistryValidationOptions,
-  RegistryValidationResult,
-  RegistryPullResult,
-  RenderedArtifact,
-  ValidationResult,
-  VersionDiagnostic,
-} from "./types.js";
 
 export type {
   CliEnvelope,
@@ -48,6 +12,38 @@ export type {
   CommandInput,
   CommandOutput,
 } from "./cli/contracts.js";
+export type {
+  AgentsManifest,
+  ApplyResult,
+  CanonicalMcpConfig,
+  CanonicalPrompt,
+  CanonicalSkill,
+  CanonicalSubagent,
+  Diagnostic,
+  DoctorResult,
+  EntityRef,
+  EntityType,
+  ManagedIndex,
+  ManifestLock,
+  MigrationAction,
+  MigrationResult,
+  Operation,
+  PlanResult,
+  ProviderAdapter,
+  ProviderId,
+  ProviderOverride,
+  RegistryDefinition,
+  RegistryId,
+  RegistryListEntry,
+  RegistryManifest,
+  RegistryPullResult,
+  RegistryValidationOptions,
+  RegistryValidationResult,
+  RenderedArtifact,
+  ValidationResult,
+  VersionDiagnostic,
+} from "./types.js";
+export { HarnessEngine, loadConfig, runCliArgv, runCliCommand, validateConfig, validateLock, validateRegistryRepo };
 
 export async function plan(opts: PlanOptions = {}): Promise<PlanResult> {
   return new HarnessEngine(opts.cwd).plan();

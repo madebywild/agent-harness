@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { VersionError, parseManifest, parseProviderOverride } from "../../manifest-schema/src/index.ts";
+import { parseManifest, parseProviderOverride, VersionError } from "../../manifest-schema/src/index.ts";
 
 test("parseManifest rejects Windows drive-prefixed source paths", () => {
   assert.throws(

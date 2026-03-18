@@ -1,7 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { DEFAULT_REGISTRY_ID } from "@madebywild/agent-harness-manifest";
-import { agentsManifestSchema, managedIndexSchema, manifestLockSchema } from "@madebywild/agent-harness-manifest";
+import {
+  agentsManifestSchema,
+  DEFAULT_REGISTRY_ID,
+  managedIndexSchema,
+  manifestLockSchema,
+} from "@madebywild/agent-harness-manifest";
 import type {
   AgentsManifest,
   CliEntityType,

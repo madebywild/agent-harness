@@ -70,7 +70,7 @@ async function promptOptionalText(message: string): Promise<string | undefined |
 async function promptRequiredText(message: string): Promise<string | null> {
   const value = await text({
     message,
-    validate: (entry: string) => (entry.trim().length === 0 ? "This value is required" : undefined),
+    validate: (entry) => (!entry || entry.trim().length === 0 ? "This value is required" : undefined),
   });
 
   const resolved = getSelectedValue(value);

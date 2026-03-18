@@ -9,6 +9,7 @@ import type {
 } from "@madebywild/agent-harness-manifest";
 import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness-manifest";
 import matter from "gray-matter";
+import type { HarnessPaths } from "./paths.js";
 import {
   DEFAULT_PROMPT_SOURCE_PATH,
   defaultMcpOverridePath,
@@ -16,14 +17,13 @@ import {
   defaultSkillOverridePath,
   defaultSubagentOverridePath,
 } from "./paths.js";
-import type { HarnessPaths } from "./paths.js";
 import {
   collectManagedSourcePaths,
   collectSourceCandidates,
   listFilesRecursively,
   readProviderOverrideFile,
 } from "./repository.js";
-import type { Diagnostic, LoadResult, LoadedMcp, LoadedPrompt, LoadedSkill, LoadedSubagent } from "./types.js";
+import type { Diagnostic, LoadedMcp, LoadedPrompt, LoadedSkill, LoadedSubagent, LoadResult } from "./types.js";
 import { normalizeRelativePath, sha256, stableStringify, toPosixRelative } from "./utils.js";
 
 export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsManifest): Promise<LoadResult> {

@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { Command, CommanderError } from "commander";
 import { CLI_ENTITY_TYPES } from "../../types.js";
-import type { CliResolvedContext, CommandId, CommandInput, CommandOutput } from "../contracts.js";
+import type { CliResolvedContext, CommandInput, CommandOutput } from "../contracts.js";
 import { ensureInteractiveFeasible } from "../utils/runtime.js";
 
 const require = createRequire(import.meta.url);
