@@ -13,8 +13,10 @@ Loads canonical entities from `.harness/src`, validates manifest semantics, and 
 
 - Validates manifest semantic constraints.
 - Scans `.harness/src` candidate files and raises `SOURCE_UNREGISTERED` for unmanaged candidates.
+  - Candidate set includes canonical entity files plus provider override sidecars.
 - Loads enabled prompt/skill/MCP/subagent entities.
 - Parses provider override sidecars for each provider and records override SHA hashes.
+- Returns loaded skill/MCP/subagent collections sorted by `entity.id`.
 
 ## Entity loading behavior
 
@@ -34,6 +36,10 @@ Loads canonical entities from `.harness/src`, validates manifest semantics, and 
 ## Manifest semantic checks
 
 - Duplicate provider IDs (`PROVIDER_DUPLICATE`).
+- Required built-in `local` registry exists and has `type: "local"` (`REGISTRY_NOT_FOUND`).
+- `registries.default` must reference a defined registry (`REGISTRY_DEFAULT_INVALID`).
+- Entity `registry` must reference a defined registry (`REGISTRY_NOT_FOUND`).
+- Git registry `tokenEnvVar` must be a valid env-var identifier (`REGISTRY_INVALID`).
 - Duplicate entity IDs (`ENTITY_ID_DUPLICATE`).
 - Prompt entity ID must be `system` (`PROMPT_ID_INVALID`).
 - Enforced source paths by entity type (`PROMPT_SOURCE_INVALID`, `SKILL_SOURCE_INVALID`, `MCP_SOURCE_INVALID`, `SUBAGENT_SOURCE_INVALID`).
