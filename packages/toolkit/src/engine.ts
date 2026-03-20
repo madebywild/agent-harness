@@ -1,8 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { DEFAULT_REGISTRY_ID } from "@madebywild/agent-harness-manifest";
 import type { ProviderId } from "@madebywild/agent-harness-manifest";
-import { LATEST_VERSION_BY_KIND } from "@madebywild/agent-harness-manifest";
+import { DEFAULT_REGISTRY_ID, LATEST_VERSION_BY_KIND } from "@madebywild/agent-harness-manifest";
 import chokidar from "chokidar";
 import {
   addMcpEntity,
@@ -327,7 +326,7 @@ export class HarnessEngine {
     };
   }
 
-  async watch(debounceMs = 250): Promise<void> {
+  async watch(debounceMs = 250, options?: { onReady?: () => void }): Promise<void> {
     await this.assertWorkspaceVersionCurrent();
     const runApply = async (): Promise<void> => {
       const result = await this.apply();
@@ -391,6 +390,7 @@ export class HarnessEngine {
       console.error(`[harness] watcher error: ${String(error)}`);
     });
 
+    options?.onReady?.();
     process.stdin.resume();
     await new Promise<void>(() => {
       // intentional never-resolve to keep foreground watch alive
@@ -401,11 +401,7 @@ export class HarnessEngine {
     return runDoctor(resolveHarnessPaths(this.cwd));
   }
 
-  async migrate(options?: {
-    to?: "latest";
-    dryRun?: boolean;
-    json?: boolean;
-  }): Promise<MigrationResult> {
+  async migrate(options?: { to?: "latest"; dryRun?: boolean; json?: boolean }): Promise<MigrationResult> {
     return runMigration(resolveHarnessPaths(this.cwd), {
       to: options?.to,
       dryRun: options?.dryRun,
@@ -471,9 +467,7 @@ export class HarnessEngine {
     return planResult;
   }
 
-  private async assertWorkspaceVersionCurrent(options?: {
-    allowMissingManifest?: boolean;
-  }): Promise<void> {
+  private async assertWorkspaceVersionCurrent(options?: { allowMissingManifest?: boolean }): Promise<void> {
     const diagnostics = await this.versionPreflightDiagnostics(options);
     if (diagnostics.length === 0) {
       return;
@@ -490,9 +484,7 @@ export class HarnessEngine {
     throw new Error(`${details}\n${hint}`);
   }
 
-  private async versionPreflightDiagnostics(options?: {
-    allowMissingManifest?: boolean;
-  }): Promise<Diagnostic[]> {
+  private async versionPreflightDiagnostics(options?: { allowMissingManifest?: boolean }): Promise<Diagnostic[]> {
     const missingWorkspace = await this.workspaceInitializationDiagnostics(options);
     if (missingWorkspace.length > 0) {
       return missingWorkspace;

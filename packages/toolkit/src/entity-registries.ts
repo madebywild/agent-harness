@@ -4,10 +4,10 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import {
+  parseRegistryManifest,
   type RegistryDefinition,
   type RegistryManifest,
   type RegistryRevision,
-  parseRegistryManifest,
 } from "@madebywild/agent-harness-manifest";
 import { listFilesRecursively } from "./repository.js";
 import type { EntityType, RegistryId } from "./types.js";

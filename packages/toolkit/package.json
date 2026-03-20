@@ -14,23 +14,27 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "publishConfig": {
     "access": "restricted"
   },
   "dependencies": {
-    "@madebywild/agent-harness-manifest": "workspace:*",
+    "@clack/prompts": "^1.1.0",
     "@iarna/toml": "^2.2.5",
-    "chokidar": "^4.0.3",
-    "commander": "^12.1.0",
+    "@madebywild/agent-harness-manifest": "workspace:*",
+    "chokidar": "^5.0.0",
+    "commander": "^14.0.3",
     "gray-matter": "^4.0.3",
-    "yaml": "^2.7.0"
+    "ora": "^9.3.0",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
-    "@types/node": "^22.13.10",
-    "testcontainers": "^11.5.1",
-    "tsx": "^4.20.5",
-    "typescript": "^5.9.2"
+    "@types/node": "^25.5.0",
+    "testcontainers": "^11.13.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   },
   "scripts": {
     "build": "pnpm exec tsc -b",

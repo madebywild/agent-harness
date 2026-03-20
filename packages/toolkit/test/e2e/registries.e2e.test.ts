@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { type TestContext, after, before, test } from "node:test";
+import { after, before, type TestContext, test } from "node:test";
 import { mkTmpRepo } from "../helpers.ts";
 import { readWorkspaceJson, readWorkspaceText, runHarnessCli, runHarnessCliExpectFailure } from "./cli-helpers.ts";
 import { GiteaRegistryFixture } from "./gitea-registry-fixture.ts";
@@ -36,11 +36,25 @@ test("init seeds local registry as default and lists it", async () => {
   assert.equal(defaultResult.stdout.trim(), "local");
 
   const listResult = await runHarnessCli(workspace, ["registry", "list", "--json"]);
-  const listed = JSON.parse(listResult.stdout) as Array<{
-    id: string;
-    isDefault: boolean;
-    definition: { type: string };
-  }>;
+  const payload = JSON.parse(listResult.stdout) as {
+    schemaVersion: string;
+    ok: boolean;
+    command: string;
+    data: {
+      operation: string;
+      registries: Array<{
+        id: string;
+        isDefault: boolean;
+        definition: { type: string };
+      }>;
+    };
+  };
+  assert.equal(payload.schemaVersion, "1");
+  assert.equal(payload.ok, true);
+  assert.equal(payload.command, "registry.list");
+  assert.equal(payload.data.operation, "list");
+
+  const listed = payload.data.registries;
 
   const local = listed.find((entry) => entry.id === "local");
   assert.ok(local);

@@ -639,8 +639,19 @@ test("registry validate CLI emits json and failure exit code", async () => {
       cwd: toolkitDir,
     },
   );
-  const validPayload = JSON.parse(validRun.stdout) as { valid: boolean; diagnostics: unknown[] };
-  assert.equal(validPayload.valid, true);
+  const validPayload = JSON.parse(validRun.stdout) as {
+    schemaVersion: string;
+    ok: boolean;
+    command: string;
+    data: { operation: string; result: { valid: boolean; diagnostics: unknown[] } };
+    diagnostics: unknown[];
+  };
+  assert.equal(validPayload.schemaVersion, "1");
+  assert.equal(validPayload.command, "registry.validate");
+  assert.equal(validPayload.ok, true);
+  assert.equal(validPayload.data.operation, "validate");
+  assert.equal(validPayload.data.result.valid, true);
+  assert.deepEqual(validPayload.data.result.diagnostics, []);
   assert.deepEqual(validPayload.diagnostics, []);
 
   const invalidRepo = await mkTmpRegistry({

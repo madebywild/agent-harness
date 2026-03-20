@@ -1,28 +1,34 @@
-import { HarnessEngine } from "./engine.js";
+import { runCliArgv, runCliCommand } from "./cli/main.js";
 import { loadConfig, validateConfig, validateLock } from "./engine/utils.js";
+import { HarnessEngine } from "./engine.js";
 import { validateRegistryRepo } from "./registry-validator.js";
 import type { ApplyOptions, ApplyResult, DoctorResult, MigrationResult, PlanOptions, PlanResult } from "./types.js";
 
-export { HarnessEngine, loadConfig, validateConfig, validateLock };
-export { validateRegistryRepo };
-
+export type {
+  CliEnvelope,
+  CliExecutionContext,
+  CliResolvedContext,
+  CommandId,
+  CommandInput,
+  CommandOutput,
+} from "./cli/contracts.js";
 export type {
   AgentsManifest,
   ApplyResult,
-  CanonicalSubagent,
   CanonicalMcpConfig,
   CanonicalPrompt,
   CanonicalSkill,
+  CanonicalSubagent,
   Diagnostic,
   DoctorResult,
   EntityRef,
   EntityType,
-  ManifestLock,
   ManagedIndex,
-  Operation,
-  PlanResult,
+  ManifestLock,
   MigrationAction,
   MigrationResult,
+  Operation,
+  PlanResult,
   ProviderAdapter,
   ProviderId,
   ProviderOverride,
@@ -30,13 +36,14 @@ export type {
   RegistryId,
   RegistryListEntry,
   RegistryManifest,
+  RegistryPullResult,
   RegistryValidationOptions,
   RegistryValidationResult,
-  RegistryPullResult,
   RenderedArtifact,
   ValidationResult,
   VersionDiagnostic,
 } from "./types.js";
+export { HarnessEngine, loadConfig, runCliArgv, runCliCommand, validateConfig, validateLock, validateRegistryRepo };
 
 export async function plan(opts: PlanOptions = {}): Promise<PlanResult> {
   return new HarnessEngine(opts.cwd).plan();

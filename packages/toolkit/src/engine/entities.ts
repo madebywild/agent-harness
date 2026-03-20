@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness-manifest";
 import type { ProviderId } from "@madebywild/agent-harness-manifest";
+import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { fetchEntityFromRegistry } from "../entity-registries.js";
 import {
   DEFAULT_PROMPT_SOURCE_PATH,

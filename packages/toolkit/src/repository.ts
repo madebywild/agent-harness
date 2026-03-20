@@ -1,12 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
-  VersionError,
   parseManagedIndex,
   parseManifest,
   parseManifestLock,
   parseProviderOverride,
   providerIdSchema,
+  VersionError,
 } from "@madebywild/agent-harness-manifest";
 import type { HarnessPaths } from "./paths.js";
 import type {
@@ -302,22 +302,22 @@ export async function collectSourceCandidates(paths: HarnessPaths): Promise<stri
       continue;
     }
 
-    if (/^\.harness\/src\/prompts\/[^/]+\.overrides\.[^.\/]+\.ya?ml$/u.test(relative)) {
+    if (/^\.harness\/src\/prompts\/[^/]+\.overrides\.[^./]+\.ya?ml$/u.test(relative)) {
       candidates.push(relative);
       continue;
     }
 
-    if (/^\.harness\/src\/skills\/[^/]+\/OVERRIDES\.[^.\/]+\.ya?ml$/u.test(relative)) {
+    if (/^\.harness\/src\/skills\/[^/]+\/OVERRIDES\.[^./]+\.ya?ml$/u.test(relative)) {
       candidates.push(relative);
       continue;
     }
 
-    if (/^\.harness\/src\/mcp\/[^/]+\.overrides\.[^.\/]+\.ya?ml$/u.test(relative)) {
+    if (/^\.harness\/src\/mcp\/[^/]+\.overrides\.[^./]+\.ya?ml$/u.test(relative)) {
       candidates.push(relative);
       continue;
     }
 
-    if (/^\.harness\/src\/subagents\/[^/]+\.overrides\.[^.\/]+\.ya?ml$/u.test(relative)) {
+    if (/^\.harness\/src\/subagents\/[^/]+\.overrides\.[^./]+\.ya?ml$/u.test(relative)) {
       candidates.push(relative);
     }
   }

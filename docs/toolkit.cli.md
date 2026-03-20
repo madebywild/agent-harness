@@ -1,34 +1,44 @@
-# `packages/toolkit/src/cli.ts`
+# `packages/toolkit/src/cli/`
 
 ## Purpose
 
-Defines the `harness` CLI using Commander and maps CLI commands to `HarnessEngine` methods.
+Implements the layered CLI runtime with shared command execution for both non-interactive and interactive frontends.
 
-## Commands
+## Module layout
 
-- `--version`/`-V`: prints CLI package version.
-- `init [--force]`: initialize `.harness`; `--force` overwrites an existing workspace.
-- `provider enable <provider>`: enable `codex`, `claude`, or `copilot`.
-- `provider disable <provider>`: disable a provider.
-- `registry list`: list configured registries.
-- `registry add <name> --git-url <url> [--ref <ref>] [--root <path>] [--token-env <name>]`: add git registry.
-- `registry remove <name>`: remove registry config (except built-in `local`).
-- `registry default show|set <name>`: read/update default registry.
-- `registry pull [<prompt|skill|mcp|subagent> <id>] [--registry <name>] [--force]`: refresh imported entities.
-- `add prompt|skill|mcp|subagent [--registry <name>]`: scaffold source entities from default or explicit registry.
-- `remove <prompt|skill|mcp|subagent> <id> [--no-delete-source]`: remove an entity from manifest and delete scaffolded source files by default (`prompt` requires id `system`).
-- `validate`: print diagnostics and set exit code `1` if invalid.
-- `plan [--json]`: show proposed file operations and diagnostics.
-- `apply [--json]`: execute write/delete operations if no error diagnostics.
-- `doctor [--json]`: report per-file schema version health and migration blockers.
-- `migrate [--to latest] [--dry-run] [--json]`: upgrade workspace schemas with backup + atomic writes.
-- `watch [--debounce <ms>]`: run apply loop on source changes.
+- `cli.ts`: compatibility bin wrapper that calls `runCliArgv`.
+- `cli/main.ts`: mode selection + top-level error/exit mapping.
+- `cli/contracts.ts`: shared command ids, input/output contracts, execution context, JSON envelope.
+- `cli/command-registry.ts`: single command definition registry and `dispatch(...)` entrypoint.
+- `cli/handlers/*`: command-family handlers that call `HarnessEngine`/registry validator and return structured outputs.
+- `cli/renderers/text.ts`: command-output to human-readable stdout rendering.
+- `cli/renderers/json.ts`: stable JSON envelope rendering (`schemaVersion: "1"`).
+- `cli/adapters/commander.ts`: Commander parser adapter for script-safe command mode.
+- `cli/adapters/interactive.ts`: prompt wizard adapter built with `@clack/prompts`.
+- `cli/utils/runtime.ts`: TTY/CI/env mode helpers and context resolution.
 
-## Behavior notes
+## Runtime behavior
 
-- Global option: `--cwd <path>` sets workspace root.
-- Default action (no subcommand) runs `plan` and prints operations and diagnostics.
-- If `.harness` is missing, runtime commands report `WORKSPACE_NOT_INITIALIZED` with `harness init` guidance.
-- All command failures are funneled through `program.parseAsync(...).catch(...)` and exit with code `1`.
-- `doctor` exits `0` only when workspace is fully current; otherwise exits `1`.
-- `migrate` exits `0` on success/no-op and `1` on blocked migrations (invalid/newer/unsupported).
+- Global options: `--cwd`, `--json`, `--interactive`, `--no-interactive`.
+- No-arg behavior:
+  - TTY and non-CI: launches interactive wizard.
+  - Non-TTY or CI: runs default `plan` behavior.
+- If manifest is missing, planning returns empty operations and carries manifest diagnostics.
+- Explicit subcommands run through Commander command mode.
+- `harness ui` is an explicit interactive entrypoint.
+
+## JSON output contract
+
+`--json` renders a consistent envelope:
+
+- `schemaVersion: "1"`
+- `ok: boolean`
+- `command: string`
+- `data: object`
+- `diagnostics: Diagnostic[]`
+- `meta: { cwd: string; durationMs: number }`
+
+## Programmatic API
+
+- `runCliCommand(input, context?)`: execute one structured command through shared dispatcher.
+- `runCliArgv(argv, context?)`: parse argv, run selected mode, and return `{ exitCode }`.

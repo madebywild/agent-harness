@@ -9,7 +9,9 @@ Published as `@madebywild/agent-harness-framework`.
 
 - `HarnessEngine`
 - `loadConfig`, `validateConfig`, `validateLock`
+- `runCliCommand`, `runCliArgv`
 - Core types from `types.ts` (manifest types, diagnostics, operations, adapter contracts, version diagnostics/migration result models, etc.)
+- CLI contracts from `cli/contracts.ts` (`CommandInput`, `CommandOutput`, `CommandId`, `CliEnvelope`, context types)
 
 ## Convenience functions
 

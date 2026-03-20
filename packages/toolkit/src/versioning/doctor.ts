@@ -1,14 +1,14 @@
 import path from "node:path";
 import {
   type DocumentKind,
-  LATEST_VERSION_BY_KIND,
-  VersionError,
   detectDocumentVersion,
+  LATEST_VERSION_BY_KIND,
   parseManagedIndex,
   parseManifest,
   parseManifestLock,
   parseProviderOverride,
   providerIdSchema,
+  VersionError,
 } from "@madebywild/agent-harness-manifest";
 import type { HarnessPaths } from "../paths.js";
 import { collectSourceCandidates } from "../repository.js";

@@ -15,6 +15,18 @@ This set documents every source file under `packages/toolkit/src`.
 - `types.ts`: [`toolkit.types.md`](./toolkit.types.md)
 - `utils.ts`: [`toolkit.utils.md`](./toolkit.utils.md)
 
+## CLI submodules
+
+- `cli/main.ts`: mode-aware CLI bootstrap and execution entrypoints.
+- `cli/contracts.ts`: shared CLI contracts and envelope types.
+- `cli/command-registry.ts`: command metadata and dispatcher.
+- `cli/adapters/commander.ts`: non-interactive parser adapter.
+- `cli/adapters/interactive.ts`: prompt wizard adapter.
+- `cli/handlers/*.ts`: command-family execution handlers.
+- `cli/renderers/text.ts`: human-readable output renderer.
+- `cli/renderers/json.ts`: stable JSON envelope renderer.
+- `cli/utils/runtime.ts`: runtime environment and mode helpers.
+
 ## Versioning modules
 
 - `versioning/doctor.ts`: [`toolkit.versioning.doctor.md`](./toolkit.versioning.doctor.md)
