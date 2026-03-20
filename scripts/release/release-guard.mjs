@@ -22,6 +22,8 @@ const dryRun = args.includes("--dry-run");
 const tagFlagIndex = args.indexOf("--tag");
 const tagFlagValue = tagFlagIndex !== -1 ? args[tagFlagIndex + 1] : undefined;
 const mode = args.find((a) => !a.startsWith("--") && (tagFlagIndex === -1 || a !== tagFlagValue)) ?? "prepublish";
+const verifyMaxAttempts = parsePositiveInt(process.env.RELEASE_VERIFY_MAX_ATTEMPTS, 6);
+const verifyRetryDelayMs = parsePositiveInt(process.env.RELEASE_VERIFY_RETRY_DELAY_MS, 5000);
 
 if (mode !== "prepublish" && mode !== "publish" && mode !== "verify-published") {
   fail(`Unknown mode '${mode}'. Use 'prepublish', 'publish', or 'verify-published'.`);
@@ -54,12 +56,7 @@ if (mode === "publish") {
   process.exit(0);
 }
 
-for (const pkg of packages) {
-  assertPackageVersionExists(pkg.name, targetVersion);
-}
-
-log(`Published version checks passed for ${targetVersion}.`);
-process.exit(0);
+await verifyPublishedVersions(packages, targetVersion);
 
 function loadPackageManifest(config) {
   const absolutePath = path.join(repoRoot, config.packageJsonPath);
@@ -159,26 +156,76 @@ function inspectPackageVersion(packageName, version) {
   fail(`Unable to verify existing version for ${packageName}@${version}. npm view output:\n${output.trim()}`);
 }
 
-function assertPackageVersionExists(packageName, version) {
-  const lookup = npmView(`${packageName}@${version}`, "version");
-  if (!lookup.ok) {
-    fail(
-      `Failed to verify published version for ${packageName}@${version}. npm view output:\n${`${lookup.stdout}\n${lookup.stderr}`.trim()}`,
-    );
+async function verifyPublishedVersions(packagesToVerify, version) {
+  for (const pkg of packagesToVerify) {
+    await assertPackageVersionExists(pkg.name, version);
   }
 
-  let publishedVersion;
-  try {
-    publishedVersion = JSON.parse(lookup.stdout);
-  } catch (error) {
-    fail(`Failed to parse npm view output for ${packageName}@${version}: ${String(error)}.`);
+  log(`Published version checks passed for ${version}.`);
+  process.exit(0);
+}
+
+async function assertPackageVersionExists(packageName, version) {
+  for (let attempt = 1; attempt <= verifyMaxAttempts; attempt += 1) {
+    const lookup = npmView(`${packageName}@${version}`, "version");
+    if (lookup.ok) {
+      let publishedVersion;
+      try {
+        publishedVersion = JSON.parse(lookup.stdout);
+      } catch (error) {
+        fail(`Failed to parse npm view output for ${packageName}@${version}: ${String(error)}.`);
+      }
+
+      if (publishedVersion !== version) {
+        fail(
+          `Published version mismatch for ${packageName}. Expected '${version}', got '${String(publishedVersion)}'.`,
+        );
+      }
+
+      log(`Confirmed published: ${packageName}@${version}`);
+      return;
+    }
+
+    const output = `${lookup.stdout}\n${lookup.stderr}`.trim();
+    const isAuthError = /\bE401\b/.test(output) || /\bE403\b/.test(output);
+    const isNotFound = /\bE404\b/.test(output) || /\b404\b/.test(output);
+    const hasAttemptsLeft = attempt < verifyMaxAttempts;
+
+    if (isAuthError) {
+      fail(
+        `Registry auth failed while verifying ${packageName}@${version}. Ensure NODE_AUTH_TOKEN/NPM_TOKEN has read access.`,
+      );
+    }
+
+    if (isNotFound && hasAttemptsLeft) {
+      log(
+        `Package not visible yet (${packageName}@${version}), retry ${attempt}/${verifyMaxAttempts} in ${verifyRetryDelayMs}ms.`,
+      );
+      await sleep(verifyRetryDelayMs);
+      continue;
+    }
+
+    fail(`Failed to verify published version for ${packageName}@${version}. npm view output:\n${output}`);
+  }
+}
+
+function parsePositiveInt(rawValue, fallback) {
+  if (!rawValue) {
+    return fallback;
   }
 
-  if (publishedVersion !== version) {
-    fail(`Published version mismatch for ${packageName}. Expected '${version}', got '${String(publishedVersion)}'.`);
+  const parsed = Number.parseInt(rawValue, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
   }
 
-  log(`Confirmed published: ${packageName}@${version}`);
+  return parsed;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function npmView(spec, field) {
