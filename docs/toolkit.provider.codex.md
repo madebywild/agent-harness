@@ -8,13 +8,15 @@ Builds the Codex provider adapter.
 
 - `buildCodexAdapter(skillFilesByEntityId)`
 
-## Provider definition
+## Provider behavior
 
 - Defaults from `PROVIDER_DEFAULTS.codex`.
-- MCP format: `toml`.
-- Uses `renderProviderState` to merge MCP + subagent data into one TOML artifact.
-- TOML payload shape:
-  - `mcp_servers` for merged MCP servers (when present)
-  - `experimental_use_role = true` when at least one subagent is enabled
-  - `agents.<id>` entries for enabled subagents
+- MCP format: TOML.
+- Uses `renderProviderState` to merge enabled MCP/subagent/hook-state into one TOML artifact.
+- TOML payload can include:
+  - `mcp_servers` (merged MCP servers)
+  - `experimental_use_role = true` (when subagents are enabled)
+  - `agents.<id>` entries (enabled subagents)
+  - `notify = [...]` (projected from hook `turn_complete`)
+- Returns no artifact when merged payload is empty.
 - Output string is normalized to one trailing newline.

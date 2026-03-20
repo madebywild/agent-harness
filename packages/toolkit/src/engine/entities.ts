@@ -5,6 +5,8 @@ import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness
 import { fetchEntityFromRegistry } from "../entity-registries.js";
 import {
   DEFAULT_PROMPT_SOURCE_PATH,
+  defaultHookOverridePath,
+  defaultHookSourcePath,
   defaultMcpOverridePath,
   defaultMcpSourcePath,
   defaultPromptOverridePath,
@@ -65,7 +67,9 @@ export async function ensureOverrideFiles(
           ? defaultSkillOverridePath(entityId, provider)
           : entityType === "mcp_config"
             ? defaultMcpOverridePath(entityId, provider)
-            : defaultSubagentOverridePath(entityId, provider));
+            : entityType === "subagent"
+              ? defaultSubagentOverridePath(entityId, provider)
+              : defaultHookOverridePath(entityId, provider));
     overrides[provider] = overridePath;
 
     const absolute = path.join(cwd, overridePath);
@@ -98,6 +102,15 @@ export async function readCurrentSourceSha(cwd: string, entity: AgentsManifest["
     const parsed = JSON.parse(text) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error(`MCP source '${entity.sourcePath}' must be a JSON object`);
+    }
+    return sha256(stableStringify(parsed));
+  }
+
+  if (entity.type === "hook") {
+    const text = await fs.readFile(sourceAbs, "utf8");
+    const parsed = JSON.parse(text) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error(`Hook source '${entity.sourcePath}' must be a JSON object`);
     }
     return sha256(stableStringify(parsed));
   }
@@ -138,6 +151,13 @@ export async function materializeFetchedEntity(
   }
 
   if (entity.type === "mcp_config" && fetched.type === "mcp_config") {
+    const sourceAbs = path.join(cwd, entity.sourcePath);
+    await ensureParentDir(sourceAbs);
+    await fs.writeFile(sourceAbs, stableStringify(fetched.sourceJson), "utf8");
+    return;
+  }
+
+  if (entity.type === "hook" && fetched.type === "hook") {
     const sourceAbs = path.join(cwd, entity.sourcePath);
     await ensureParentDir(sourceAbs);
     await fs.writeFile(sourceAbs, stableStringify(fetched.sourceJson), "utf8");
@@ -444,6 +464,77 @@ export async function addSubagentEntity(
     type: "subagent",
     registry: registry.id,
     sourceSha256: sha256(sourceText),
+    overrideSha256ByProvider: overrideShaByProvider,
+    importedSourceSha256,
+    registryRevision,
+  });
+}
+
+export async function addHookEntity(cwd: string, hookId: string, options?: { registry?: string }): Promise<void> {
+  validateEntityId(hookId, "hook");
+  const paths = resolveHarnessPaths(cwd);
+  const manifest = await readManifestOrThrow(paths);
+
+  if (manifest.entities.some((entity) => entity.type === "hook" && entity.id === hookId)) {
+    throw new Error(`Hook '${hookId}' already exists`);
+  }
+
+  const sourcePath = defaultHookSourcePath(hookId);
+  const sourceAbs = path.join(cwd, sourcePath);
+  if (await exists(sourceAbs)) {
+    throw new Error(`Cannot add hook because '${sourcePath}' already exists`);
+  }
+
+  const registry = resolveEntityRegistrySelection(manifest, options?.registry);
+  let sourceJson: Record<string, unknown>;
+  let importedSourceSha256: string | undefined;
+  let registryRevision: RegistryRevision | undefined;
+
+  if (registry.definition.type === "git") {
+    const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "hook", hookId);
+    if (fetched.type !== "hook") {
+      throw new Error(`REGISTRY_FETCH_FAILED: expected hook '${hookId}' from registry '${registry.id}'`);
+    }
+    sourceJson = fetched.sourceJson;
+    importedSourceSha256 = fetched.importedSourceSha256;
+    registryRevision = fetched.registryRevision;
+  } else {
+    sourceJson = {
+      mode: "strict",
+      events: {
+        pre_tool_use: [
+          {
+            type: "command",
+            command: "echo 'replace-with-hook-command'",
+          },
+        ],
+      },
+    };
+  }
+
+  const sourceContent = stableStringify(sourceJson);
+  await ensureParentDir(sourceAbs);
+  await fs.writeFile(sourceAbs, sourceContent, "utf8");
+
+  const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "hook", hookId);
+
+  manifest.entities.push({
+    id: hookId,
+    type: "hook",
+    registry: registry.id,
+    sourcePath,
+    overrides,
+    enabled: true,
+  });
+  manifest.entities = sortEntities(manifest.entities);
+
+  await writeManifest(paths, manifest);
+  await writeManagedSourceIndex(paths, manifest);
+  await upsertLockEntityRecord(paths, manifest, {
+    id: hookId,
+    type: "hook",
+    registry: registry.id,
+    sourceSha256: sha256(stableStringify(sourceJson)),
     overrideSha256ByProvider: overrideShaByProvider,
     importedSourceSha256,
     registryRevision,

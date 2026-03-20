@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Thin facade for provider adapter construction and provider default output path lookups.
+Thin facade for provider adapter construction and provider default path lookups.
 
 ## Exported APIs
 
@@ -15,3 +15,4 @@ Thin facade for provider adapter construction and provider default output path l
 
 - Adapter creation delegates to `provider-adapters/registry.ts`.
 - Default path lookups delegate to `provider-adapters/constants.ts`.
+- Hook defaults exist in provider constants (`hookTarget`) but no dedicated facade helper is exported yet.

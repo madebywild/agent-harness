@@ -28,6 +28,7 @@ export type CommandId =
   | "add.skill"
   | "add.mcp"
   | "add.subagent"
+  | "add.hook"
   | "remove"
   | "validate"
   | "doctor"

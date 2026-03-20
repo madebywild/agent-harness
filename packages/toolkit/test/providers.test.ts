@@ -381,3 +381,167 @@ test("unknown subagent override option emits warning and is ignored", async () =
   const rendered = await fs.readFile(path.join(cwd, ".claude/agents/researcher.md"), "utf8");
   assert.doesNotMatch(rendered, /unsupported/u);
 });
+
+test("claude provider renders hook settings from hook entities", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addHook("guard");
+  await engine.enableProvider("claude");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/hooks/guard.json"),
+    JSON.stringify(
+      {
+        mode: "strict",
+        events: {
+          pre_tool_use: [
+            {
+              type: "command",
+              matcher: "Bash",
+              command: "echo claude-hook",
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
+
+  const rendered = JSON.parse(await fs.readFile(path.join(cwd, ".claude/settings.json"), "utf8")) as {
+    hooks?: Record<string, Array<{ matcher?: string; hooks: Array<Record<string, unknown>> }>>;
+  };
+  assert.ok(rendered.hooks?.PreToolUse);
+  assert.equal(rendered.hooks?.PreToolUse?.[0]?.matcher, "Bash");
+  assert.equal(
+    (rendered.hooks?.PreToolUse?.[0]?.hooks?.[0] as { command?: string } | undefined)?.command,
+    "echo claude-hook",
+  );
+});
+
+test("copilot provider renders hook configuration from hook entities", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addHook("guard");
+  await engine.enableProvider("copilot");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/hooks/guard.json"),
+    JSON.stringify(
+      {
+        mode: "strict",
+        events: {
+          pre_tool_use: [
+            {
+              type: "command",
+              bash: "echo pre-tool",
+              powershell: "Write-Output pre-tool",
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
+
+  const rendered = JSON.parse(await fs.readFile(path.join(cwd, ".github/hooks/harness.generated.json"), "utf8")) as {
+    version?: number;
+    hooks?: Record<string, Array<Record<string, unknown>>>;
+  };
+  assert.equal(rendered.version, 1);
+  assert.ok(rendered.hooks?.preToolUse);
+  assert.equal(rendered.hooks?.preToolUse?.[0]?.type, "command");
+});
+
+test("codex provider maps turn_complete hook to notify command", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addHook("guard");
+  await engine.enableProvider("codex");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/hooks/guard.json"),
+    JSON.stringify(
+      {
+        mode: "strict",
+        events: {
+          turn_complete: [
+            {
+              type: "notify",
+              command: ["python3", "scripts/on_turn_complete.py"],
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
+
+  const tomlContent = await fs.readFile(path.join(cwd, ".codex/config.toml"), "utf8");
+  assert.match(tomlContent, /notify = \[\s*"python3",\s*"scripts\/on_turn_complete\.py"\s*\]/u);
+});
+
+test("codex provider rejects unsupported hook events in strict mode", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addHook("guard");
+  await engine.enableProvider("codex");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/hooks/guard.json"),
+    JSON.stringify(
+      {
+        mode: "strict",
+        events: {
+          pre_tool_use: [
+            {
+              type: "command",
+              command: "echo should-fail-on-codex",
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.ok(apply.diagnostics.some((diagnostic) => diagnostic.code === "HOOK_EVENT_UNSUPPORTED"));
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    true,
+  );
+});

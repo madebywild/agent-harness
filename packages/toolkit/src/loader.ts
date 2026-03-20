@@ -9,9 +9,12 @@ import type {
 } from "@madebywild/agent-harness-manifest";
 import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness-manifest";
 import matter from "gray-matter";
+import { canonicalHookHasErrors, parseCanonicalHookDocument, withHookId } from "./hooks.js";
 import type { HarnessPaths } from "./paths.js";
 import {
   DEFAULT_PROMPT_SOURCE_PATH,
+  defaultHookOverridePath,
+  defaultHookSourcePath,
   defaultMcpOverridePath,
   defaultPromptOverridePath,
   defaultSkillOverridePath,
@@ -23,7 +26,15 @@ import {
   listFilesRecursively,
   readProviderOverrideFile,
 } from "./repository.js";
-import type { Diagnostic, LoadedMcp, LoadedPrompt, LoadedSkill, LoadedSubagent, LoadResult } from "./types.js";
+import type {
+  Diagnostic,
+  LoadedHook,
+  LoadedMcp,
+  LoadedPrompt,
+  LoadedSkill,
+  LoadedSubagent,
+  LoadResult,
+} from "./types.js";
 import { normalizeRelativePath, sha256, stableStringify, toPosixRelative } from "./utils.js";
 
 export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsManifest): Promise<LoadResult> {
@@ -88,6 +99,16 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
     }
   }
 
+  const hookEntities = manifest.entities.filter((entity) => entity.type === "hook" && entity.enabled !== false);
+  const hooks: LoadedHook[] = [];
+  for (const hookEntity of hookEntities) {
+    const loadedHook = await loadHook(paths, hookEntity);
+    diagnostics.push(...loadedHook.diagnostics);
+    if (loadedHook.hook) {
+      hooks.push(loadedHook.hook);
+    }
+  }
+
   return {
     manifest,
     diagnostics,
@@ -95,6 +116,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
     skills: skills.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     mcps: mcps.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     subagents: subagents.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
+    hooks: hooks.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
   };
 }
 
@@ -239,6 +261,19 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
           code: "SUBAGENT_SOURCE_INVALID",
           severity: "error",
           message: `Subagent '${entity.id}' sourcePath must be '${expectedPath}'`,
+          path: sourcePath,
+          entityId: entity.id,
+        });
+      }
+    }
+
+    if (entity.type === "hook") {
+      const expectedPath = defaultHookSourcePath(entity.id);
+      if (sourcePath !== expectedPath) {
+        diagnostics.push({
+          code: "HOOK_SOURCE_INVALID",
+          severity: "error",
+          message: `Hook '${entity.id}' sourcePath must be '${expectedPath}'`,
           path: sourcePath,
           entityId: entity.id,
         });
@@ -618,6 +653,73 @@ async function loadSubagent(
         metadata,
       },
       sourceSha256: sha256(text),
+      overrideByProvider,
+      overrideShaByProvider,
+    },
+  };
+}
+
+async function loadHook(
+  paths: HarnessPaths,
+  entity: EntityRef,
+): Promise<{ hook?: LoadedHook; diagnostics: Diagnostic[] }> {
+  const diagnostics: Diagnostic[] = [];
+  const sourcePath = normalizeRelativePath(entity.sourcePath);
+  const sourceAbs = path.join(paths.root, sourcePath);
+
+  let text: string;
+  try {
+    text = await fs.readFile(sourceAbs, "utf8");
+  } catch {
+    diagnostics.push({
+      code: "HOOK_SOURCE_MISSING",
+      severity: "error",
+      message: `Hook source '${sourcePath}' could not be read`,
+      path: sourcePath,
+      entityId: entity.id,
+    });
+    return { diagnostics };
+  }
+
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(text) as unknown;
+  } catch (error) {
+    diagnostics.push({
+      code: "HOOK_JSON_INVALID",
+      severity: "error",
+      message: `Hook '${entity.id}' is not valid JSON: ${error instanceof Error ? error.message : "unknown error"}`,
+      path: sourcePath,
+      entityId: entity.id,
+    });
+    return { diagnostics };
+  }
+
+  const parsedHook = parseCanonicalHookDocument(parsedJson, sourcePath, entity.id);
+  diagnostics.push(...parsedHook.diagnostics);
+  if (!parsedHook.canonical || canonicalHookHasErrors(parsedHook.diagnostics)) {
+    return { diagnostics };
+  }
+
+  const overrideByProvider = new Map<ProviderId, ProviderOverride | undefined>();
+  const overrideShaByProvider: Partial<Record<ProviderId, string>> = {};
+
+  for (const provider of providerIdSchema.options) {
+    const overridePath = entity.overrides?.[provider] ?? defaultHookOverridePath(entity.id, provider);
+    const parsedOverride = await parseOverride(paths, provider, entity, overridePath);
+    diagnostics.push(...parsedOverride.diagnostics);
+    overrideByProvider.set(provider, parsedOverride.override);
+    if (parsedOverride.sha256) {
+      overrideShaByProvider[provider] = parsedOverride.sha256;
+    }
+  }
+
+  return {
+    diagnostics,
+    hook: {
+      entity,
+      canonical: withHookId(parsedHook.canonical, entity.id),
+      sourceSha256: sha256(stableStringify(parsedJson)),
       overrideByProvider,
       overrideShaByProvider,
     },

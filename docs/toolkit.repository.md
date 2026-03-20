@@ -18,14 +18,22 @@ Encapsulates filesystem persistence/parsing for manifest, lock, managed-index, s
 - `LOCK_INVALID`
 - `MANAGED_INDEX_INVALID`
 - `OVERRIDE_INVALID`
-- Version-specific diagnostics (per file kind): `*_VERSION_OUTDATED`, `*_VERSION_NEWER_THAN_CLI`, `*_VERSION_MISSING`, `*_VERSION_INVALID`
+- version diagnostics (per file kind): `*_VERSION_OUTDATED`, `*_VERSION_NEWER_THAN_CLI`, `*_VERSION_MISSING`, `*_VERSION_INVALID`
 
 ## Ownership helpers
 
-- `collectSourceCandidates` scans `.harness/src` and returns known candidate source files:
-  - prompt markdown,
-  - skill `SKILL.md`,
-  - MCP JSON,
-  - subagent markdown,
-  - prompt/skill/MCP/subagent override sidecar YAMLs.
-- `collectManagedSourcePaths` derives registered managed paths from manifest entities (`sourcePath` + `overrides[provider]`) using strict relative path normalization (no absolute paths, no Windows drive-prefixed paths, no `..` segments, no `"."` aliases).
+`collectSourceCandidates` scans `.harness/src` and returns known candidate source files:
+
+- prompt markdown
+- skill `SKILL.md`
+- MCP JSON
+- subagent markdown
+- hook JSON
+- prompt/skill/MCP/subagent/hook override sidecar YAMLs
+
+`collectManagedSourcePaths` derives registered managed paths from manifest entities (`sourcePath` + `overrides[provider]`) using strict relative normalization:
+
+- no absolute paths
+- no Windows drive-prefixed paths
+- no `..` segments
+- no `"."` aliases

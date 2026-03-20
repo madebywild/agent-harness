@@ -1,212 +1,137 @@
 # Supported Providers
 
-This document describes the AI agent providers supported by `harness` and how they define their native configuration files.
+This document describes provider-native config locations and how `harness` maps canonical entities to those formats.
 
 ## Overview
 
-There is not yet a broadly adopted, "native" `.agents/` standard across major CLIs/IDEs. Each tool has its own config locations and file conventions. The `.agents/` pattern is being popularized mainly by unification tools like `dot-agents`, which centralize configs in `~/.agents/` and then symlink/export into each tool's native format.
+`harness` keeps one canonical source of truth in `.harness/` and generates provider-native outputs into expected project paths.
 
-`harness` takes a different approach: it maintains a single, canonical source of truth in `.harness/` and generates provider-native outputs directly into each tool's expected locations.
+Supported providers:
 
----
+- OpenAI Codex (`codex`)
+- Anthropic Claude Code (`claude`)
+- GitHub Copilot (`copilot`)
 
-## Currently Supported Providers
+## Canonical entity coverage
 
-### 1. OpenAI Codex
+| Entity Type | Codex | Claude | Copilot |
+| --- | --- | --- | --- |
+| `prompt` | Yes | Yes | Yes |
+| `skill` | Yes | Yes | Yes |
+| `mcp_config` | Yes | Yes | Yes |
+| `subagent` | Yes | Yes | Yes |
+| `hook` | Partial (`notify` projection) | Yes | Yes |
 
-**Native Configuration Locations:**
+## 1. OpenAI Codex
 
-- **Project-level prompt:** `AGENTS.md` (file-based discovery/override chain)
-- **User/global config:** `~/.codex/config.toml` (for user-wide settings)
-- **Skills directory:** `.codex/skills/<skill-id>/`
-- **MCP config:** `.codex/config.toml`
+### Native configuration locations
 
-**Agent-Harness Mapping:**
+- Prompt: `AGENTS.md`
+- Skills: `.codex/skills/<skill-id>/`
+- Provider state: `.codex/config.toml`
+
+### Harness mapping
+
 | Entity Type | Default Output Path | Format |
-|-------------|---------------------|--------|
+| --- | --- | --- |
 | Prompt | `AGENTS.md` | Markdown |
 | Skills | `.codex/skills/<skill-id>/` | Markdown/JSON |
-| MCP Config | `.codex/config.toml` | TOML |
+| MCP Config | `.codex/config.toml` (`[mcp_servers.<id>]`) | TOML |
 | Subagents | `.codex/config.toml` (`[agents.<id>]`) | TOML |
+| Hooks | `.codex/config.toml` (`notify = [...]`) | TOML |
 
-**MCP Configuration Structure:**
+### Hook notes
 
-```toml
-[mcp_servers.server-name]
-command = "node"
-args = ["/path/to/server.js"]
-```
+- Codex projection accepts canonical `turn_complete` only in strict mode.
+- Hook handlers can be `notify` or `command`; both normalize into `notify` command array.
+- Multiple distinct notify commands across enabled hooks fail with `HOOK_NOTIFY_CONFLICT`.
 
-**Note:** Generated Codex TOML uses per-server tables (`[mcp_servers.<name>]`) and does not emit a bare `[mcp_servers]` header.
+## 2. Anthropic Claude Code
 
-**Subagent Structure (same file as MCP):**
+### Native configuration locations
 
-```toml
-experimental_use_role = true
+- Prompt: `CLAUDE.md`
+- Skills: `.claude/skills/<skill-id>/`
+- Subagents: `.claude/agents/<id>.md`
+- MCP: `.mcp.json`
+- Hooks/settings: `.claude/settings.json`
 
-[agents.researcher]
-description = "Research helper"
-prompt = "You are a research specialist..."
-model = "gpt-5"
-tools = ["web_search"]
-```
+### Harness mapping
 
-**References:**
-
-- [OpenAI Codex Config Reference](https://developers.openai.com/codex/config-reference)
-- [OpenAI AGENTS.md Guide](https://developers.openai.com/codex/agents)
-
----
-
-### 2. Anthropic Claude Code
-
-**Native Configuration Locations:**
-
-- **Project-level agents:** `.claude/agents/`
-- **User/global agents:** `~/.claude/agents/`
-- **CLI flag:** `--agents` (session-only override)
-- **MCP config:** `.mcp.json` (project-level)
-
-**Agent-Harness Mapping:**
 | Entity Type | Default Output Path | Format |
-|-------------|---------------------|--------|
+| --- | --- | --- |
 | Prompt | `CLAUDE.md` | Markdown |
 | Skills | `.claude/skills/<skill-id>/` | Markdown/JSON |
-| MCP Config | `.mcp.json` | JSON |
-| Subagents | `.claude/agents/<id>.md` | Markdown (frontmatter + body) |
+| MCP Config | `.mcp.json` (`mcpServers`) | JSON |
+| Subagents | `.claude/agents/<id>.md` | Markdown |
+| Hooks | `.claude/settings.json` (`hooks`) | JSON |
 
-**MCP Configuration Structure:**
+### Hook notes
 
-```json
-{
-  "mcpServers": {
-    "server-name": {
-      "command": "node",
-      "args": ["/path/to/server.js"]
-    }
-  }
-}
-```
+- Uses Claude lifecycle event names (for example `PreToolUse`, `PostToolUse`, `SessionStart`).
+- Supports canonical `command` hook handlers.
+- Matcher support is event-dependent; invalid matcher usage fails in strict mode.
 
-**References:**
+## 3. GitHub Copilot
 
-- [Claude Code Settings](https://docs.claude.com/en/docs/claude-code/settings)
-- [Claude Code Subagents](https://docs.anthropic.com/en/docs/claude-code/sub-agents)
+### Native configuration locations
 
----
+- Prompt: `.github/copilot-instructions.md`
+- Skills: `.github/skills/<skill-id>/`
+- Subagents: `.github/agents/<id>.agent.md`
+- MCP: `.vscode/mcp.json`
+- Hooks: `.github/hooks/harness.generated.json`
 
-### 3. GitHub Copilot
+### Harness mapping
 
-**Native Configuration Locations:**
-
-- **Project-level agents:** `.github/agents/` (Copilot CLI custom agents)
-- **User/global agents:** `~/.config/copilot/agents/`
-- **Repository instructions:** `.github/copilot-instructions.md`
-- **MCP config:** `.vscode/mcp.json` (VS Code specific)
-
-**Agent-Harness Mapping:**
 | Entity Type | Default Output Path | Format |
-|-------------|---------------------|--------|
+| --- | --- | --- |
 | Prompt | `.github/copilot-instructions.md` | Markdown |
 | Skills | `.github/skills/<skill-id>/` | Markdown/JSON |
-| MCP Config | `.vscode/mcp.json` | JSON |
-| Subagents | `.github/agents/<id>.agent.md` | Markdown (frontmatter + body) |
+| MCP Config | `.vscode/mcp.json` (`servers`) | JSON |
+| Subagents | `.github/agents/<id>.agent.md` | Markdown |
+| Hooks | `.github/hooks/harness.generated.json` (`version: 1`) | JSON |
 
-**MCP Configuration Structure:**
+### Hook notes
 
-```json
-{
-  "servers": {
-    "server-name": {
-      "command": "node",
-      "args": ["/path/to/server.js"]
-    }
-  }
-}
-```
+- Uses Copilot CLI event names (for example `preToolUse`, `postToolUse`, `sessionStart`).
+- Supports canonical `command` handlers only.
+- Matcher is unsupported for Copilot projection and fails in strict mode.
 
-**Note:** The `servers` property (not `mcpServers`) is used for GitHub Copilot's MCP configuration.
+## Provider defaults
 
-**References:**
-
-- [GitHub Copilot Repository Instructions](https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions)
-- [GitHub Copilot Custom Agents Configuration](https://docs.github.com/en/copilot/reference/custom-agents-configuration)
-- [VS Code Copilot Agent Skills](https://code.visualstudio.com/docs/copilot/customization/agent-skills)
-- [VS Code Copilot MCP Servers](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)
-
----
-
-## Provider Defaults Reference
-
-```typescript
+```ts
 const PROVIDER_DEFAULTS = {
   codex: {
     promptTarget: "AGENTS.md",
     skillRoot: ".codex/skills",
     mcpTarget: ".codex/config.toml",
+    hookTarget: ".codex/config.toml",
   },
   claude: {
     promptTarget: "CLAUDE.md",
     skillRoot: ".claude/skills",
     mcpTarget: ".mcp.json",
+    hookTarget: ".claude/settings.json",
   },
   copilot: {
     promptTarget: ".github/copilot-instructions.md",
     skillRoot: ".github/skills",
     mcpTarget: ".vscode/mcp.json",
+    hookTarget: ".github/hooks/harness.generated.json",
   },
 };
 ```
 
----
+## MCP server root key differences
 
-## MCP Server Property Differences
+| Provider | Root key |
+| --- | --- |
+| Codex | `mcp_servers` (TOML tables) |
+| Claude | `mcpServers` |
+| Copilot | `servers` |
 
-Each provider uses a different root property name for MCP servers:
-
-| Provider | JSON Property   | TOML Property |
-| -------- | --------------- | ------------- |
-| Codex    | N/A (TOML only) | `mcp_servers` |
-| Claude   | `mcpServers`    | N/A           |
-| Copilot  | `servers`       | N/A           |
-
-This is important when writing custom MCP configurations or debugging output.
-
----
-
-## Tools That Use Centralized `.agents/` Pattern
-
-While `harness` generates directly to provider-native paths, some tools take a different approach:
-
-### dot-agents (Unification Layer)
-
-- **Purpose:** "Unify all your AI coding agents into a single `~/.agents/` directory"
-- **Approach:** Symlink/reflect into tool-specific formats
-- **Not natively supported** by any IDE/CLI; requires mapping
-
-### dotagent (Singular `.agent/`)
-
-- **Purpose:** Similar unification centered on `.agent/` directory structure
-- **Features:** Converters for Claude Code, Copilot instructions, Cursor rules, etc.
-
----
-
-## Future Provider Support
-
-Potential providers for future versions:
-
-| Tool     | Native Config Location               | Notes                              |
-| -------- | ------------------------------------ | ---------------------------------- |
-| Cursor   | `.cursor/rules/...`                  | Uses its own rule/config locations |
-| OpenCode | `opencode.json` / config directories | JSON-based configuration           |
-| Windsurf | TBD                                  | AI-powered IDE                     |
-| Continue | `.continue/config.json`              | Open-source coding assistant       |
-
----
-
-## Provider Enablement
-
-Providers are enabled via the CLI:
+## Provider enablement
 
 ```bash
 harness provider enable codex
@@ -214,18 +139,26 @@ harness provider enable claude
 harness provider enable copilot
 ```
 
-Only enabled providers receive generated outputs. This allows teams to adopt providers incrementally.
+Only enabled providers generate artifacts.
 
----
+## Output path overrides
 
-## Customizing Output Paths
-
-Each entity can override its default output path via sidecar files:
+Each entity can override provider output path using sidecar override YAML:
 
 ```yaml
-# .harness/src/prompts/system.overrides.codex.yaml
 version: 1
-targetPath: "custom/path/AGENTS.md"
+targetPath: "custom/path/output.file"
 ```
 
-See the [architecture documentation](./architecture.md) for more details on overrides.
+For hook entities the default sidecar path is:
+
+- `.harness/src/hooks/<id>.overrides.<provider>.yaml`
+
+## References
+
+- [OpenAI Codex Config Reference](https://developers.openai.com/codex/config-reference)
+- [OpenAI AGENTS.md Guide](https://developers.openai.com/codex/agents)
+- [Claude Code Settings](https://docs.claude.com/en/docs/claude-code/settings)
+- [Claude Code Hooks](https://code.claude.com/docs/en/hooks)
+- [GitHub Copilot Hooks Configuration](https://docs.github.com/en/copilot/reference/hooks-configuration)
+- [VS Code Copilot Hooks](https://code.visualstudio.com/docs/copilot/customization/hooks)

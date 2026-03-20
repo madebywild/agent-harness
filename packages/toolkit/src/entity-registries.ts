@@ -66,7 +66,17 @@ export interface FetchedSubagentEntity extends FetchedEntityBase {
   readonly sourceText: string;
 }
 
-export type FetchedRegistryEntity = FetchedPromptEntity | FetchedSkillEntity | FetchedMcpEntity | FetchedSubagentEntity;
+export interface FetchedHookEntity extends FetchedEntityBase {
+  readonly type: "hook";
+  readonly sourceJson: Record<string, unknown>;
+}
+
+export type FetchedRegistryEntity =
+  | FetchedPromptEntity
+  | FetchedSkillEntity
+  | FetchedMcpEntity
+  | FetchedSubagentEntity
+  | FetchedHookEntity;
 
 export async function fetchEntityFromRegistry(
   registryId: RegistryId,
@@ -191,6 +201,44 @@ export async function fetchEntityFromRegistry(
 
       return {
         type: "mcp_config",
+        id,
+        registry: registryId,
+        sourceJson,
+        registryManifest,
+        registryRevision: {
+          kind: "git",
+          ref: definition.ref,
+          commit,
+        },
+        importedSourceSha256: sha256(stableStringify(sourceJson)),
+      };
+    }
+
+    if (entityType === "hook") {
+      const hookPath = path.join(checkoutDir, rootPath, "hooks", `${id}.json`);
+      const hookText = await readFileWithNotFound(
+        hookPath,
+        registryId,
+        `Hook '${id}' not found in registry '${registryId}'`,
+      );
+
+      let sourceJson: Record<string, unknown>;
+      try {
+        const parsed = JSON.parse(hookText) as unknown;
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          throw new Error("Hook config must be a JSON object");
+        }
+        sourceJson = parsed as Record<string, unknown>;
+      } catch (error) {
+        throw new RegistryError(
+          "REGISTRY_FETCH_FAILED",
+          registryId,
+          `Hook '${id}' in registry '${registryId}' is invalid: ${error instanceof Error ? error.message : "unknown error"}`,
+        );
+      }
+
+      return {
+        type: "hook",
         id,
         registry: registryId,
         sourceJson,

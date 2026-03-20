@@ -260,6 +260,35 @@ export async function validateRegistryRepo(options: RegistryValidationOptions = 
     }
   }
 
+  const hooksDir = path.join(rootAbs, "hooks");
+  let hookEntries: Dirent[] | null = null;
+  try {
+    hookEntries = await fs.readdir(hooksDir, { withFileTypes: true });
+  } catch (err) {
+    if (!isNotFoundError(err)) {
+      throw err;
+    }
+  }
+
+  if (hookEntries) {
+    for (const entry of hookEntries) {
+      const hookPath = path.join(hooksDir, entry.name);
+      const hookPathRel = toPosixRelative(hookPath, repoPath);
+
+      if (!entry.isFile() || !entry.name.endsWith(".json")) {
+        diagnostics.push(error("REGISTRY_HOOK_INVALID", "hooks/ may only contain .json files", hookPathRel));
+        continue;
+      }
+
+      const id = entry.name.slice(0, -".json".length);
+      if (!isValidEntityId(id)) {
+        diagnostics.push(error("REGISTRY_HOOK_INVALID", `Invalid hook id '${id}'`, hookPathRel));
+      }
+
+      await readJsonObject(hookPath, "REGISTRY_HOOK_INVALID", `Hook '${id}' is invalid`, diagnostics, repoPath);
+    }
+  }
+
   diagnostics.sort((left, right) => {
     const pathCompare = (left.path ?? "").localeCompare(right.path ?? "");
     if (pathCompare !== 0) {

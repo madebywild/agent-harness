@@ -15,6 +15,7 @@ export type {
 export type {
   AgentsManifest,
   ApplyResult,
+  CanonicalHook,
   CanonicalMcpConfig,
   CanonicalPrompt,
   CanonicalSkill,

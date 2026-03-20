@@ -384,6 +384,28 @@ export async function runCommanderAdapter(
   );
 
   addJsonOption(
+    addCommand
+      .command("hook")
+      .description("Create a lifecycle hook entity")
+      .argument("<hook-id>", "hook id")
+      .option("--registry <registry>", "registry id (defaults to configured default/local)")
+      .action(async (hookId: string, options: { registry?: string; json?: boolean }) => {
+        await runCommand(
+          {
+            command: "add.hook",
+            args: {
+              hookId,
+            },
+            options: {
+              registry: options.registry,
+            },
+          },
+          options,
+        );
+      }),
+  );
+
+  addJsonOption(
     program
       .command("remove")
       .description("Remove an existing entity")

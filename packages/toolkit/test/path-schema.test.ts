@@ -85,6 +85,31 @@ test("parseManifest accepts subagent entities", () => {
   );
 });
 
+test("parseManifest accepts hook entities", () => {
+  assert.doesNotThrow(() =>
+    parseManifest({
+      version: 1,
+      providers: {
+        enabled: [],
+      },
+      registries: {
+        default: "local",
+        entries: {
+          local: { type: "local" },
+        },
+      },
+      entities: [
+        {
+          id: "guard",
+          type: "hook",
+          registry: "local",
+          sourcePath: ".harness/src/hooks/guard.json",
+        },
+      ],
+    }),
+  );
+});
+
 test("parseProviderOverride throws VersionError for missing version", () => {
   assert.throws(
     () => parseProviderOverride({ enabled: true }),

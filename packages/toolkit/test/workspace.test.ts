@@ -14,22 +14,24 @@ test("init + add commands scaffold manifest and source files", async () => {
   await engine.addSkill("reviewer");
   await engine.addMcp("playwright");
   await engine.addSubagent("review-bot");
+  await engine.addHook("guard");
 
   const manifestText = await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8");
   const manifest = JSON.parse(manifestText) as {
     entities: Array<{ id: string; type: string }>;
   };
 
-  assert.equal(manifest.entities.length, 4);
+  assert.equal(manifest.entities.length, 5);
   assert.deepEqual(
     manifest.entities.map((entity) => `${entity.type}:${entity.id}`),
-    ["prompt:system", "skill:reviewer", "mcp_config:playwright", "subagent:review-bot"],
+    ["prompt:system", "skill:reviewer", "mcp_config:playwright", "subagent:review-bot", "hook:guard"],
   );
 
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/prompts/system.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/mcp/playwright.json")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/subagents/review-bot.md")));
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/hooks/guard.json")));
 });
 
 test("init fails when .harness already exists without force", async () => {
@@ -124,6 +126,18 @@ test("remove subagent deletes scaffolded source by default", async () => {
     false,
   );
   await assert.rejects(async () => fs.stat(path.join(cwd, ".harness/src/subagents/researcher.md")));
+});
+
+test("remove hook deletes scaffolded source by default", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addHook("guard");
+
+  const removed = await engine.remove("hook", "guard", true);
+  assert.deepEqual(removed, { entityType: "hook", id: "guard" });
+  await assert.rejects(async () => fs.stat(path.join(cwd, ".harness/src/hooks/guard.json")));
 });
 
 test("remove returns the actual removed entity id", async () => {

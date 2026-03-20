@@ -4,6 +4,7 @@ import type { CliResolvedContext, CommandId, CommandInput, CommandOutput } from 
 import { handleApply } from "./handlers/apply.js";
 import { handleDoctor } from "./handlers/doctor.js";
 import {
+  handleAddHook,
   handleAddMcp,
   handleAddPrompt,
   handleAddSkill,
@@ -397,6 +398,29 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
       handleAddSubagent(
         {
           subagentId: readStringArg(input, "subagentId") ?? "",
+          registry: readStringOption(input, "registry"),
+        },
+        context,
+      ),
+  },
+  {
+    id: "add.hook",
+    path: ["add", "hook"],
+    description: "Create a lifecycle hook entity",
+    args: [{ name: "hookId", required: true, description: "hook id" }],
+    options: [
+      {
+        name: "registry",
+        description: "registry id (defaults to configured default/local)",
+        takesValue: true,
+      },
+    ],
+    mutatesWorkspace: true,
+    interactiveLabel: "Add hook",
+    run: (input, context) =>
+      handleAddHook(
+        {
+          hookId: readStringArg(input, "hookId") ?? "",
           registry: readStringOption(input, "registry"),
         },
         context,
