@@ -352,8 +352,8 @@ export class HarnessEngine {
         path.join(base, "src/**/*.json"),
         path.join(base, "src/**/*.overrides.*.yaml"),
         path.join(base, "src/**/OVERRIDES.*.yaml"),
-        path.join(base, ".env"),
-        path.join(paths.root, ".env.harness"),
+        paths.envFile,
+        paths.rootEnvFile,
       ],
       {
         ignoreInitial: true,

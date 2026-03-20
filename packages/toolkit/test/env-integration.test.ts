@@ -390,29 +390,27 @@ test("env integration: override YAML files support env var substitution", async 
   await fs.writeFile(path.join(cwd, ".harness/.env"), "OUTPUT_PATH=custom/AGENTS.md\n");
 
   const result = await engine.apply();
+  assert.equal(
+    result.diagnostics.filter((d) => d.severity === "error").length,
+    0,
+    `unexpected errors: ${result.diagnostics
+      .filter((d) => d.severity === "error")
+      .map((d) => `${d.code}: ${d.message}`)
+      .join("; ")}`,
+  );
 
-  // If override targetPath substitution works, the output should be at custom/AGENTS.md
-  // or the override is processed. Check if the apply completed without errors.
-  // Depending on implementation, either:
-  // a) The output is at the custom path
-  // b) The override is applied successfully
-  const hasErrors = result.diagnostics.filter((d) => d.severity === "error");
-  if (hasErrors.length === 0) {
-    // Check if the custom path was used
-    const customPathExists = await fs
-      .stat(path.join(cwd, "custom/AGENTS.md"))
-      .then(() => true)
-      .catch(() => false);
-    const defaultPathExists = await fs
-      .stat(path.join(cwd, "AGENTS.md"))
-      .then(() => true)
-      .catch(() => false);
+  // The override targetPath should have been substituted, placing output at custom/AGENTS.md
+  const customPathExists = await fs
+    .stat(path.join(cwd, "custom/AGENTS.md"))
+    .then(() => true)
+    .catch(() => false);
+  assert.ok(customPathExists, "Output should exist at the overridden custom path (custom/AGENTS.md)");
 
-    assert.ok(customPathExists || defaultPathExists, "Output should exist at either the custom or default path");
-  }
-  // If there are errors, they should NOT be about env var parsing itself
-  const envErrors = hasErrors.filter((d) => d.code === "ENV_FILE_INVALID" || d.code === "ENV_VAR_UNRESOLVED");
-  assert.equal(envErrors.length, 0, "There should be no env-related errors");
+  const defaultPathExists = await fs
+    .stat(path.join(cwd, "AGENTS.md"))
+    .then(() => true)
+    .catch(() => false);
+  assert.ok(!defaultPathExists, "Output should NOT exist at the default path when override targetPath is set");
 });
 
 // ---------------------------------------------------------------------------

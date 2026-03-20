@@ -120,7 +120,6 @@ function processDoubleQuotedEscapes(value: string): string {
  *
  * Higher-priority sources override lower-priority ones.
  * Missing files are silently skipped.
- * Returns the merged map + diagnostics for parse errors.
  */
 export async function loadEnvVars(
   paths: HarnessPaths,
@@ -146,22 +145,33 @@ export async function loadEnvVars(
       continue;
     }
 
-    try {
-      const parsed = parseEnvFile(text);
-      for (const [key, value] of parsed) {
-        merged.set(key, value);
-      }
-    } catch (error) {
-      diagnostics.push({
-        code: "ENV_FILE_PARSE_ERROR",
-        severity: "warning",
-        message: `Failed to parse env file '${source.displayPath}': ${error instanceof Error ? error.message : "unknown error"}`,
-        path: source.displayPath,
-      });
+    const parsed = parseEnvFile(text);
+    for (const [key, value] of parsed) {
+      merged.set(key, value);
     }
   }
 
   return { vars: merged, diagnostics };
+}
+
+/**
+ * Push ENV_VAR_UNRESOLVED warning diagnostics for each unresolved placeholder key.
+ */
+export function pushUnresolvedEnvDiagnostics(
+  unresolvedKeys: string[],
+  diagnostics: Diagnostic[],
+  filePath: string,
+  extra?: Partial<Diagnostic>,
+): void {
+  for (const key of unresolvedKeys) {
+    diagnostics.push({
+      code: "ENV_VAR_UNRESOLVED",
+      severity: "warning",
+      message: `Unresolved env placeholder '{{${key}}}' in '${filePath}'`,
+      path: filePath,
+      ...extra,
+    });
+  }
 }
 
 const PLACEHOLDER_RE = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g;

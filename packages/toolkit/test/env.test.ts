@@ -90,18 +90,12 @@ test("parseEnvFile: Windows-style line endings (\\r\\n)", () => {
   assert.equal(result.get("BAZ"), "qux");
 });
 
-test("parseEnvFile: export prefix is handled", () => {
-  // Some dotenv implementations strip the 'export ' prefix
+test("parseEnvFile: export prefix is NOT stripped (stored as part of key)", () => {
   const result = parseEnvFile("export FOO=bar\nexport BAZ=qux\n");
-  // If export prefix is supported, FOO should be "bar"; otherwise the key would be "export FOO"
-  // We check whether the implementation supports it either way
-  const hasFoo = result.has("FOO");
-  const hasExportFoo = result.has("export FOO");
-  assert.ok(hasFoo || hasExportFoo, "Should parse line with export prefix in some form");
-  if (hasFoo) {
-    assert.equal(result.get("FOO"), "bar");
-    assert.equal(result.get("BAZ"), "qux");
-  }
+  // The parser does not strip the 'export ' prefix — the key includes it
+  assert.equal(result.has("export FOO"), true);
+  assert.equal(result.get("export FOO"), "bar");
+  assert.equal(result.get("export BAZ"), "qux");
 });
 
 test("parseEnvFile: completely empty input", () => {

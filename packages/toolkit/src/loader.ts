@@ -9,7 +9,7 @@ import type {
 } from "@madebywild/agent-harness-manifest";
 import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness-manifest";
 import matter from "gray-matter";
-import { loadEnvVars, substituteEnvVars } from "./env.js";
+import { loadEnvVars, pushUnresolvedEnvDiagnostics, substituteEnvVars } from "./env.js";
 import { canonicalHookHasErrors, parseCanonicalHookDocument, withHookId } from "./hooks.js";
 import type { HarnessPaths } from "./paths.js";
 import {
@@ -339,15 +339,7 @@ async function loadPrompt(
   }
 
   const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
-  for (const key of unresolvedKeys) {
-    diagnostics.push({
-      code: "ENV_VAR_UNRESOLVED",
-      severity: "warning",
-      message: `Unresolved env placeholder '{{${key}}}' in '${sourcePath}'`,
-      path: sourcePath,
-      entityId: entity.id,
-    });
-  }
+  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
 
   const parsed = matter(substitutedText);
   const body = parsed.content.trim();
@@ -434,15 +426,7 @@ async function loadSkill(
     const relativeInSkill = normalizeRelativePath(path.relative(sourceDir, absolutePath).replace(/\\/g, "/"));
     const content = await fs.readFile(absolutePath, "utf8");
     const { result: substitutedContent, unresolvedKeys } = substituteEnvVars(content, envVars);
-    for (const key of unresolvedKeys) {
-      diagnostics.push({
-        code: "ENV_VAR_UNRESOLVED",
-        severity: "warning",
-        message: `Unresolved env placeholder '{{${key}}}' in '${sourcePath}'`,
-        path: sourcePath,
-        entityId: entity.id,
-      });
-    }
+    pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
 
     filesWithContent.push({
       path: relativeInSkill,
@@ -524,15 +508,7 @@ async function loadMcp(
   }
 
   const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
-  for (const key of unresolvedKeys) {
-    diagnostics.push({
-      code: "ENV_VAR_UNRESOLVED",
-      severity: "warning",
-      message: `Unresolved env placeholder '{{${key}}}' in '${sourcePath}'`,
-      path: sourcePath,
-      entityId: entity.id,
-    });
-  }
+  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
 
   let json: Record<string, unknown>;
   try {
@@ -609,15 +585,7 @@ async function loadSubagent(
   }
 
   const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
-  for (const key of unresolvedKeys) {
-    diagnostics.push({
-      code: "ENV_VAR_UNRESOLVED",
-      severity: "warning",
-      message: `Unresolved env placeholder '{{${key}}}' in '${sourcePath}'`,
-      path: sourcePath,
-      entityId: entity.id,
-    });
-  }
+  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
 
   let parsed: matter.GrayMatterFile<string>;
   try {
@@ -739,15 +707,7 @@ async function loadHook(
   }
 
   const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
-  for (const key of unresolvedKeys) {
-    diagnostics.push({
-      code: "ENV_VAR_UNRESOLVED",
-      severity: "warning",
-      message: `Unresolved env placeholder '{{${key}}}' in '${sourcePath}'`,
-      path: sourcePath,
-      entityId: entity.id,
-    });
-  }
+  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
 
   let parsedJson: unknown;
   try {

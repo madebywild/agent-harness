@@ -8,7 +8,7 @@ import {
   providerIdSchema,
   VersionError,
 } from "@madebywild/agent-harness-manifest";
-import { substituteEnvVars } from "./env.js";
+import { pushUnresolvedEnvDiagnostics, substituteEnvVars } from "./env.js";
 import type { HarnessPaths } from "./paths.js";
 import type {
   AgentsManifest,
@@ -222,15 +222,7 @@ export async function readProviderOverrideFile(
     if (envVars) {
       const { result, unresolvedKeys } = substituteEnvVars(text, envVars);
       textToParse = result;
-      for (const key of unresolvedKeys) {
-        overrideDiagnostics.push({
-          code: "ENV_VAR_UNRESOLVED",
-          severity: "warning",
-          message: `Unresolved env placeholder '{{${key}}}' in '${normalized}'`,
-          path: normalized,
-          provider,
-        });
-      }
+      pushUnresolvedEnvDiagnostics(unresolvedKeys, overrideDiagnostics, normalized, { provider });
     }
     const YAML = await import("yaml");
     const parsed = YAML.parse(textToParse) as unknown;
