@@ -1,7 +1,7 @@
 {
   "name": "agent-harness-monorepo",
   "private": true,
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Agent Harness monorepo",
   "packageManager": "pnpm@10.2.0",
   "engines": {
