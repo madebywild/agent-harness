@@ -507,21 +507,23 @@ async function loadMcp(
     return { diagnostics };
   }
 
-  const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
-  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
-
-  let json: Record<string, unknown>;
-  try {
-    const parsed = JSON.parse(substitutedText) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      throw new Error("MCP config must be a JSON object");
-    }
-    json = parsed as Record<string, unknown>;
-  } catch (error) {
+  const parsedJson = parseJsonWithEnvSubstitution(text, envVars, diagnostics, sourcePath, entity.id);
+  if (parsedJson.error) {
     diagnostics.push({
       code: "MCP_JSON_INVALID",
       severity: "error",
-      message: `MCP config '${entity.id}' is not valid JSON object: ${error instanceof Error ? error.message : "unknown error"}`,
+      message: `MCP config '${entity.id}' is not valid JSON object: ${parsedJson.error instanceof Error ? parsedJson.error.message : "unknown error"}`,
+      path: sourcePath,
+      entityId: entity.id,
+    });
+    return { diagnostics };
+  }
+  const json = parsedJson.value;
+  if (!json || typeof json !== "object" || Array.isArray(json)) {
+    diagnostics.push({
+      code: "MCP_JSON_INVALID",
+      severity: "error",
+      message: `MCP config '${entity.id}' is not valid JSON object: MCP config must be a JSON object`,
       path: sourcePath,
       entityId: entity.id,
     });
@@ -552,9 +554,9 @@ async function loadMcp(
       entity,
       canonical: {
         id: entity.id,
-        json,
+        json: json as Record<string, unknown>,
       },
-      sourceSha256: sha256(stableStringify(json)),
+      sourceSha256: sha256(text),
       overrideByProvider,
       overrideShaByProvider,
     },
@@ -706,24 +708,19 @@ async function loadHook(
     return { diagnostics };
   }
 
-  const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
-  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
-
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(substitutedText) as unknown;
-  } catch (error) {
+  const parsedJson = parseJsonWithEnvSubstitution(text, envVars, diagnostics, sourcePath, entity.id);
+  if (parsedJson.error) {
     diagnostics.push({
       code: "HOOK_JSON_INVALID",
       severity: "error",
-      message: `Hook '${entity.id}' is not valid JSON: ${error instanceof Error ? error.message : "unknown error"}`,
+      message: `Hook '${entity.id}' is not valid JSON: ${parsedJson.error instanceof Error ? parsedJson.error.message : "unknown error"}`,
       path: sourcePath,
       entityId: entity.id,
     });
     return { diagnostics };
   }
 
-  const parsedHook = parseCanonicalHookDocument(parsedJson, sourcePath, entity.id);
+  const parsedHook = parseCanonicalHookDocument(parsedJson.value, sourcePath, entity.id);
   diagnostics.push(...parsedHook.diagnostics);
   if (!parsedHook.canonical || canonicalHookHasErrors(parsedHook.diagnostics)) {
     return { diagnostics };
@@ -747,11 +744,104 @@ async function loadHook(
     hook: {
       entity,
       canonical: withHookId(parsedHook.canonical, entity.id),
-      sourceSha256: sha256(stableStringify(parsedJson)),
+      sourceSha256: sha256(text),
       overrideByProvider,
       overrideShaByProvider,
     },
   };
+}
+
+const JSON_ENV_PLACEHOLDER_RE = /^\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/u;
+
+function parseJsonWithEnvSubstitution(
+  text: string,
+  envVars: Map<string, string>,
+  diagnostics: Diagnostic[],
+  sourcePath: string,
+  entityId: string,
+): { value: unknown; error?: undefined } | { value?: undefined; error: unknown } {
+  const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
+  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId });
+
+  try {
+    return { value: JSON.parse(substitutedText) as unknown };
+  } catch (error) {
+    if (unresolvedKeys.length === 0) {
+      return { error };
+    }
+
+    const reparsed = parseJsonWithQuotedBarePlaceholders(substitutedText, unresolvedKeys);
+    if (reparsed !== undefined) {
+      return { value: reparsed };
+    }
+    return { error };
+  }
+}
+
+function parseJsonWithQuotedBarePlaceholders(text: string, unresolvedKeys: string[]): unknown | undefined {
+  const unresolved = new Set(unresolvedKeys);
+  let inString = false;
+  let escaped = false;
+  let i = 0;
+  let transformed = "";
+  let changed = false;
+
+  while (i < text.length) {
+    const char = text[i];
+    if (char === undefined) {
+      break;
+    }
+
+    if (inString) {
+      transformed += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      i++;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      transformed += char;
+      i++;
+      continue;
+    }
+
+    if (char === "{" && text[i + 1] === "{") {
+      const slice = text.slice(i);
+      const match = slice.match(JSON_ENV_PLACEHOLDER_RE);
+      if (match) {
+        const key = match[1];
+        const placeholder = match[0];
+        if (key && unresolved.has(key)) {
+          transformed += JSON.stringify(`{{${key}}}`);
+          changed = true;
+        } else {
+          transformed += placeholder;
+        }
+        i += placeholder.length;
+        continue;
+      }
+    }
+
+    transformed += char;
+    i++;
+  }
+
+  if (!changed) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(transformed) as unknown;
+  } catch {
+    return undefined;
+  }
 }
 
 async function parseOverride(

@@ -20,6 +20,7 @@ Agent Harness is a TypeScript CLI tool and library that manages AI agent configu
 - Subagent management with provider-specific rendering
 - Per-entity registry provenance with built-in `local` and Git-backed external registries
 - Explicit `registry pull` workflow for refreshing imported entities
+- Environment variable substitution via `{{PLACEHOLDER}}` syntax with `.env` file support
 - Watch mode for automatic regeneration on file changes
 - Strict file ownership with manifest-based integrity enforcement
 - Explicit schema version management with `doctor` + `migrate`
@@ -135,6 +136,7 @@ Global flags:
 ├── manifest.json          # Entity + registry config
 ├── manifest.lock.json     # Generated state lock + registry provenance
 ├── managed-index.json     # Managed file index
+├── .env                   # Per-workspace secrets (gitignored)
 └── src/
     ├── prompts/
     │   └── system.md                    # System prompt
@@ -157,6 +159,7 @@ Global flags:
         ├── researcher.overrides.codex.yaml
         ├── researcher.overrides.claude.yaml
         └── researcher.overrides.copilot.yaml
+.env.harness                   # Shared env parameters (optionally committed)
 ```
 
 ## Generated Outputs

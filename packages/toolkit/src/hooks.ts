@@ -37,6 +37,7 @@ export const CANONICAL_HOOK_EVENTS = [
 export type CanonicalHookEvent = (typeof CANONICAL_HOOK_EVENTS)[number];
 
 const HOOK_EVENT_SET = new Set<string>(CANONICAL_HOOK_EVENTS);
+const ENV_PLACEHOLDER_TOKEN_RE = /^\{\{[a-zA-Z_][a-zA-Z0-9_]*\}\}$/u;
 
 export interface ParsedCanonicalHookDocument {
   mode: CanonicalHookMode;
@@ -221,6 +222,8 @@ function parseCommandHandler(
   const cwd = asOptionalString(input.cwd);
   const timeoutSec = asOptionalPositiveNumber(input.timeoutSec);
   const timeout = asOptionalPositiveNumber(input.timeout);
+  const timeoutSecIsPlaceholder = isEnvPlaceholderToken(input.timeoutSec);
+  const timeoutIsPlaceholder = isEnvPlaceholderToken(input.timeout);
   const env = asOptionalStringMap(input.env);
 
   if (!command && !windows && !linux && !osx && !bash && !powershell) {
@@ -236,7 +239,7 @@ function parseCommandHandler(
     return undefined;
   }
 
-  if (typeof input.timeoutSec !== "undefined" && typeof timeoutSec === "undefined") {
+  if (typeof input.timeoutSec !== "undefined" && typeof timeoutSec === "undefined" && !timeoutSecIsPlaceholder) {
     diagnostics.push({
       code: "HOOK_TIMEOUT_INVALID",
       severity: "error",
@@ -247,7 +250,7 @@ function parseCommandHandler(
     return undefined;
   }
 
-  if (typeof input.timeout !== "undefined" && typeof timeout === "undefined") {
+  if (typeof input.timeout !== "undefined" && typeof timeout === "undefined" && !timeoutIsPlaceholder) {
     diagnostics.push({
       code: "HOOK_TIMEOUT_INVALID",
       severity: "error",
@@ -388,6 +391,10 @@ function asOptionalStringMap(input: unknown): Record<string, string> | undefined
     output[key] = value;
   }
   return output;
+}
+
+function isEnvPlaceholderToken(input: unknown): boolean {
+  return typeof input === "string" && ENV_PLACEHOLDER_TOKEN_RE.test(input.trim());
 }
 
 export function canonicalHookHasErrors(diagnostics: Diagnostic[]): boolean {

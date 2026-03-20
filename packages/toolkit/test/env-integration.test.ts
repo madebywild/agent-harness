@@ -537,3 +537,135 @@ test("env integration: apply works correctly with no placeholders in source file
   const output = await fs.readFile(path.join(cwd, "AGENTS.md"), "utf8");
   assert.ok(output.includes("no placeholders"), "Output should contain the original text unchanged");
 });
+
+test("env integration: unresolved bare placeholders in JSON do not hard-fail apply", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addMcp("myserver");
+  await engine.addHook("guard");
+  await engine.enableProvider("claude");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/mcp/myserver.json"),
+    '{\n  "servers": {\n    "myserver": {\n      "command": "node",\n      "args": ["server.js"],\n      "timeoutSec": {{MISSING_TIMEOUT}}\n    }\n  }\n}\n',
+  );
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/hooks/guard.json"),
+    '{\n  "mode": "strict",\n  "events": {\n    "pre_tool_use": [\n      {\n        "type": "command",\n        "command": "echo guard",\n        "timeoutSec": {{MISSING_TIMEOUT}}\n      }\n    ]\n  }\n}\n',
+  );
+
+  const result = await engine.apply();
+  const errors = result.diagnostics.filter((d) => d.severity === "error");
+  assert.equal(errors.length, 0, `unexpected errors: ${errors.map((d) => `${d.code}: ${d.message}`).join("; ")}`);
+
+  const unresolvedWarnings = result.diagnostics.filter((d) => d.code === "ENV_VAR_UNRESOLVED");
+  assert.ok(unresolvedWarnings.length >= 2, "Should emit unresolved warnings for both JSON sources");
+  assert.equal(
+    result.diagnostics.some((d) => d.code === "MCP_JSON_INVALID"),
+    false,
+    "Should not produce MCP_JSON_INVALID for unresolved bare placeholders",
+  );
+  assert.equal(
+    result.diagnostics.some((d) => d.code === "HOOK_JSON_INVALID"),
+    false,
+    "Should not produce HOOK_JSON_INVALID for unresolved bare placeholders",
+  );
+  assert.equal(
+    result.diagnostics.some((d) => d.code === "HOOK_TIMEOUT_INVALID"),
+    false,
+    "Should not produce HOOK_TIMEOUT_INVALID for unresolved bare placeholders",
+  );
+
+  const mcpOutput = await fs.readFile(path.join(cwd, ".mcp.json"), "utf8");
+  assert.ok(
+    mcpOutput.includes('"{{MISSING_TIMEOUT}}"'),
+    "MCP output should preserve unresolved bare placeholders as string values",
+  );
+});
+
+test("env integration: MCP and Hook lock sourceSha256 stay stable across env-only changes", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addMcp("myserver");
+  await engine.addHook("guard");
+  await engine.enableProvider("claude");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/mcp/myserver.json"),
+    JSON.stringify(
+      {
+        servers: {
+          myserver: {
+            command: "node",
+            args: ["server.js"],
+            env: { API_KEY: "{{API_KEY}}" },
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  );
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/hooks/guard.json"),
+    JSON.stringify(
+      {
+        mode: "strict",
+        events: {
+          pre_tool_use: [
+            {
+              type: "command",
+              command: "{{GUARD_COMMAND}}",
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
+  );
+  await fs.writeFile(path.join(cwd, ".harness/.env"), "API_KEY=first\nGUARD_COMMAND=echo first\n");
+
+  const first = await engine.apply();
+  assert.equal(
+    first.diagnostics.filter((d) => d.severity === "error").length,
+    0,
+    "First apply should succeed without errors",
+  );
+
+  const lockPath = path.join(cwd, ".harness/manifest.lock.json");
+  const lock1 = JSON.parse(await fs.readFile(lockPath, "utf8")) as {
+    entities: Array<{ id: string; type: string; sourceSha256: string }>;
+  };
+  const mcpSha1 = lock1.entities.find(
+    (entity) => entity.type === "mcp_config" && entity.id === "myserver",
+  )?.sourceSha256;
+  const hookSha1 = lock1.entities.find((entity) => entity.type === "hook" && entity.id === "guard")?.sourceSha256;
+  assert.ok(mcpSha1, "Lock should contain MCP source SHA");
+  assert.ok(hookSha1, "Lock should contain Hook source SHA");
+
+  await fs.writeFile(path.join(cwd, ".harness/.env"), "API_KEY=second\nGUARD_COMMAND=echo second\n");
+
+  const second = await engine.apply();
+  assert.equal(
+    second.diagnostics.filter((d) => d.severity === "error").length,
+    0,
+    "Second apply should succeed without errors",
+  );
+
+  const lock2 = JSON.parse(await fs.readFile(lockPath, "utf8")) as {
+    entities: Array<{ id: string; type: string; sourceSha256: string }>;
+  };
+  const mcpSha2 = lock2.entities.find(
+    (entity) => entity.type === "mcp_config" && entity.id === "myserver",
+  )?.sourceSha256;
+  const hookSha2 = lock2.entities.find((entity) => entity.type === "hook" && entity.id === "guard")?.sourceSha256;
+  assert.ok(mcpSha2, "Lock should still contain MCP source SHA");
+  assert.ok(hookSha2, "Lock should still contain Hook source SHA");
+  assert.equal(mcpSha1, mcpSha2, "MCP sourceSha256 should not change when only .env values change");
+  assert.equal(hookSha1, hookSha2, "Hook sourceSha256 should not change when only .env values change");
+});
