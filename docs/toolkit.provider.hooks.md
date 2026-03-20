@@ -31,7 +31,7 @@ Shared hook projection utilities for provider adapters.
 
 ### Codex
 
-- Supports canonical `turn_complete` projection only in strict mode.
+- Projects canonical `turn_complete` events in all modes; strict mode controls whether unsupported events throw vs. are skipped.
 - Normalizes either canonical `notify` or `command` handlers into notify command arrays.
 - Returns one merged notify command, failing on incompatible multiple values (`HOOK_NOTIFY_CONFLICT`).
 

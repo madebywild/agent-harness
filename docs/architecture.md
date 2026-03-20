@@ -140,7 +140,7 @@ High-level flow (`loader.ts` + `planner.ts` + `engine.ts`):
 - Source files are expected to be CLI-managed and registered in manifest.
 - Existing unmanaged output files at generated target paths block apply (`OUTPUT_COLLISION_UNMANAGED`).
 - Multiple providers (or artifacts) targeting the same path with conflicting content fail with `OUTPUT_PATH_COLLISION`.
-- Conflicting hook target-path overrides for a provider fail with `HOOK_TARGET_CONFLICT`.
+- Conflicting hook target-path overrides for a provider fail with `HOOK_TARGET_CONFLICT` (Claude/Copilot). For Codex, hook `targetPath` overrides resolved via `.codex/config.toml` report `CODEX_CONFIG_TARGET_CONFLICT` and may also conflict with MCP/subagent overrides.
 
 ## CLI surface
 

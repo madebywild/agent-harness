@@ -289,7 +289,7 @@ targetPath: ".github/hooks/security.generated.json"
 Rules:
 
 - Per-provider overrides can change output target.
-- If multiple enabled hook entities for one provider resolve to different target paths, apply fails with `HOOK_TARGET_CONFLICT`.
+- If multiple enabled hook entities for one provider resolve to different target paths, apply fails with `HOOK_TARGET_CONFLICT` (for Claude/Copilot). For Codex, hook `targetPath` overrides are resolved via the shared `.codex/config.toml` target resolver and conflicts are reported as `CODEX_CONFIG_TARGET_CONFLICT` (which may also intersect with MCP/subagent overrides).
 
 ## Common diagnostics
 

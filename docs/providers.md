@@ -44,7 +44,7 @@ Authoring examples: [Hook Authoring Guide](./hook-authoring.md)
 
 ### Hook notes
 
-- Codex projection accepts canonical `turn_complete` only in strict mode.
+- Codex projection always accepts canonical `turn_complete`; strict mode only controls whether other unsupported events/handlers cause errors.
 - Hook handlers can be `notify` or `command`; both normalize into `notify` command array.
 - Multiple distinct notify commands across enabled hooks fail with `HOOK_NOTIFY_CONFLICT`.
 
