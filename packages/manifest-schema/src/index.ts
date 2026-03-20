@@ -1,6 +1,5 @@
 import path from "node:path";
-import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { toJSONSchema, z } from "zod";
 import {
   assertLatestVersion,
   type DocumentKind,
@@ -80,7 +79,7 @@ export const providerOverrideV1Schema = z
     version: z.literal(1),
     enabled: z.boolean().optional(),
     targetPath: relativePathSchema.optional(),
-    options: z.record(z.unknown()).optional(),
+    options: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 
@@ -196,7 +195,7 @@ export const registryManifestSchema = z
     version: z.literal(1),
     title: z.string().min(1),
     description: z.string().min(1),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 
@@ -238,21 +237,11 @@ export type RegistryManifest = z.infer<typeof registryManifestSchema>;
 
 export function toJsonSchemas(): Record<string, object> {
   return {
-    "agents-manifest.schema.json": zodToJsonSchema(agentsManifestSchema, {
-      name: "AgentsManifest",
-    }),
-    "manifest-lock.schema.json": zodToJsonSchema(manifestLockSchema, {
-      name: "ManifestLock",
-    }),
-    "managed-index.schema.json": zodToJsonSchema(managedIndexSchema, {
-      name: "ManagedIndex",
-    }),
-    "provider-override.schema.json": zodToJsonSchema(providerOverrideSchema, {
-      name: "ProviderOverride",
-    }),
-    "registry-manifest.schema.json": zodToJsonSchema(registryManifestSchema, {
-      name: "RegistryManifest",
-    }),
+    "agents-manifest.schema.json": toJSONSchema(agentsManifestSchema),
+    "manifest-lock.schema.json": toJSONSchema(manifestLockSchema),
+    "managed-index.schema.json": toJSONSchema(managedIndexSchema),
+    "provider-override.schema.json": toJSONSchema(providerOverrideSchema),
+    "registry-manifest.schema.json": toJSONSchema(registryManifestSchema),
   };
 }
 
