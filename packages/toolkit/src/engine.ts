@@ -343,7 +343,8 @@ export class HarnessEngine {
 
     await runApply();
 
-    const base = resolveHarnessPaths(this.cwd).agentsDir;
+    const paths = resolveHarnessPaths(this.cwd);
+    const base = paths.agentsDir;
     const watcher = chokidar.watch(
       [
         path.join(base, "manifest.json"),
@@ -351,6 +352,8 @@ export class HarnessEngine {
         path.join(base, "src/**/*.json"),
         path.join(base, "src/**/*.overrides.*.yaml"),
         path.join(base, "src/**/OVERRIDES.*.yaml"),
+        path.join(base, ".env"),
+        path.join(paths.root, ".env.harness"),
       ],
       {
         ignoreInitial: true,
