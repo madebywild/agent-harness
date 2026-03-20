@@ -1,6 +1,6 @@
 {
   "name": "@madebywild/agent-harness-framework",
-  "version": "0.9.4",
+  "version": "1.0.0",
   "license": "MIT",
   "private": false,
   "type": "module",
