@@ -9,7 +9,7 @@ Encapsulates filesystem persistence/parsing for manifest, lock, managed-index, s
 - Manifest I/O: `loadManifest`, `writeManifest`
 - Lock I/O: `loadLock`, `writeLock`
 - Managed index I/O: `emptyManagedIndex`, `loadManagedIndex`, `writeManagedIndex`
-- Sidecar parser: `readProviderOverrideFile`
+- Sidecar parser: `readProviderOverrideFile` (accepts optional `envVars` map for placeholder substitution)
 - Filesystem helpers: `listFilesRecursively`, `collectSourceCandidates`, `collectManagedSourcePaths`, `removeIfExists`, `copyWorkspaceFileToBackup`
 
 ## Diagnostics produced here

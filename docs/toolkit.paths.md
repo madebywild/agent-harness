@@ -6,9 +6,14 @@ Centralizes path conventions for `.harness` workspace files and canonical source
 
 ## Key exports
 
-- `HarnessPaths`: resolved absolute path set for workspace files/directories, including `hookDir`.
+- `HarnessPaths`: resolved absolute path set for workspace files/directories, including `hookDir`, `envFile`, and `rootEnvFile`.
 - `resolveHarnessPaths(rootDir)`: computes absolute paths for `.harness` files.
 - `DEFAULT_PROMPT_SOURCE_PATH`: `.harness/src/prompts/system.md`.
+
+Env file paths:
+
+- `envFile`: `.harness/.env` (project-specific secrets, highest priority)
+- `rootEnvFile`: `.env.harness` at project root (shared parameters, lower priority)
 
 Source path helpers:
 

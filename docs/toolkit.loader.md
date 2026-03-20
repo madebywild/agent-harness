@@ -12,11 +12,14 @@ Loads canonical entities from `.harness/src`, validates manifest semantics, and 
 ## `loadCanonicalState` responsibilities
 
 - Validates manifest semantic constraints.
+- Loads environment variables from `.harness/.env` and `.env.harness` via `loadEnvVars`.
 - Scans `.harness/src` candidate files and raises `SOURCE_UNREGISTERED` for unmanaged candidates.
   - Candidate set includes canonical entity files and provider override sidecars.
-- Loads enabled prompt/skill/MCP/subagent/hook entities.
-- Parses provider override sidecars for each provider and records override SHA hashes.
+- Loads enabled prompt/skill/MCP/subagent/hook entities with env var substitution applied to raw file text before parsing.
+- Parses provider override sidecars for each provider (also with env var substitution) and records override SHA hashes.
 - Returns loaded collections sorted by `entity.id`.
+
+SHA256 hashes are always computed on the raw (pre-substitution) text. Unresolved `{{PLACEHOLDER}}` patterns produce `ENV_VAR_UNRESOLVED` warning diagnostics.
 
 ## Entity loading behavior
 

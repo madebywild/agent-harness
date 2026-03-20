@@ -35,6 +35,22 @@ Default source locations:
 
 Provider override sidecars are YAML files with schema `version: 1` and optional `enabled`, `targetPath`, `options`.
 
+## Environment variables
+
+Entity source files and override sidecars support `{{PLACEHOLDER}}` syntax for injecting values at apply time.
+
+Env var sources (resolution order, highest priority first):
+
+1. `.harness/.env` — per-workspace secrets (gitignored)
+2. `.env.harness` — project-root shared parameters (optionally committed)
+3. `process.env` — CI/CD fallback
+
+Substitution happens on raw file text before parsing (JSON, YAML, frontmatter). SHA256 fingerprints in the lock file are computed on the raw (pre-substitution) text, keeping the lock stable when only env values change.
+
+Unresolved placeholders produce `ENV_VAR_UNRESOLVED` warnings but do not block apply.
+
+See also: [Environment Variables Guide](./environment-variables.md)
+
 ## Hook primitive
 
 `hook` is a canonical lifecycle-hook primitive rendered into provider-native hook formats.
@@ -125,15 +141,16 @@ High-level flow (`loader.ts` + `planner.ts` + `engine.ts`):
 
 1. Validate workspace versions (doctor preflight for normal runtime commands).
 2. Load and semantically validate manifest.
-3. Enforce source ownership (`SOURCE_UNREGISTERED` for unmanaged source candidates).
-4. Load canonical entities + provider override sidecars.
-5. Render provider artifacts through adapters:
+3. Load environment variables from `.harness/.env` and `.env.harness`.
+4. Enforce source ownership (`SOURCE_UNREGISTERED` for unmanaged source candidates).
+5. Load canonical entities + provider override sidecars (with env var substitution).
+6. Render provider artifacts through adapters:
    - per-entity renders (`prompt`, `skill`, `subagent`, `hook`)
    - optional provider-state render (`codex` composite state for MCP/subagent/hook notify)
-6. Detect collisions, unmanaged collisions, drift, creates, updates, and stale deletes.
-7. Build deterministic `operations`, `nextLock`, and `nextManagedIndex`.
-8. `plan` returns diagnostics/operations only.
-9. `apply` writes create/update/delete operations and persists lock/index.
+7. Detect collisions, unmanaged collisions, drift, creates, updates, and stale deletes.
+8. Build deterministic `operations`, `nextLock`, and `nextManagedIndex`.
+9. `plan` returns diagnostics/operations only.
+10. `apply` writes create/update/delete operations and persists lock/index.
 
 ## Ownership and collisions
 
@@ -167,6 +184,8 @@ Core commands:
 - `.harness/src/**/*.json`
 - `.harness/src/**/*.overrides.*.yaml`
 - `.harness/src/**/OVERRIDES.*.yaml`
+- `.harness/.env`
+- `.env.harness` (project root)
 
 It debounces changes, runs apply in single-flight mode, and continues after errors.
 
