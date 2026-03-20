@@ -57,19 +57,16 @@ export async function ensureOverrideFiles(
 }> {
   const overrides: Partial<Record<ProviderId, string>> = {};
   const overrideShaByProvider: Partial<Record<ProviderId, string>> = {};
+  const defaultOverridePath: Record<EntityType, (id: string, p: ProviderId) => string> = {
+    prompt: (_id, p) => defaultPromptOverridePath(p),
+    skill: (id, p) => defaultSkillOverridePath(id, p),
+    mcp_config: (id, p) => defaultMcpOverridePath(id, p),
+    subagent: (id, p) => defaultSubagentOverridePath(id, p),
+    hook: (id, p) => defaultHookOverridePath(id, p),
+  };
 
   for (const provider of providerIdSchema.options) {
-    const overridePath =
-      existing?.[provider] ??
-      (entityType === "prompt"
-        ? defaultPromptOverridePath(provider)
-        : entityType === "skill"
-          ? defaultSkillOverridePath(entityId, provider)
-          : entityType === "mcp_config"
-            ? defaultMcpOverridePath(entityId, provider)
-            : entityType === "subagent"
-              ? defaultSubagentOverridePath(entityId, provider)
-              : defaultHookOverridePath(entityId, provider));
+    const overridePath = existing?.[provider] ?? defaultOverridePath[entityType](entityId, provider);
     overrides[provider] = overridePath;
 
     const absolute = path.join(cwd, overridePath);

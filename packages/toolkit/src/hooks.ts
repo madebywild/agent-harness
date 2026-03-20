@@ -1,14 +1,13 @@
 import type {
   CanonicalHook,
   CanonicalHookCommandHandler,
-  CanonicalHookEvent,
   CanonicalHookHandler,
   CanonicalHookMode,
   CanonicalHookNotifyHandler,
   Diagnostic,
 } from "./types.js";
 
-export const CANONICAL_HOOK_EVENTS: readonly CanonicalHookEvent[] = [
+export const CANONICAL_HOOK_EVENTS = [
   "session_start",
   "session_end",
   "prompt_submit",
@@ -33,7 +32,9 @@ export const CANONICAL_HOOK_EVENTS: readonly CanonicalHookEvent[] = [
   "elicitation_result",
   "error",
   "turn_complete",
-];
+] as const;
+
+export type CanonicalHookEvent = (typeof CANONICAL_HOOK_EVENTS)[number];
 
 const HOOK_EVENT_SET = new Set<string>(CANONICAL_HOOK_EVENTS);
 

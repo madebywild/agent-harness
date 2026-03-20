@@ -11,6 +11,7 @@ import type {
   RegistryId,
   RegistryManifest,
 } from "@madebywild/agent-harness-manifest";
+import type { CanonicalHookEvent } from "./hooks.js";
 
 export type {
   AgentsManifest,
@@ -66,31 +67,7 @@ export interface CanonicalSubagent {
 
 export type CanonicalHookMode = "strict" | "best_effort";
 
-export type CanonicalHookEvent =
-  | "session_start"
-  | "session_end"
-  | "prompt_submit"
-  | "pre_tool_use"
-  | "permission_request"
-  | "post_tool_use"
-  | "post_tool_failure"
-  | "notification"
-  | "subagent_start"
-  | "subagent_stop"
-  | "stop"
-  | "stop_failure"
-  | "teammate_idle"
-  | "task_completed"
-  | "instructions_loaded"
-  | "config_change"
-  | "worktree_create"
-  | "worktree_remove"
-  | "pre_compact"
-  | "post_compact"
-  | "elicitation"
-  | "elicitation_result"
-  | "error"
-  | "turn_complete";
+export type { CanonicalHookEvent } from "./hooks.js";
 
 export interface CanonicalHookCommandHandler {
   type: "command";
