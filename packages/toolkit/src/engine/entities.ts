@@ -497,7 +497,7 @@ export async function addHookEntity(cwd: string, hookId: string, options?: { reg
     registryRevision = fetched.registryRevision;
   } else {
     sourceJson = {
-      mode: "strict",
+      mode: "best_effort",
       events: {
         pre_tool_use: [
           {

@@ -345,8 +345,19 @@ function parseNotifyCommand(input: unknown): string | string[] | undefined {
     return undefined;
   }
 
-  const command = input.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
-  return command.length > 0 ? command : undefined;
+  if (input.length === 0) {
+    return undefined;
+  }
+
+  const command: string[] = [];
+  for (const entry of input) {
+    if (typeof entry !== "string" || entry.trim().length === 0) {
+      return undefined;
+    }
+    command.push(entry);
+  }
+
+  return command;
 }
 
 function asOptionalString(input: unknown): string | undefined {

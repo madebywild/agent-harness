@@ -510,6 +510,62 @@ test("codex provider maps turn_complete hook to notify command", async () => {
   assert.match(tomlContent, /notify = \[\s*"python3",\s*"scripts\/on_turn_complete\.py"\s*\]/u);
 });
 
+test("codex provider accepts default scaffolded hook without edits", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addHook("guard");
+  await engine.enableProvider("codex");
+
+  const hookSource = JSON.parse(await fs.readFile(path.join(cwd, ".harness/src/hooks/guard.json"), "utf8")) as {
+    mode?: string;
+  };
+  assert.equal(hookSource.mode, "best_effort");
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+  );
+});
+
+test("codex provider rejects notify arrays with non-string entries", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addHook("guard");
+  await engine.enableProvider("codex");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/hooks/guard.json"),
+    JSON.stringify(
+      {
+        mode: "strict",
+        events: {
+          turn_complete: [
+            {
+              type: "notify",
+              command: ["python3", 123, "scripts/on_turn_complete.py"],
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.ok(apply.diagnostics.some((diagnostic) => diagnostic.code === "HOOK_NOTIFY_COMMAND_INVALID"));
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    true,
+  );
+});
+
 test("codex provider rejects unsupported hook events in strict mode", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);
