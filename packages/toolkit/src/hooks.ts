@@ -103,7 +103,7 @@ function parseEvents(
   diagnostics: Diagnostic[],
 ): Partial<Record<CanonicalHookEvent, CanonicalHookHandler[]>> {
   const output: Partial<Record<CanonicalHookEvent, CanonicalHookHandler[]>> = {};
-  const candidate = (input.events ?? input.hooks) as unknown;
+  const candidate = input.events as unknown;
 
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     diagnostics.push({

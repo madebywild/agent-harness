@@ -9,10 +9,10 @@ import {
 } from "../src/provider-adapters/hooks.ts";
 import type { CanonicalHook, ProviderOverride } from "../src/types.ts";
 
-test("parseCanonicalHookDocument defaults mode and accepts legacy hooks key", () => {
+test("parseCanonicalHookDocument defaults mode to strict", () => {
   const parsed = parseCanonicalHookDocument(
     {
-      hooks: {
+      events: {
         turn_complete: [
           {
             type: "notify",

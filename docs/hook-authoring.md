@@ -89,7 +89,16 @@ Supported fields:
 | --- | --- | --- |
 | Claude | most lifecycle events (mapped to Claude names) | `command` |
 | Copilot | `session_start`, `session_end`, `prompt_submit`, `pre_tool_use`, `post_tool_use`, `stop`, `subagent_stop`, `error` | `command` |
-| Codex | `turn_complete` | `notify` and `command` (both become `notify`) |
+| Codex | `turn_complete` | `notify` and `command` (both normalized to `notify`) |
+
+## Codex command normalization
+
+When Codex projects a `turn_complete` handler, both `notify` and `command` handler types are converted into a TOML `notify` command array:
+
+- `notify` handlers: the `command` field is used directly (arrays pass through; strings are wrapped as `["sh", "-lc", "<command>"]`).
+- `command` handlers: the first available command field (`command`, `bash`, `linux`, `osx`, `powershell`, `windows`) is selected and wrapped the same way.
+
+Only one notify command is allowed across all enabled hooks. If multiple hooks define different notify commands, apply fails with `HOOK_NOTIFY_CONFLICT`.
 
 ## Copy/paste recipes
 
