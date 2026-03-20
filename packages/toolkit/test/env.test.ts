@@ -90,12 +90,11 @@ test("parseEnvFile: Windows-style line endings (\\r\\n)", () => {
   assert.equal(result.get("BAZ"), "qux");
 });
 
-test("parseEnvFile: export prefix is NOT stripped (stored as part of key)", () => {
+test("parseEnvFile: export prefix is stripped for shell-compatible .env files", () => {
   const result = parseEnvFile("export FOO=bar\nexport BAZ=qux\n");
-  // The parser does not strip the 'export ' prefix — the key includes it
-  assert.equal(result.has("export FOO"), true);
-  assert.equal(result.get("export FOO"), "bar");
-  assert.equal(result.get("export BAZ"), "qux");
+  assert.equal(result.get("FOO"), "bar");
+  assert.equal(result.get("BAZ"), "qux");
+  assert.equal(result.size, 2);
 });
 
 test("parseEnvFile: completely empty input", () => {

@@ -103,6 +103,7 @@ TIMEOUT=30 # seconds
 - **Double-quoted values**: Support `\n`, `\t`, `\\`, `\"` escape sequences.
 - **Single-quoted values**: Literal content, no escape processing.
 - **Unquoted values**: Trimmed; inline comments after ` #` are stripped.
+- **`export` prefix**: `export KEY=value` is supported; the `export` keyword is stripped.
 - **Duplicate keys**: Later definitions override earlier ones within the same file.
 - **Windows line endings**: `\r\n` is handled transparently.
 
@@ -293,10 +294,6 @@ warning: Unresolved env placeholder '{{MISSING_KEY}}' in '.harness/src/prompts/s
 ```
 
 The unresolved placeholder is left as-is in the output. This is a warning, not an error, so `harness apply` still proceeds.
-
-### `ENV_FILE_PARSE_ERROR` (warning)
-
-Emitted when an env file exists but cannot be parsed. The file is skipped and other sources are still used.
 
 ## CI/CD integration
 

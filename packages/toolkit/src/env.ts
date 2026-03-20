@@ -28,9 +28,17 @@ export function parseEnvFile(content: string): Map<string, string> {
       continue;
     }
 
-    const key = trimmed.slice(0, equalsIndex).trim();
+    let key = trimmed.slice(0, equalsIndex).trim();
     if (!key) {
       continue;
+    }
+
+    // Strip optional `export` prefix for shell-compatible .env files
+    if (key.startsWith("export ")) {
+      key = key.slice(7).trim();
+      if (!key) {
+        continue;
+      }
     }
 
     const rawValue = trimmed.slice(equalsIndex + 1);
@@ -188,7 +196,7 @@ export function substituteEnvVars(
   vars: Map<string, string>,
 ): { result: string; usedKeys: Set<string>; unresolvedKeys: string[] } {
   const usedKeys = new Set<string>();
-  const unresolvedKeys: string[] = [];
+  const unresolvedSet = new Set<string>();
 
   const result = text.replace(PLACEHOLDER_RE, (match, key: string) => {
     const value = vars.get(key) ?? process.env[key];
@@ -196,9 +204,9 @@ export function substituteEnvVars(
       usedKeys.add(key);
       return value;
     }
-    unresolvedKeys.push(key);
+    unresolvedSet.add(key);
     return match;
   });
 
-  return { result, usedKeys, unresolvedKeys };
+  return { result, usedKeys, unresolvedKeys: [...unresolvedSet] };
 }

@@ -22,6 +22,7 @@ Parses standard dotenv syntax:
 - Double-quoted values process `\n`, `\t`, `\\`, `\"` escape sequences.
 - Single-quoted values are literal (no escape processing).
 - Unquoted values are trimmed; inline comments after ` #` are stripped.
+- `export` prefix: `export KEY=value` is supported (prefix is stripped).
 - Duplicate keys: later definitions override earlier ones.
 - Windows `\r\n` line endings are handled transparently.
 
@@ -34,7 +35,7 @@ Loads env files in priority order (lowest to highest):
 1. `.env.harness` at project root (`paths.rootEnvFile`)
 2. `.harness/.env` (`paths.envFile`)
 
-Higher-priority entries override lower. Missing files are silently skipped. Parse errors produce `ENV_FILE_PARSE_ERROR` warning diagnostics without aborting.
+Higher-priority entries override lower. Missing files are silently skipped.
 
 Returns: `{ vars: Map<string, string>; diagnostics: Diagnostic[] }`.
 
@@ -62,10 +63,6 @@ Returns:
 - Substitution occurs on raw file text **before** parsing (JSON, YAML, gray-matter).
 - SHA256 hashes are always computed on the raw (pre-substitution) text.
 
-## Diagnostics produced here
-
-- `ENV_FILE_PARSE_ERROR` (warning): an env file exists but could not be parsed.
-
-Downstream callers produce:
+## Diagnostics produced downstream
 
 - `ENV_VAR_UNRESOLVED` (warning): a `{{PLACEHOLDER}}` could not be resolved from any source.
