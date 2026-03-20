@@ -129,26 +129,14 @@ function processDoubleQuotedEscapes(value: string): string {
  * Higher-priority sources override lower-priority ones.
  * Missing files are silently skipped.
  */
-export async function loadEnvVars(
-  paths: HarnessPaths,
-): Promise<{ vars: Map<string, string>; diagnostics: Diagnostic[] }> {
-  const diagnostics: Diagnostic[] = [];
+export async function loadEnvVars(paths: HarnessPaths): Promise<Map<string, string>> {
   const merged = new Map<string, string>();
 
   // Load sources in order from lowest to highest priority
-  const sources: Array<{ filePath: string; displayPath: string }> = [
-    {
-      filePath: paths.rootEnvFile,
-      displayPath: ".env.harness",
-    },
-    {
-      filePath: paths.envFile,
-      displayPath: ".harness/.env",
-    },
-  ];
+  const sources: string[] = [paths.rootEnvFile, paths.envFile];
 
-  for (const source of sources) {
-    const text = await readTextIfExists(source.filePath);
+  for (const filePath of sources) {
+    const text = await readTextIfExists(filePath);
     if (text === null) {
       continue;
     }
@@ -159,7 +147,7 @@ export async function loadEnvVars(
     }
   }
 
-  return { vars: merged, diagnostics };
+  return merged;
 }
 
 /**

@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { HarnessEngine } from "../src/engine.ts";
+import { readProviderOverrideFile } from "../src/repository.ts";
 import { mkTmpRepo } from "./helpers.ts";
 
 // ---------------------------------------------------------------------------
@@ -282,6 +283,59 @@ test("env integration: unresolved placeholder generates ENV_VAR_UNRESOLVED warni
   } finally {
     if (originalValue !== undefined) {
       process.env.UNDEFINED_VAR = originalValue;
+    }
+  }
+});
+
+test("env integration: unresolved placeholder in skill files reports the concrete file path", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addSkill("linter");
+  await engine.enableProvider("codex");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/skills/linter/README.md"),
+    "This skill references {{MISSING_SKILL_VAR}} in its readme.\n",
+  );
+
+  const result = await engine.apply();
+  const errors = result.diagnostics.filter((d) => d.severity === "error");
+  assert.equal(errors.length, 0, `unexpected errors: ${errors.map((d) => `${d.code}: ${d.message}`).join("; ")}`);
+
+  const unresolved = result.diagnostics.find(
+    (d) => d.code === "ENV_VAR_UNRESOLVED" && d.message.includes("MISSING_SKILL_VAR"),
+  );
+  assert.ok(unresolved, "Should produce unresolved warning for MISSING_SKILL_VAR");
+  assert.equal(unresolved.path, ".harness/src/skills/linter/README.md");
+  assert.equal(unresolved.entityId, "linter");
+});
+
+test("env integration: invalid override keeps unresolved env warnings in override loader", async () => {
+  const cwd = await mkTmpRepo();
+  const missingKey = "AGENT_HARNESS_TEST_MISSING_MODEL_OVERRIDE";
+  const originalValue = process.env[missingKey];
+  delete process.env[missingKey];
+  const overridePath = ".harness/src/prompts/system.overrides.codex.yaml";
+
+  try {
+    await fs.mkdir(path.join(cwd, ".harness/src/prompts"), { recursive: true });
+
+    await fs.writeFile(path.join(cwd, overridePath), `version: 1\nmodel: "{{${missingKey}}}"\nbad: [1, 2\n`);
+
+    const result = await readProviderOverrideFile(cwd, "codex", overridePath, new Map<string, string>());
+    assert.ok(
+      result.diagnostics.some((d) => d.code === "OVERRIDE_INVALID"),
+      "Should emit OVERRIDE_INVALID diagnostic",
+    );
+    assert.ok(
+      result.diagnostics.some((d) => d.code === "ENV_VAR_UNRESOLVED" && d.message.includes(missingKey)),
+      "Should preserve ENV_VAR_UNRESOLVED warning for invalid overrides",
+    );
+  } finally {
+    if (originalValue !== undefined) {
+      process.env[missingKey] = originalValue;
     }
   }
 });

@@ -44,9 +44,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   diagnostics.push(...buildProviderEnablementDiagnostics(manifest));
 
   // Load env vars
-  const envResult = await loadEnvVars(paths);
-  diagnostics.push(...envResult.diagnostics);
-  const envVars = envResult.vars;
+  const envVars = await loadEnvVars(paths);
 
   const candidates = await collectSourceCandidates(paths);
   const registeredSourcePaths = new Set(collectManagedSourcePaths(manifest));
@@ -426,7 +424,7 @@ async function loadSkill(
     const relativeInSkill = normalizeRelativePath(path.relative(sourceDir, absolutePath).replace(/\\/g, "/"));
     const content = await fs.readFile(absolutePath, "utf8");
     const { result: substitutedContent, unresolvedKeys } = substituteEnvVars(content, envVars);
-    pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
+    pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, relativeFromRoot, { entityId: entity.id });
 
     filesWithContent.push({
       path: relativeInSkill,

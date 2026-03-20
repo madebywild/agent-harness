@@ -323,9 +323,9 @@ import { parseEnvFile, loadEnvVars, substituteEnvVars } from "@madebywild/agent-
 
 Parses a dotenv-format string into key-value pairs.
 
-### `loadEnvVars(paths: HarnessPaths): Promise<{ vars: Map<string, string>; diagnostics: Diagnostic[] }>`
+### `loadEnvVars(paths: HarnessPaths): Promise<Map<string, string>>`
 
-Loads and merges env vars from `.harness/.env` and `.env.harness`. Returns the merged map plus any parse-error diagnostics.
+Loads and merges env vars from `.harness/.env` and `.env.harness`. Returns the merged map.
 
 ### `substituteEnvVars(text: string, vars: Map<string, string>): { result: string; usedKeys: Set<string>; unresolvedKeys: string[] }`
 

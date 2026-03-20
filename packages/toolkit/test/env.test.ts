@@ -52,9 +52,11 @@ test("parseEnvFile: inline comments in unquoted values", () => {
   const result = parseEnvFile("FOO=bar # this is a comment\nBAZ=qux#notacomment\n");
   // The inline comment after space+# should be stripped
   assert.equal(result.get("FOO"), "bar");
-  // Without a leading space, # may or may not be treated as comment depending on implementation.
+  // Without a leading space, # is treated as part of the value with the current " #" delimiter rule.
   // Typical dotenv: "qux#notacomment" is treated as the value. But with space: "qux #comment" -> "qux"
-  // We test the most common case: space-hash is a comment delimiter
+  // We test the most common case: space-hash is a comment delimiter.
+  assert.equal(result.get("BAZ"), "qux#notacomment");
+  assert.equal(result.size, 2);
 });
 
 test("parseEnvFile: empty values (KEY=)", () => {

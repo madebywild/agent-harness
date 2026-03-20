@@ -216,9 +216,9 @@ export async function readProviderOverrideFile(
     };
   }
 
+  const overrideDiagnostics: Diagnostic[] = [];
   try {
     let textToParse = text;
-    const overrideDiagnostics: Diagnostic[] = [];
     if (envVars) {
       const { result, unresolvedKeys } = substituteEnvVars(text, envVars);
       textToParse = result;
@@ -239,7 +239,7 @@ export async function readProviderOverrideFile(
       return {
         override: undefined,
         sha256: undefined,
-        diagnostics: [versionErrorDiagnostic("provider-override", normalized, error, provider)],
+        diagnostics: [...overrideDiagnostics, versionErrorDiagnostic("provider-override", normalized, error, provider)],
         versionStatus: statusForVersionReason(error.reason),
       };
     }
@@ -248,6 +248,7 @@ export async function readProviderOverrideFile(
       override: undefined,
       sha256: undefined,
       diagnostics: [
+        ...overrideDiagnostics,
         {
           code: "OVERRIDE_INVALID",
           severity: "error",

@@ -37,7 +37,7 @@ Loads env files in priority order (lowest to highest):
 
 Higher-priority entries override lower. Missing files are silently skipped.
 
-Returns: `{ vars: Map<string, string>; diagnostics: Diagnostic[] }`.
+Returns: `Map<string, string>`.
 
 ## `substituteEnvVars`
 
