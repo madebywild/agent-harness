@@ -58,6 +58,10 @@ Supporting logic is split across submodules in `engine/`:
 - `remove(entityType, id, deleteSource)`: removes entity and optionally source/override files.
 - `validate()`, `plan()`, `apply()`, `watch(debounceMs)`, `doctor({ json? })`, `migrate({ ... })`.
 
+## Watch mode
+
+`watch` monitors entity sources, overrides, manifest, and env files (`.harness/.env`, `.env.harness`). Changes to env files trigger re-apply alongside source file changes.
+
 ## Runtime guarantees
 
 - Version preflight runs before normal runtime/mutating commands.

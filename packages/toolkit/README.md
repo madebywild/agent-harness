@@ -71,6 +71,8 @@ Five entity types are supported:
 | **subagent** | Markdown with frontmatter | Sub-agent definitions with tools/model config |
 | **hook** | JSON | Lifecycle hooks (webhooks, scripts, notifications) |
 
+All entity source files and override sidecars support `{{PLACEHOLDER}}` syntax for injecting secrets and context-dependent values at apply time. See the [Environment Variables Guide](../../docs/environment-variables.md) for details.
+
 ```bash
 harness add prompt                     # Add the system prompt
 harness add skill <id>                 # Add a skill
@@ -129,6 +131,7 @@ Each entity can have per-provider overrides via `.overrides.<provider>.yml` side
   manifest.json              # Source of truth: entities, providers, registries
   manifest.lock.json         # Generated state and fingerprints
   managed-index.json         # Tracks managed source and output files
+  .env                       # Per-workspace secrets (gitignored)
   src/
     prompts/
       system.md              # System prompt
@@ -141,6 +144,7 @@ Each entity can have per-provider overrides via `.overrides.<provider>.yml` side
       <id>.md                # Subagent definition
     hooks/
       <id>.json              # Lifecycle hook definition
+.env.harness                 # Shared env parameters (optionally committed)
 ```
 
 ## Programmatic API
@@ -153,6 +157,12 @@ import { createEngine } from "@madebywild/agent-harness-framework";
 const engine = createEngine({ cwd: process.cwd() });
 const planResult = await engine.plan();
 const applyResult = await engine.apply();
+```
+
+The env module is also exported for standalone use:
+
+```ts
+import { parseEnvFile, loadEnvVars, substituteEnvVars } from "@madebywild/agent-harness-framework";
 ```
 
 ## License

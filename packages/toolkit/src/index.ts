@@ -12,6 +12,7 @@ export type {
   CommandInput,
   CommandOutput,
 } from "./cli/contracts.js";
+export { loadEnvVars, parseEnvFile, substituteEnvVars } from "./env.js";
 export type {
   AgentsManifest,
   ApplyResult,

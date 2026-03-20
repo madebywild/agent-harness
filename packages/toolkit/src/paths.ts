@@ -13,6 +13,8 @@ export interface HarnessPaths {
   mcpDir: string;
   subagentDir: string;
   hookDir: string;
+  envFile: string;
+  rootEnvFile: string;
 }
 
 export function resolveHarnessPaths(rootDir: string): HarnessPaths {
@@ -30,6 +32,8 @@ export function resolveHarnessPaths(rootDir: string): HarnessPaths {
     mcpDir: path.join(srcDir, "mcp"),
     subagentDir: path.join(srcDir, "subagents"),
     hookDir: path.join(srcDir, "hooks"),
+    envFile: path.join(harnessDir, ".env"),
+    rootEnvFile: path.join(rootDir, ".env.harness"),
   };
 }
 

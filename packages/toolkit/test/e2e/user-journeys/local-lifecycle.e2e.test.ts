@@ -665,8 +665,55 @@ describe("local lifecycle journey", { timeout: 120_000 }, () => {
     assert.match(copilotSubagent, /handoffs: \["planner"\]/u);
   });
 
-  // ---- Phase 16: Final state consistency check ---------------------------
-  test("phase 16 — final lock, managed index, and manifest are all consistent", async () => {
+  // ---- Phase 16: Env vars in user journey --------------------------------
+  test("phase 16 — env placeholders resolve from .harness/.env and update on env changes", async () => {
+    await fs.writeFile(
+      path.join(workspace, ".harness/src/prompts/system.md"),
+      "You are {{ASSISTANT_ROLE}} for {{TEAM_NAME}}.\n",
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(workspace, ".harness/.env"),
+      "ASSISTANT_ROLE=Staff Engineer\nTEAM_NAME=Platform\n",
+      "utf8",
+    );
+
+    const firstApplyResult = await runHarnessCli(workspace, ["apply", "--json"]);
+    const firstApply = JSON.parse(firstApplyResult.stdout) as ApplyJsonOutput;
+    assert.equal(firstApply.ok, true);
+    assert.equal(firstApply.data.result.diagnostics.filter((d) => d.severity === "error").length, 0);
+
+    const codexPrompt1 = await readWorkspaceText(workspace, "AGENTS.md");
+    const claudePrompt1 = await readWorkspaceText(workspace, "CLAUDE.md");
+    const copilotPrompt1 = await readWorkspaceText(workspace, ".github/copilot-instructions.md");
+
+    assert.match(codexPrompt1, /Staff Engineer/u);
+    assert.match(codexPrompt1, /Platform/u);
+    assert.doesNotMatch(codexPrompt1, /\{\{ASSISTANT_ROLE\}\}/u);
+    assert.doesNotMatch(codexPrompt1, /\{\{TEAM_NAME\}\}/u);
+    assert.match(claudePrompt1, /Staff Engineer/u);
+    assert.match(copilotPrompt1, /Platform/u);
+
+    await fs.writeFile(
+      path.join(workspace, ".harness/.env"),
+      "ASSISTANT_ROLE=Principal Engineer\nTEAM_NAME=Reliability\n",
+      "utf8",
+    );
+
+    const secondApplyResult = await runHarnessCli(workspace, ["apply", "--json"]);
+    const secondApply = JSON.parse(secondApplyResult.stdout) as ApplyJsonOutput;
+    assert.equal(secondApply.ok, true);
+    assert.equal(secondApply.data.result.diagnostics.filter((d) => d.severity === "error").length, 0);
+
+    const codexPrompt2 = await readWorkspaceText(workspace, "AGENTS.md");
+    assert.match(codexPrompt2, /Principal Engineer/u);
+    assert.match(codexPrompt2, /Reliability/u);
+    assert.doesNotMatch(codexPrompt2, /Staff Engineer/u);
+    assert.doesNotMatch(codexPrompt2, /Platform/u);
+  });
+
+  // ---- Phase 17: Final state consistency check ---------------------------
+  test("phase 17 — final lock, managed index, and manifest are all consistent", async () => {
     const manifest = await readWorkspaceJson<ManifestJson>(workspace, ".harness/manifest.json");
     const lock = await readWorkspaceJson<LockJson>(workspace, ".harness/manifest.lock.json");
     const managedIndex = await readWorkspaceJson<ManagedIndexJson>(workspace, ".harness/managed-index.json");

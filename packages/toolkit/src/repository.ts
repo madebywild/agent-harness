@@ -8,6 +8,7 @@ import {
   providerIdSchema,
   VersionError,
 } from "@madebywild/agent-harness-manifest";
+import { pushUnresolvedEnvDiagnostics, substituteEnvVars } from "./env.js";
 import type { HarnessPaths } from "./paths.js";
 import type {
   AgentsManifest,
@@ -186,6 +187,7 @@ export async function readProviderOverrideFile(
   rootDir: string,
   provider: ProviderId,
   overridePath?: string,
+  envVars?: Map<string, string>,
 ): Promise<{
   override: ProviderOverride | undefined;
   sha256: string | undefined;
@@ -214,15 +216,22 @@ export async function readProviderOverrideFile(
     };
   }
 
+  const overrideDiagnostics: Diagnostic[] = [];
   try {
+    let textToParse = text;
+    if (envVars) {
+      const { result, unresolvedKeys } = substituteEnvVars(text, envVars);
+      textToParse = result;
+      pushUnresolvedEnvDiagnostics(unresolvedKeys, overrideDiagnostics, normalized, { provider });
+    }
     const YAML = await import("yaml");
-    const parsed = YAML.parse(text) as unknown;
+    const parsed = YAML.parse(textToParse) as unknown;
     const override = parseProviderOverride(parsed);
     const { sha256 } = await import("./utils.js");
     return {
       override,
       sha256: sha256(text),
-      diagnostics: [],
+      diagnostics: overrideDiagnostics,
       versionStatus: "current",
     };
   } catch (error) {
@@ -230,7 +239,7 @@ export async function readProviderOverrideFile(
       return {
         override: undefined,
         sha256: undefined,
-        diagnostics: [versionErrorDiagnostic("provider-override", normalized, error, provider)],
+        diagnostics: [...overrideDiagnostics, versionErrorDiagnostic("provider-override", normalized, error, provider)],
         versionStatus: statusForVersionReason(error.reason),
       };
     }
@@ -239,6 +248,7 @@ export async function readProviderOverrideFile(
       override: undefined,
       sha256: undefined,
       diagnostics: [
+        ...overrideDiagnostics,
         {
           code: "OVERRIDE_INVALID",
           severity: "error",

@@ -9,6 +9,7 @@ import type {
 } from "@madebywild/agent-harness-manifest";
 import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness-manifest";
 import matter from "gray-matter";
+import { loadEnvVars, pushUnresolvedEnvDiagnostics, substituteEnvVars } from "./env.js";
 import { canonicalHookHasErrors, parseCanonicalHookDocument, withHookId } from "./hooks.js";
 import type { HarnessPaths } from "./paths.js";
 import {
@@ -42,6 +43,9 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   diagnostics.push(...validateManifestSemantics(manifest));
   diagnostics.push(...buildProviderEnablementDiagnostics(manifest));
 
+  // Load env vars
+  const envVars = await loadEnvVars(paths);
+
   const candidates = await collectSourceCandidates(paths);
   const registeredSourcePaths = new Set(collectManagedSourcePaths(manifest));
 
@@ -63,7 +67,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   if (promptEntities.length === 1) {
     const promptEntity = promptEntities[0];
     if (promptEntity) {
-      const loadedPrompt = await loadPrompt(paths, promptEntity);
+      const loadedPrompt = await loadPrompt(paths, promptEntity, envVars);
       diagnostics.push(...loadedPrompt.diagnostics);
       prompt = loadedPrompt.prompt;
     }
@@ -72,7 +76,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   const skillEntities = manifest.entities.filter((entity) => entity.type === "skill" && entity.enabled !== false);
   const skills: LoadedSkill[] = [];
   for (const skillEntity of skillEntities) {
-    const loadedSkill = await loadSkill(paths, skillEntity);
+    const loadedSkill = await loadSkill(paths, skillEntity, envVars);
     diagnostics.push(...loadedSkill.diagnostics);
     if (loadedSkill.skill) {
       skills.push(loadedSkill.skill);
@@ -82,7 +86,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   const mcpEntities = manifest.entities.filter((entity) => entity.type === "mcp_config" && entity.enabled !== false);
   const mcps: LoadedMcp[] = [];
   for (const mcpEntity of mcpEntities) {
-    const loadedMcp = await loadMcp(paths, mcpEntity);
+    const loadedMcp = await loadMcp(paths, mcpEntity, envVars);
     diagnostics.push(...loadedMcp.diagnostics);
     if (loadedMcp.mcp) {
       mcps.push(loadedMcp.mcp);
@@ -92,7 +96,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   const subagentEntities = manifest.entities.filter((entity) => entity.type === "subagent" && entity.enabled !== false);
   const subagents: LoadedSubagent[] = [];
   for (const subagentEntity of subagentEntities) {
-    const loadedSubagent = await loadSubagent(paths, subagentEntity);
+    const loadedSubagent = await loadSubagent(paths, subagentEntity, envVars);
     diagnostics.push(...loadedSubagent.diagnostics);
     if (loadedSubagent.subagent) {
       subagents.push(loadedSubagent.subagent);
@@ -102,7 +106,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   const hookEntities = manifest.entities.filter((entity) => entity.type === "hook" && entity.enabled !== false);
   const hooks: LoadedHook[] = [];
   for (const hookEntity of hookEntities) {
-    const loadedHook = await loadHook(paths, hookEntity);
+    const loadedHook = await loadHook(paths, hookEntity, envVars);
     diagnostics.push(...loadedHook.diagnostics);
     if (loadedHook.hook) {
       hooks.push(loadedHook.hook);
@@ -311,6 +315,7 @@ function validateGitRegistryEntry(registryId: string, definition: RegistryDefini
 async function loadPrompt(
   paths: HarnessPaths,
   entity: EntityRef,
+  envVars: Map<string, string>,
 ): Promise<{ prompt?: LoadedPrompt; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
@@ -331,7 +336,10 @@ async function loadPrompt(
     return { diagnostics };
   }
 
-  const parsed = matter(text);
+  const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
+  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
+
+  const parsed = matter(substitutedText);
   const body = parsed.content.trim();
   if (!body) {
     diagnostics.push({
@@ -352,6 +360,7 @@ async function loadPrompt(
       provider,
       entity,
       entity.overrides?.[provider] ?? defaultPromptOverridePath(provider),
+      envVars,
     );
     diagnostics.push(...parsedOverride.diagnostics);
     overrideByProvider.set(provider, parsedOverride.override);
@@ -379,6 +388,7 @@ async function loadPrompt(
 async function loadSkill(
   paths: HarnessPaths,
   entity: EntityRef,
+  envVars: Map<string, string>,
 ): Promise<{ skill?: LoadedSkill; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
@@ -413,11 +423,13 @@ async function loadSkill(
 
     const relativeInSkill = normalizeRelativePath(path.relative(sourceDir, absolutePath).replace(/\\/g, "/"));
     const content = await fs.readFile(absolutePath, "utf8");
+    const { result: substitutedContent, unresolvedKeys } = substituteEnvVars(content, envVars);
+    pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, relativeFromRoot, { entityId: entity.id });
 
     filesWithContent.push({
       path: relativeInSkill,
       sha256: sha256(content),
-      content,
+      content: substitutedContent,
     });
   }
 
@@ -441,6 +453,7 @@ async function loadSkill(
       provider,
       entity,
       entity.overrides?.[provider] ?? defaultSkillOverridePath(entity.id, provider),
+      envVars,
     );
     diagnostics.push(...parsedOverride.diagnostics);
     overrideByProvider.set(provider, parsedOverride.override);
@@ -472,6 +485,7 @@ async function loadSkill(
 async function loadMcp(
   paths: HarnessPaths,
   entity: EntityRef,
+  envVars: Map<string, string>,
 ): Promise<{ mcp?: LoadedMcp; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
@@ -491,18 +505,23 @@ async function loadMcp(
     return { diagnostics };
   }
 
-  let json: Record<string, unknown>;
-  try {
-    const parsed = JSON.parse(text) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      throw new Error("MCP config must be a JSON object");
-    }
-    json = parsed as Record<string, unknown>;
-  } catch (error) {
+  const parsedJson = parseJsonWithEnvSubstitution(text, envVars, diagnostics, sourcePath, entity.id);
+  if (parsedJson.error) {
     diagnostics.push({
       code: "MCP_JSON_INVALID",
       severity: "error",
-      message: `MCP config '${entity.id}' is not valid JSON object: ${error instanceof Error ? error.message : "unknown error"}`,
+      message: `MCP config '${entity.id}' is not valid JSON object: ${parsedJson.error instanceof Error ? parsedJson.error.message : "unknown error"}`,
+      path: sourcePath,
+      entityId: entity.id,
+    });
+    return { diagnostics };
+  }
+  const json = parsedJson.value;
+  if (!json || typeof json !== "object" || Array.isArray(json)) {
+    diagnostics.push({
+      code: "MCP_JSON_INVALID",
+      severity: "error",
+      message: `MCP config '${entity.id}' is not valid JSON object: MCP config must be a JSON object`,
       path: sourcePath,
       entityId: entity.id,
     });
@@ -518,6 +537,7 @@ async function loadMcp(
       provider,
       entity,
       entity.overrides?.[provider] ?? defaultMcpOverridePath(entity.id, provider),
+      envVars,
     );
     diagnostics.push(...parsedOverride.diagnostics);
     overrideByProvider.set(provider, parsedOverride.override);
@@ -532,9 +552,9 @@ async function loadMcp(
       entity,
       canonical: {
         id: entity.id,
-        json,
+        json: json as Record<string, unknown>,
       },
-      sourceSha256: sha256(stableStringify(json)),
+      sourceSha256: sha256(text),
       overrideByProvider,
       overrideShaByProvider,
     },
@@ -544,6 +564,7 @@ async function loadMcp(
 async function loadSubagent(
   paths: HarnessPaths,
   entity: EntityRef,
+  envVars: Map<string, string>,
 ): Promise<{ subagent?: LoadedSubagent; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
@@ -563,9 +584,12 @@ async function loadSubagent(
     return { diagnostics };
   }
 
+  const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
+  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
+
   let parsed: matter.GrayMatterFile<string>;
   try {
-    parsed = matter(text);
+    parsed = matter(substitutedText);
   } catch (error) {
     diagnostics.push({
       code: "SUBAGENT_FRONTMATTER_INVALID",
@@ -632,7 +656,7 @@ async function loadSubagent(
 
   for (const provider of providerIdSchema.options) {
     const overridePath = entity.overrides?.[provider] ?? defaultSubagentOverridePath(entity.id, provider);
-    const parsedOverride = await parseOverride(paths, provider, entity, overridePath);
+    const parsedOverride = await parseOverride(paths, provider, entity, overridePath, envVars);
     diagnostics.push(...parsedOverride.diagnostics);
     diagnostics.push(...validateSubagentOverrideOptions(entity.id, provider, parsedOverride.override, overridePath));
     overrideByProvider.set(provider, parsedOverride.override);
@@ -662,6 +686,7 @@ async function loadSubagent(
 async function loadHook(
   paths: HarnessPaths,
   entity: EntityRef,
+  envVars: Map<string, string>,
 ): Promise<{ hook?: LoadedHook; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
@@ -681,21 +706,19 @@ async function loadHook(
     return { diagnostics };
   }
 
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(text) as unknown;
-  } catch (error) {
+  const parsedJson = parseJsonWithEnvSubstitution(text, envVars, diagnostics, sourcePath, entity.id);
+  if (parsedJson.error) {
     diagnostics.push({
       code: "HOOK_JSON_INVALID",
       severity: "error",
-      message: `Hook '${entity.id}' is not valid JSON: ${error instanceof Error ? error.message : "unknown error"}`,
+      message: `Hook '${entity.id}' is not valid JSON: ${parsedJson.error instanceof Error ? parsedJson.error.message : "unknown error"}`,
       path: sourcePath,
       entityId: entity.id,
     });
     return { diagnostics };
   }
 
-  const parsedHook = parseCanonicalHookDocument(parsedJson, sourcePath, entity.id);
+  const parsedHook = parseCanonicalHookDocument(parsedJson.value, sourcePath, entity.id);
   diagnostics.push(...parsedHook.diagnostics);
   if (!parsedHook.canonical || canonicalHookHasErrors(parsedHook.diagnostics)) {
     return { diagnostics };
@@ -706,7 +729,7 @@ async function loadHook(
 
   for (const provider of providerIdSchema.options) {
     const overridePath = entity.overrides?.[provider] ?? defaultHookOverridePath(entity.id, provider);
-    const parsedOverride = await parseOverride(paths, provider, entity, overridePath);
+    const parsedOverride = await parseOverride(paths, provider, entity, overridePath, envVars);
     diagnostics.push(...parsedOverride.diagnostics);
     overrideByProvider.set(provider, parsedOverride.override);
     if (parsedOverride.sha256) {
@@ -719,15 +742,114 @@ async function loadHook(
     hook: {
       entity,
       canonical: withHookId(parsedHook.canonical, entity.id),
-      sourceSha256: sha256(stableStringify(parsedJson)),
+      sourceSha256: sha256(text),
       overrideByProvider,
       overrideShaByProvider,
     },
   };
 }
 
-async function parseOverride(paths: HarnessPaths, provider: ProviderId, entity: EntityRef, pathValue: string) {
-  return readProviderOverrideFile(paths.root, provider, pathValue).then((result) => ({
+const JSON_ENV_PLACEHOLDER_RE = /^\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/u;
+
+function parseJsonWithEnvSubstitution(
+  text: string,
+  envVars: Map<string, string>,
+  diagnostics: Diagnostic[],
+  sourcePath: string,
+  entityId: string,
+): { value: unknown; error?: undefined } | { value?: undefined; error: unknown } {
+  const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
+  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId });
+
+  try {
+    return { value: JSON.parse(substitutedText) as unknown };
+  } catch (error) {
+    if (unresolvedKeys.length === 0) {
+      return { error };
+    }
+
+    const reparsed = parseJsonWithQuotedBarePlaceholders(substitutedText, unresolvedKeys);
+    if (reparsed !== undefined) {
+      return { value: reparsed };
+    }
+    return { error };
+  }
+}
+
+function parseJsonWithQuotedBarePlaceholders(text: string, unresolvedKeys: string[]): unknown | undefined {
+  const unresolved = new Set(unresolvedKeys);
+  let inString = false;
+  let escaped = false;
+  let i = 0;
+  let transformed = "";
+  let changed = false;
+
+  while (i < text.length) {
+    const char = text[i];
+    if (char === undefined) {
+      break;
+    }
+
+    if (inString) {
+      transformed += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      i++;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      transformed += char;
+      i++;
+      continue;
+    }
+
+    if (char === "{" && text[i + 1] === "{") {
+      const slice = text.slice(i);
+      const match = slice.match(JSON_ENV_PLACEHOLDER_RE);
+      if (match) {
+        const key = match[1];
+        const placeholder = match[0];
+        if (key && unresolved.has(key)) {
+          transformed += JSON.stringify(`{{${key}}}`);
+          changed = true;
+        } else {
+          transformed += placeholder;
+        }
+        i += placeholder.length;
+        continue;
+      }
+    }
+
+    transformed += char;
+    i++;
+  }
+
+  if (!changed) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(transformed) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+async function parseOverride(
+  paths: HarnessPaths,
+  provider: ProviderId,
+  entity: EntityRef,
+  pathValue: string,
+  envVars?: Map<string, string>,
+) {
+  return readProviderOverrideFile(paths.root, provider, pathValue, envVars).then((result) => ({
     ...result,
     diagnostics: result.diagnostics.map((diagnostic) => ({
       ...diagnostic,
