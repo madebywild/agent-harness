@@ -39,6 +39,8 @@ Provider override sidecars are YAML files with schema `version: 1` and optional 
 
 `hook` is a canonical lifecycle-hook primitive rendered into provider-native hook formats.
 
+See also: [Hook Authoring Guide](./hook-authoring.md)
+
 Canonical hook source shape:
 
 ```json

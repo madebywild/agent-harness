@@ -22,6 +22,8 @@ Supported providers:
 | `subagent` | Yes | Yes | Yes |
 | `hook` | Partial (`notify` projection) | Yes | Yes |
 
+Authoring examples: [Hook Authoring Guide](./hook-authoring.md)
+
 ## 1. OpenAI Codex
 
 ### Native configuration locations
