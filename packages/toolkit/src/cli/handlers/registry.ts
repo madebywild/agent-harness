@@ -127,7 +127,9 @@ export async function handleRegistryDefaultSet(
   };
 }
 
-function parseOptionalEntityType(entityType: string | undefined): undefined | "prompt" | "skill" | "mcp" | "subagent" {
+function parseOptionalEntityType(
+  entityType: string | undefined,
+): undefined | "prompt" | "skill" | "mcp" | "subagent" | "hook" {
   if (!entityType) {
     return undefined;
   }

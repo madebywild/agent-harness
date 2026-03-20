@@ -74,12 +74,17 @@ export async function buildPlan(
         const subagentOverrideByEntity = new Map(
           loaded.subagents.map((subagent) => [subagent.entity.id, subagent.overrideByProvider.get(provider)] as const),
         );
+        const hookOverrideByEntity = new Map(
+          loaded.hooks.map((hook) => [hook.entity.id, hook.overrideByProvider.get(provider)] as const),
+        );
         artifacts.push(
           ...(await adapter.renderProviderState({
             mcps: loaded.mcps.map((mcp) => mcp.canonical),
             mcpOverrideByEntity,
             subagents: loaded.subagents.map((subagent) => subagent.canonical),
             subagentOverrideByEntity,
+            hooks: loaded.hooks.map((hook) => hook.canonical),
+            hookOverrideByEntity,
           })),
         );
       } catch (error) {
@@ -108,6 +113,29 @@ export async function buildPlan(
           code: "MCP_RENDER_FAILED",
           severity: "error",
           message: error instanceof Error ? error.message : "MCP render failed",
+          provider,
+        });
+      }
+    }
+
+    if (adapter.renderHooks) {
+      try {
+        const hookOverrideByEntity = new Map(
+          loaded.hooks.map((hook) => [hook.entity.id, hook.overrideByProvider.get(provider)] as const),
+        );
+        artifacts.push(
+          ...(await adapter.renderHooks(
+            loaded.hooks.map((hook) => hook.canonical),
+            hookOverrideByEntity,
+          )),
+        );
+      } catch (error) {
+        const parsed = parseCodedError(error);
+        diagnostics.push({
+          code: parsed?.code ?? "HOOK_RENDER_FAILED",
+          severity: "error",
+          message: parsed?.message ?? (error instanceof Error ? error.message : "Hook render failed"),
+          entityId: parsed?.entityId,
           provider,
         });
       }
@@ -295,6 +323,17 @@ export async function buildPlan(
       ...resolvePriorRegistryProvenance(
         previousEntityByKey.get(`${subagent.entity.type}:${subagent.entity.id}`),
         subagent.entity.registry,
+      ),
+    })),
+    ...loaded.hooks.map((hook) => ({
+      id: hook.entity.id,
+      type: hook.entity.type,
+      registry: hook.entity.registry,
+      sourceSha256: hook.sourceSha256,
+      overrideSha256ByProvider: hook.overrideShaByProvider,
+      ...resolvePriorRegistryProvenance(
+        previousEntityByKey.get(`${hook.entity.type}:${hook.entity.id}`),
+        hook.entity.registry,
       ),
     })),
   ].sort((left, right) => {

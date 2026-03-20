@@ -8,9 +8,14 @@ Builds the Claude provider adapter.
 
 - `buildClaudeAdapter(skillFilesByEntityId)`
 
-## Provider definition
+## Provider behavior
 
 - Defaults from `PROVIDER_DEFAULTS.claude`.
 - MCP renderer: JSON via `createJsonMcpRenderer("mcpServers")`.
-- MCP output uses top-level `mcpServers` property.
-- Adds `renderSubagent` output at `.claude/agents/<id>.md` with frontmatter (`name`, `description`, optional `tools`/`model`).
+- MCP output uses top-level `mcpServers`.
+- Subagents:
+  - renders `.claude/agents/<id>.md`
+  - frontmatter includes `name`, `description`, optional `tools`/`model`
+- Hooks:
+  - renders consolidated hook config to `.claude/settings.json` (or overridden target)
+  - uses shared projection helper `renderClaudeHookSettings(...)`

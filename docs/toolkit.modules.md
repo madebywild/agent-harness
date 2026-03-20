@@ -1,11 +1,12 @@
 # Toolkit Module Documentation
 
-This set documents every source file under `packages/toolkit/src`.
+This set documents source files under `packages/toolkit/src`.
 
 ## Top-level modules
 
 - `cli.ts`: [`toolkit.cli.md`](./toolkit.cli.md)
 - `engine.ts`: [`toolkit.engine.md`](./toolkit.engine.md)
+- `hooks.ts`: [`toolkit.hooks.md`](./toolkit.hooks.md)
 - `index.ts`: [`toolkit.index.md`](./toolkit.index.md)
 - `loader.ts`: [`toolkit.loader.md`](./toolkit.loader.md)
 - `paths.ts`: [`toolkit.paths.md`](./toolkit.paths.md)
@@ -17,15 +18,15 @@ This set documents every source file under `packages/toolkit/src`.
 
 ## CLI submodules
 
-- `cli/main.ts`: mode-aware CLI bootstrap and execution entrypoints.
-- `cli/contracts.ts`: shared CLI contracts and envelope types.
-- `cli/command-registry.ts`: command metadata and dispatcher.
-- `cli/adapters/commander.ts`: non-interactive parser adapter.
-- `cli/adapters/interactive.ts`: prompt wizard adapter.
-- `cli/handlers/*.ts`: command-family execution handlers.
-- `cli/renderers/text.ts`: human-readable output renderer.
-- `cli/renderers/json.ts`: stable JSON envelope renderer.
-- `cli/utils/runtime.ts`: runtime environment and mode helpers.
+- `cli/main.ts`: mode-aware CLI bootstrap and execution entrypoints
+- `cli/contracts.ts`: shared CLI contracts and envelope types
+- `cli/command-registry.ts`: command metadata and dispatcher
+- `cli/adapters/commander.ts`: non-interactive parser adapter
+- `cli/adapters/interactive.ts`: prompt wizard adapter
+- `cli/handlers/*.ts`: command-family execution handlers
+- `cli/renderers/text.ts`: human-readable output renderer
+- `cli/renderers/json.ts`: stable JSON envelope renderer
+- `cli/utils/runtime.ts`: runtime environment and mode helpers
 
 ## Versioning modules
 
@@ -40,6 +41,7 @@ This set documents every source file under `packages/toolkit/src`.
 - `provider-adapters/constants.ts`: [`toolkit.provider.constants.md`](./toolkit.provider.constants.md)
 - `provider-adapters/copilot.ts`: [`toolkit.provider.copilot.md`](./toolkit.provider.copilot.md)
 - `provider-adapters/create-adapter.ts`: [`toolkit.provider.create-adapter.md`](./toolkit.provider.create-adapter.md)
+- `provider-adapters/hooks.ts`: [`toolkit.provider.hooks.md`](./toolkit.provider.hooks.md)
 - `provider-adapters/mcp.ts`: [`toolkit.provider.mcp.md`](./toolkit.provider.mcp.md)
 - `provider-adapters/registry.ts`: [`toolkit.provider.registry.md`](./toolkit.provider.registry.md)
 - `provider-adapters/renderers.ts`: [`toolkit.provider.renderers.md`](./toolkit.provider.renderers.md)

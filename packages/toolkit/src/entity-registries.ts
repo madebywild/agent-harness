@@ -66,7 +66,17 @@ export interface FetchedSubagentEntity extends FetchedEntityBase {
   readonly sourceText: string;
 }
 
-export type FetchedRegistryEntity = FetchedPromptEntity | FetchedSkillEntity | FetchedMcpEntity | FetchedSubagentEntity;
+export interface FetchedHookEntity extends FetchedEntityBase {
+  readonly type: "hook";
+  readonly sourceJson: Record<string, unknown>;
+}
+
+export type FetchedRegistryEntity =
+  | FetchedPromptEntity
+  | FetchedSkillEntity
+  | FetchedMcpEntity
+  | FetchedSubagentEntity
+  | FetchedHookEntity;
 
 export async function fetchEntityFromRegistry(
   registryId: RegistryId,
@@ -204,26 +214,72 @@ export async function fetchEntityFromRegistry(
       };
     }
 
-    const subagentPath = path.join(checkoutDir, rootPath, "subagents", `${id}.md`);
-    const sourceText = await readFileWithNotFound(
-      subagentPath,
-      registryId,
-      `Subagent '${id}' not found in registry '${registryId}'`,
-    );
+    if (entityType === "hook") {
+      const hookPath = path.join(checkoutDir, rootPath, "hooks", `${id}.json`);
+      const hookText = await readFileWithNotFound(
+        hookPath,
+        registryId,
+        `Hook '${id}' not found in registry '${registryId}'`,
+      );
 
-    return {
-      type: "subagent",
-      id,
-      registry: registryId,
-      sourceText,
-      registryManifest,
-      registryRevision: {
-        kind: "git",
-        ref: definition.ref,
-        commit,
-      },
-      importedSourceSha256: sha256(sourceText),
-    };
+      let sourceJson: Record<string, unknown>;
+      try {
+        const parsed = JSON.parse(hookText) as unknown;
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          throw new Error("Hook config must be a JSON object");
+        }
+        sourceJson = parsed as Record<string, unknown>;
+      } catch (error) {
+        throw new RegistryError(
+          "REGISTRY_FETCH_FAILED",
+          registryId,
+          `Hook '${id}' in registry '${registryId}' is invalid: ${error instanceof Error ? error.message : "unknown error"}`,
+        );
+      }
+
+      return {
+        type: "hook",
+        id,
+        registry: registryId,
+        sourceJson,
+        registryManifest,
+        registryRevision: {
+          kind: "git",
+          ref: definition.ref,
+          commit,
+        },
+        importedSourceSha256: sha256(stableStringify(sourceJson)),
+      };
+    }
+
+    if (entityType === "subagent") {
+      const subagentPath = path.join(checkoutDir, rootPath, "subagents", `${id}.md`);
+      const sourceText = await readFileWithNotFound(
+        subagentPath,
+        registryId,
+        `Subagent '${id}' not found in registry '${registryId}'`,
+      );
+
+      return {
+        type: "subagent",
+        id,
+        registry: registryId,
+        sourceText,
+        registryManifest,
+        registryRevision: {
+          kind: "git",
+          ref: definition.ref,
+          commit,
+        },
+        importedSourceSha256: sha256(sourceText),
+      };
+    }
+
+    throw new RegistryError(
+      "REGISTRY_FETCH_FAILED",
+      registryId,
+      `Unsupported entity type '${entityType}' for registry fetch`,
+    );
   } finally {
     await cleanupTempDir(tempRoot);
   }

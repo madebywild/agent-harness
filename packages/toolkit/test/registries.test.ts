@@ -152,6 +152,61 @@ test("add from git registry imports subagent and records provenance", async () =
   assert.ok(lockEntity?.importedSourceSha256);
 });
 
+test("add from git registry imports hook and records provenance", async () => {
+  const cwd = await mkTmpRepo();
+  const registryRepo = await mkTmpGitRegistry({
+    files: {
+      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
+      "hooks/guard.json": JSON.stringify(
+        {
+          mode: "strict",
+          events: {
+            turn_complete: [
+              {
+                type: "notify",
+                command: ["python3", "scripts/on_turn_complete.py"],
+              },
+            ],
+          },
+        },
+        null,
+        2,
+      ),
+    },
+  });
+
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+  await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
+
+  await engine.addHook("guard", { registry: "corp" });
+
+  const localHook = await readJson<{ mode: string; events: Record<string, unknown> }>(
+    cwd,
+    ".harness/src/hooks/guard.json",
+  );
+  assert.equal(localHook.mode, "strict");
+  assert.ok(localHook.events.turn_complete);
+
+  const lock = await readJson<{
+    entities: Array<{
+      id: string;
+      type: string;
+      registry: string;
+      importedSourceSha256?: string;
+      registryRevision?: { kind: string; ref: string; commit: string };
+    }>;
+  }>(cwd, ".harness/manifest.lock.json");
+
+  const lockEntity = lock.entities.find((entry) => entry.type === "hook" && entry.id === "guard");
+  assert.ok(lockEntity);
+  assert.equal(lockEntity?.registry, "corp");
+  assert.equal(lockEntity?.registryRevision?.kind, "git");
+  assert.equal(lockEntity?.registryRevision?.ref, "main");
+  assert.ok(lockEntity?.registryRevision?.commit);
+  assert.ok(lockEntity?.importedSourceSha256);
+});
+
 test("git registry import fails when harness-registry.json is missing", async () => {
   const cwd = await mkTmpRepo();
   const registryRepo = await mkTmpGitRegistry({
@@ -235,6 +290,86 @@ test("registry pull supports subagent entities", async () => {
 
   const refreshed = await fs.readFile(path.join(cwd, ".harness/src/subagents/researcher.md"), "utf8");
   assert.match(refreshed, /Version 2 instructions/u);
+});
+
+test("registry pull supports hook entities", async () => {
+  const cwd = await mkTmpRepo();
+  const registryRepo = await mkTmpGitRegistry({
+    files: {
+      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
+      "hooks/guard.json": JSON.stringify(
+        {
+          mode: "strict",
+          events: {
+            turn_complete: [
+              {
+                type: "notify",
+                command: ["python3", "scripts/version1.py"],
+              },
+            ],
+          },
+        },
+        null,
+        2,
+      ),
+    },
+  });
+
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+  await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
+  await engine.addHook("guard", { registry: "corp" });
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/hooks/guard.json"),
+    JSON.stringify(
+      {
+        mode: "strict",
+        events: {
+          turn_complete: [
+            {
+              type: "notify",
+              command: ["python3", "scripts/local-edits.py"],
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(registryRepo, "hooks/guard.json"),
+    JSON.stringify(
+      {
+        mode: "strict",
+        events: {
+          turn_complete: [
+            {
+              type: "notify",
+              command: ["python3", "scripts/version2.py"],
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  await gitCommit(registryRepo, "update hook");
+
+  await assert.rejects(async () => engine.pullRegistry({ entityType: "hook", id: "guard" }), /REGISTRY_PULL_CONFLICT/u);
+
+  const forced = await engine.pullRegistry({ entityType: "hook", id: "guard", force: true });
+  assert.deepEqual(forced.updatedEntities, [{ type: "hook", id: "guard" }]);
+
+  const refreshed = await readJson<{
+    mode: string;
+    events: { turn_complete: Array<{ command: string[] }> };
+  }>(cwd, ".harness/src/hooks/guard.json");
+  assert.deepEqual(refreshed.events.turn_complete[0]?.command, ["python3", "scripts/version2.py"]);
 });
 
 test("registry pull does not conflict when imported skill includes OVERRIDES sidecars", async () => {
@@ -463,6 +598,21 @@ test("validateRegistryRepo passes for valid registry layout and metadata", async
     "skills/reviewer/SKILL.md": "# reviewer\n\nSkill\n",
     "mcp/playwright.json": JSON.stringify({ command: "npx", args: ["@playwright/mcp"] }, null, 2),
     "subagents/researcher.md": "---\nname: researcher\ndescription: Research helper\n---\n\nResearch instructions.\n",
+    "hooks/guard.json": JSON.stringify(
+      {
+        mode: "strict",
+        events: {
+          turn_complete: [
+            {
+              type: "notify",
+              command: ["python3", "scripts/on_turn_complete.py"],
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
   });
 
   const result = await validateRegistryRepo({ repoPath: registryRepo });
@@ -608,6 +758,32 @@ test("validateRegistryRepo reports structural and metadata failures", async () =
       },
       expectedCode: "REGISTRY_SUBAGENT_INVALID",
       expectedPath: "subagents/researcher.json",
+    },
+    {
+      name: "hook json must be object",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "hooks/guard.json": "[]",
+      },
+      expectedCode: "REGISTRY_HOOK_INVALID",
+      expectedPath: "hooks/guard.json",
+    },
+    {
+      name: "hook rejects non-json files",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "hooks/guard.md": "# guard\n",
+      },
+      expectedCode: "REGISTRY_HOOK_INVALID",
+      expectedPath: "hooks/guard.md",
     },
   ];
 

@@ -90,6 +90,28 @@ export async function handleAddSubagent(
   };
 }
 
+export async function handleAddHook(
+  input: { hookId: string; registry?: string },
+  context: CliResolvedContext,
+): Promise<EntityMutationOutput> {
+  const engine = new HarnessEngine(context.cwd);
+  await engine.addHook(input.hookId, { registry: input.registry });
+
+  return {
+    family: "entity-mutation",
+    command: "add.hook",
+    ok: true,
+    diagnostics: [],
+    exitCode: 0,
+    data: {
+      operation: "add",
+      entityType: "hook",
+      id: input.hookId,
+      message: `Added hook '${input.hookId}'.`,
+    },
+  };
+}
+
 export async function handleRemoveEntity(
   input: { entityType: string; id: string; deleteSource: boolean },
   context: CliResolvedContext,

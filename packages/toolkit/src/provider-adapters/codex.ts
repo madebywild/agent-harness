@@ -3,6 +3,7 @@ import type { ProviderAdapter } from "../types.js";
 import { normalizeRelativePath, uniqSorted, withSingleTrailingNewline } from "../utils.js";
 import { PROVIDER_DEFAULTS } from "./constants.js";
 import { createProviderAdapter } from "./create-adapter.js";
+import { resolveCodexNotifyCommand } from "./hooks.js";
 import { mergeMcpServers } from "./mcp.js";
 import { parseCodexSubagentOptions } from "./subagents.js";
 import type { ProviderDefinition, SkillFileIndex } from "./types.js";
@@ -31,8 +32,9 @@ export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): Provide
       const enabledSubagents = input.subagents.filter(
         (entry) => input.subagentOverrideByEntity?.get(entry.id)?.enabled !== false,
       );
+      const enabledHooks = input.hooks.filter((entry) => input.hookOverrideByEntity?.get(entry.id)?.enabled !== false);
 
-      if (enabledMcps.length === 0 && enabledSubagents.length === 0) {
+      if (enabledMcps.length === 0 && enabledSubagents.length === 0 && enabledHooks.length === 0) {
         return [];
       }
 
@@ -40,6 +42,7 @@ export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): Provide
         input,
         enabledMcps.map((entry) => entry.id),
         enabledSubagents,
+        enabledHooks.map((entry) => entry.id),
       );
       const payload: Record<string, unknown> = {};
 
@@ -71,9 +74,19 @@ export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): Provide
         payload.agents = agents as unknown as TOML.AnyJson;
       }
 
+      const notifyCommand = resolveCodexNotifyCommand(enabledHooks);
+      if (notifyCommand) {
+        payload.notify = notifyCommand as unknown as TOML.AnyJson;
+      }
+
+      if (Object.keys(payload).length === 0) {
+        return [];
+      }
+
       const ownerEntityId = uniqSorted([
         ...enabledMcps.map((entry) => entry.id),
         ...enabledSubagents.map((entry) => entry.id),
+        ...enabledHooks.map((entry) => entry.id),
       ]).join(",");
 
       return [
@@ -93,6 +106,7 @@ function resolveCodexConfigTargetPath(
   input: Parameters<NonNullable<ProviderAdapter["renderProviderState"]>>[0],
   enabledMcpIds: string[],
   enabledSubagents: Array<{ id: string }>,
+  enabledHookIds: string[],
 ): string {
   const targets = new Set<string>();
 
@@ -105,6 +119,13 @@ function resolveCodexConfigTargetPath(
 
   for (const subagent of enabledSubagents) {
     const targetPath = input.subagentOverrideByEntity?.get(subagent.id)?.targetPath;
+    if (targetPath) {
+      targets.add(normalizeRelativePath(targetPath));
+    }
+  }
+
+  for (const hookId of enabledHookIds) {
+    const targetPath = input.hookOverrideByEntity?.get(hookId)?.targetPath;
     if (targetPath) {
       targets.add(normalizeRelativePath(targetPath));
     }

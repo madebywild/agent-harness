@@ -12,6 +12,7 @@ export interface HarnessPaths {
   skillDir: string;
   mcpDir: string;
   subagentDir: string;
+  hookDir: string;
 }
 
 export function resolveHarnessPaths(rootDir: string): HarnessPaths {
@@ -28,6 +29,7 @@ export function resolveHarnessPaths(rootDir: string): HarnessPaths {
     skillDir: path.join(srcDir, "skills"),
     mcpDir: path.join(srcDir, "mcp"),
     subagentDir: path.join(srcDir, "subagents"),
+    hookDir: path.join(srcDir, "hooks"),
   };
 }
 
@@ -59,4 +61,12 @@ export function defaultSubagentSourcePath(id: string): string {
 
 export function defaultSubagentOverridePath(id: string, provider: ProviderId): string {
   return `.harness/src/subagents/${id}.overrides.${provider}.yaml`;
+}
+
+export function defaultHookSourcePath(id: string): string {
+  return `.harness/src/hooks/${id}.json`;
+}
+
+export function defaultHookOverridePath(id: string, provider: ProviderId): string {
+  return `.harness/src/hooks/${id}.overrides.${provider}.yaml`;
 }

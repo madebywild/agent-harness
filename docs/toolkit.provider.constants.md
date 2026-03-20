@@ -15,11 +15,14 @@ Stores default generated output locations for each provider.
   - prompt: `AGENTS.md`
   - skills: `.codex/skills`
   - MCP: `.codex/config.toml`
+  - hooks: `.codex/config.toml`
 - `claude`
   - prompt: `CLAUDE.md`
   - skills: `.claude/skills`
   - MCP: `.mcp.json`
+  - hooks: `.claude/settings.json`
 - `copilot`
   - prompt: `.github/copilot-instructions.md`
   - skills: `.github/skills`
   - MCP: `.vscode/mcp.json`
+  - hooks: `.github/hooks/harness.generated.json`

@@ -216,6 +216,49 @@ test("runCliCommand registry.add rejects missing required gitUrl option", async 
   );
 });
 
+test("runCliCommand add.hook creates hook entity and source file", async () => {
+  const cwd = await mkTmpRepo();
+  await runCliCommand(
+    {
+      command: "init",
+      options: { force: false },
+    },
+    {
+      cwd,
+      env: {},
+      isTty: false,
+      isCi: false,
+      stdout: () => {},
+      stderr: () => {},
+    },
+  );
+
+  const output = await runCliCommand(
+    {
+      command: "add.hook",
+      args: { hookId: "guard" },
+    },
+    {
+      cwd,
+      env: {},
+      isTty: false,
+      isCi: false,
+      stdout: () => {},
+      stderr: () => {},
+    },
+  );
+
+  assert.equal(output.family, "entity-mutation");
+  assert.equal(output.command, "add.hook");
+  assert.equal(output.ok, true);
+  if (output.data.operation !== "add") {
+    assert.fail(`Expected add operation, got '${output.data.operation}'`);
+  }
+  assert.equal(output.data.entityType, "hook");
+  assert.equal(output.data.id, "guard");
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/hooks/guard.json")));
+});
+
 test("isNoArgShortcutEligible rejects commander-owned option-only invocations", () => {
   assert.equal(isNoArgShortcutEligible([]), true);
   assert.equal(isNoArgShortcutEligible(["--interactive"]), true);

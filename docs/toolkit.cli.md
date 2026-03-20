@@ -8,28 +8,33 @@ Implements the layered CLI runtime with shared command execution for both non-in
 
 - `cli.ts`: compatibility bin wrapper that calls `runCliArgv`.
 - `cli/main.ts`: mode selection + top-level error/exit mapping.
-- `cli/contracts.ts`: shared command ids, input/output contracts, execution context, JSON envelope.
-- `cli/command-registry.ts`: single command definition registry and `dispatch(...)` entrypoint.
-- `cli/handlers/*`: command-family handlers that call `HarnessEngine`/registry validator and return structured outputs.
-- `cli/renderers/text.ts`: command-output to human-readable stdout rendering.
+- `cli/contracts.ts`: shared command IDs, input/output contracts, execution context, JSON envelope.
+- `cli/command-registry.ts`: command definitions and `dispatch(...)`.
+- `cli/handlers/*`: command-family handlers calling `HarnessEngine` and validators.
+- `cli/renderers/text.ts`: human-readable stdout rendering.
 - `cli/renderers/json.ts`: stable JSON envelope rendering (`schemaVersion: "1"`).
-- `cli/adapters/commander.ts`: Commander parser adapter for script-safe command mode.
-- `cli/adapters/interactive.ts`: prompt wizard adapter built with `@clack/prompts`.
+- `cli/adapters/commander.ts`: Commander parser adapter.
+- `cli/adapters/interactive.ts`: prompt wizard adapter (`@clack/prompts`).
 - `cli/utils/runtime.ts`: TTY/CI/env mode helpers and context resolution.
 
 ## Runtime behavior
 
 - Global options: `--cwd`, `--json`, `--interactive`, `--no-interactive`.
 - No-arg behavior:
-  - TTY and non-CI: launches interactive wizard.
-  - Non-TTY or CI: runs default `plan` behavior.
-- If manifest is missing, planning returns empty operations and carries manifest diagnostics.
-- Explicit subcommands run through Commander command mode.
-- `harness ui` is an explicit interactive entrypoint.
+  - TTY and non-CI: interactive wizard.
+  - non-TTY or CI: default `plan`.
+- Explicit subcommands run through Commander mode.
+- `harness ui` is the explicit interactive entrypoint.
+
+## Notable command surface
+
+- `add prompt|skill|mcp|subagent|hook`
+- `remove <entity-type> <id>` (entity-type includes `hook`)
+- registry commands support optional entity-type filters including `hook`
 
 ## JSON output contract
 
-`--json` renders a consistent envelope:
+`--json` renders:
 
 - `schemaVersion: "1"`
 - `ok: boolean`
@@ -40,5 +45,5 @@ Implements the layered CLI runtime with shared command execution for both non-in
 
 ## Programmatic API
 
-- `runCliCommand(input, context?)`: execute one structured command through shared dispatcher.
-- `runCliArgv(argv, context?)`: parse argv, run selected mode, and return `{ exitCode }`.
+- `runCliCommand(input, context?)`
+- `runCliArgv(argv, context?)`

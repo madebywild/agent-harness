@@ -11,6 +11,7 @@ import type {
   RegistryId,
   RegistryManifest,
 } from "@madebywild/agent-harness-manifest";
+import type { CanonicalHookEvent } from "./hooks.js";
 
 export type {
   AgentsManifest,
@@ -25,7 +26,7 @@ export type {
   RegistryManifest,
 };
 
-export const CLI_ENTITY_TYPES = ["prompt", "skill", "mcp", "subagent"] as const;
+export const CLI_ENTITY_TYPES = ["prompt", "skill", "mcp", "subagent", "hook"] as const;
 export type CliEntityType = (typeof CLI_ENTITY_TYPES)[number];
 
 export const CLI_ENTITY_TO_MANIFEST_ENTITY: Record<CliEntityType, EntityType> = {
@@ -33,6 +34,7 @@ export const CLI_ENTITY_TO_MANIFEST_ENTITY: Record<CliEntityType, EntityType> = 
   skill: "skill",
   mcp: "mcp_config",
   subagent: "subagent",
+  hook: "hook",
 };
 
 export function isCliEntityType(value: string): value is CliEntityType {
@@ -63,6 +65,39 @@ export interface CanonicalSubagent {
   metadata: Record<string, unknown>;
 }
 
+export type CanonicalHookMode = "strict" | "best_effort";
+
+export type { CanonicalHookEvent } from "./hooks.js";
+
+export interface CanonicalHookCommandHandler {
+  type: "command";
+  matcher?: string;
+  command?: string;
+  windows?: string;
+  linux?: string;
+  osx?: string;
+  bash?: string;
+  powershell?: string;
+  cwd?: string;
+  env?: Record<string, string>;
+  timeoutSec?: number;
+  timeout?: number;
+}
+
+export interface CanonicalHookNotifyHandler {
+  type: "notify";
+  event?: "agent-turn-complete";
+  command: string | string[];
+}
+
+export type CanonicalHookHandler = CanonicalHookCommandHandler | CanonicalHookNotifyHandler;
+
+export interface CanonicalHook {
+  id: string;
+  mode: CanonicalHookMode;
+  events: Partial<Record<CanonicalHookEvent, CanonicalHookHandler[]>>;
+}
+
 export interface RenderedArtifact {
   path: string;
   content: string;
@@ -76,6 +111,8 @@ export interface ProviderStateInput {
   mcpOverrideByEntity?: Map<string, ProviderOverride | undefined>;
   subagents: CanonicalSubagent[];
   subagentOverrideByEntity?: Map<string, ProviderOverride | undefined>;
+  hooks: CanonicalHook[];
+  hookOverrideByEntity?: Map<string, ProviderOverride | undefined>;
 }
 
 export interface ProviderAdapter {
@@ -87,6 +124,10 @@ export interface ProviderAdapter {
     overrideByEntity?: Map<string, ProviderOverride | undefined>,
   ): Promise<RenderedArtifact[]>;
   renderSubagent?(input: CanonicalSubagent, override?: ProviderOverride): Promise<RenderedArtifact[]>;
+  renderHooks?(
+    input: CanonicalHook[],
+    overrideByEntity?: Map<string, ProviderOverride | undefined>,
+  ): Promise<RenderedArtifact[]>;
   renderProviderState?(input: ProviderStateInput): Promise<RenderedArtifact[]>;
 }
 
@@ -235,6 +276,14 @@ export interface LoadedSubagent {
   overrideShaByProvider: Partial<Record<ProviderId, string>>;
 }
 
+export interface LoadedHook {
+  entity: EntityRef;
+  canonical: CanonicalHook;
+  sourceSha256: string;
+  overrideByProvider: Map<ProviderId, ProviderOverride | undefined>;
+  overrideShaByProvider: Partial<Record<ProviderId, string>>;
+}
+
 export interface InternalPlanResult extends PlanResult {
   artifactsByPath: Map<string, { content: string; provider: ProviderId; ownerEntityIds: string[] }>;
   nextManagedIndex: ManagedIndex;
@@ -247,4 +296,5 @@ export interface LoadResult {
   skills: LoadedSkill[];
   mcps: LoadedMcp[];
   subagents: LoadedSubagent[];
+  hooks: LoadedHook[];
 }
