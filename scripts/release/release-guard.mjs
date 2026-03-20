@@ -127,7 +127,7 @@ function publishPackageIfMissing(packageName, version) {
   }
 
   log(`Publishing ${packageName}@${version}`);
-  const result = spawnSync("pnpm", ["--filter", packageName, "publish", "--access", "restricted", "--no-git-checks"], {
+  const result = spawnSync("pnpm", ["--filter", packageName, "publish", "--access", "public", "--no-git-checks"], {
     cwd: repoRoot,
     encoding: "utf8",
     env: process.env,

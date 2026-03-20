@@ -1,6 +1,7 @@
 {
   "name": "@madebywild/agent-harness-framework",
-  "version": "0.9.3",
+  "version": "0.9.4",
+  "license": "MIT",
   "private": false,
   "type": "module",
   "main": "./dist/index.js",
@@ -18,7 +19,7 @@
     "dist"
   ],
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",

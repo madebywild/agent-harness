@@ -1,6 +1,7 @@
 {
   "name": "@madebywild/agent-harness-manifest",
-  "version": "0.9.3",
+  "version": "0.9.4",
+  "license": "MIT",
   "private": false,
   "type": "module",
   "main": "./dist/index.js",
@@ -15,7 +16,7 @@
     "dist"
   ],
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "dependencies": {
     "zod": "^4.3.6"

@@ -1,7 +1,8 @@
 {
   "name": "agent-harness-monorepo",
   "private": true,
-  "version": "0.9.3",
+  "version": "0.9.4",
+  "license": "MIT",
   "description": "Agent Harness monorepo",
   "packageManager": "pnpm@10.2.0",
   "engines": {
