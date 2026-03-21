@@ -207,6 +207,17 @@ export async function validateRegistryRepo(options: RegistryValidationOptions = 
         continue;
       }
 
+      if (!hasDelimitedFrontmatterBlock(text)) {
+        diagnostics.push(
+          error(
+            "REGISTRY_SUBAGENT_INVALID",
+            `Subagent '${id}' frontmatter must include a YAML block delimited by ---`,
+            subagentPathRel,
+          ),
+        );
+        continue;
+      }
+
       try {
         const parsed = matter(text);
         const body = parsed.content.trim();
@@ -289,6 +300,94 @@ export async function validateRegistryRepo(options: RegistryValidationOptions = 
     }
   }
 
+  const commandsDir = path.join(rootAbs, "commands");
+  let commandEntries: Dirent[] | null = null;
+  try {
+    commandEntries = await fs.readdir(commandsDir, { withFileTypes: true });
+  } catch (err) {
+    if (!isNotFoundError(err)) {
+      throw err;
+    }
+  }
+
+  if (commandEntries) {
+    // Empty commands/ is acceptable; some registries intentionally publish no command entities.
+    for (const entry of commandEntries) {
+      const commandPath = path.join(commandsDir, entry.name);
+      const commandPathRel = toPosixRelative(commandPath, repoPath);
+
+      if (!entry.isFile() || !entry.name.endsWith(".md")) {
+        diagnostics.push(
+          error("REGISTRY_COMMAND_INVALID_FILE_TYPE", "commands/ may only contain .md files", commandPathRel),
+        );
+        continue;
+      }
+
+      const id = entry.name.slice(0, -".md".length);
+      if (!isValidEntityId(id)) {
+        diagnostics.push(error("REGISTRY_COMMAND_INVALID_ID", `Invalid command id '${id}'`, commandPathRel));
+      }
+
+      const text = await readTextIfExists(commandPath);
+      if (text === null || text.trim().length === 0) {
+        diagnostics.push(error("REGISTRY_COMMAND_EMPTY", `Command '${id}' must be non-empty`, commandPathRel));
+        continue;
+      }
+
+      const hasFrontmatterBlock = hasDelimitedFrontmatterBlock(text);
+      if (!hasFrontmatterBlock) {
+        diagnostics.push(
+          error(
+            "REGISTRY_COMMAND_INVALID_FRONTMATTER",
+            `Command '${id}' frontmatter must include a YAML block delimited by ---`,
+            commandPathRel,
+          ),
+        );
+        continue;
+      }
+
+      try {
+        const parsed = matter(text);
+        const frontmatter = parsed.data;
+        if (!frontmatter || typeof frontmatter !== "object" || Array.isArray(frontmatter)) {
+          diagnostics.push(
+            error(
+              "REGISTRY_COMMAND_INVALID_FRONTMATTER",
+              `Command '${id}' frontmatter must be a YAML object`,
+              commandPathRel,
+            ),
+          );
+          continue;
+        }
+
+        const frontmatterMap = frontmatter as Record<string, unknown>;
+        const description = typeof frontmatterMap.description === "string" ? frontmatterMap.description.trim() : "";
+        if (!description) {
+          diagnostics.push(
+            error(
+              "REGISTRY_COMMAND_MISSING_DESCRIPTION",
+              `Command '${id}' frontmatter requires non-empty 'description'`,
+              commandPathRel,
+            ),
+          );
+        }
+
+        const body = parsed.content.trim();
+        if (!body) {
+          diagnostics.push(error("REGISTRY_COMMAND_EMPTY", `Command '${id}' body must be non-empty`, commandPathRel));
+        }
+      } catch (err) {
+        diagnostics.push(
+          error(
+            "REGISTRY_COMMAND_INVALID_FRONTMATTER",
+            `Command '${id}' frontmatter is invalid: ${err instanceof Error ? err.message : "unknown error"}`,
+            commandPathRel,
+          ),
+        );
+      }
+    }
+  }
+
   diagnostics.sort((left, right) => {
     const pathCompare = (left.path ?? "").localeCompare(right.path ?? "");
     if (pathCompare !== 0) {
@@ -346,4 +445,16 @@ async function readJsonObject(
 
 function isValidEntityId(value: string): boolean {
   return ENTITY_ID_PATTERN.test(value);
+}
+
+function hasDelimitedFrontmatterBlock(text: string): boolean {
+  if (!text.startsWith("---")) {
+    return false;
+  }
+  // Ensure the opening delimiter is exactly `---` on its own line (not `----` or other prefixes).
+  if (!/^---(?:\r?\n|$)/u.test(text)) {
+    return false;
+  }
+  const closingDelimiterPattern = /\r?\n---(?:\r?\n|$)/u;
+  return closingDelimiterPattern.test(text.slice(3));
 }

@@ -613,6 +613,8 @@ test("validateRegistryRepo passes for valid registry layout and metadata", async
       null,
       2,
     ),
+    "commands/review.md":
+      "---\ndescription: Review staged changes\nargument-hint: [path]\n---\n\nReview the diff and summarize findings.\n",
   });
 
   const result = await validateRegistryRepo({ repoPath: registryRepo });
@@ -624,8 +626,10 @@ test("validateRegistryRepo reports structural and metadata failures", async () =
   const cases: Array<{
     name: string;
     files: Record<string, string>;
-    expectedCode: string;
+    expectedCode?: string;
     expectedPath?: string;
+    expectValid?: boolean;
+    setup?: (repo: string) => Promise<void>;
   }> = [
     {
       name: "missing manifest",
@@ -734,6 +738,19 @@ test("validateRegistryRepo reports structural and metadata failures", async () =
       expectedPath: "mcp/readme.md",
     },
     {
+      name: "subagent missing frontmatter block",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "subagents/researcher.md": "Instructions without frontmatter.\n",
+      },
+      expectedCode: "REGISTRY_SUBAGENT_INVALID",
+      expectedPath: "subagents/researcher.md",
+    },
+    {
       name: "subagent missing required description",
       files: {
         "harness-registry.json": JSON.stringify(
@@ -785,20 +802,149 @@ test("validateRegistryRepo reports structural and metadata failures", async () =
       expectedCode: "REGISTRY_HOOK_INVALID",
       expectedPath: "hooks/guard.md",
     },
+    {
+      name: "command missing required description",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "commands/review.md": "---\nargument-hint: '[path]'\n---\n\nReview changes.\n",
+      },
+      expectedCode: "REGISTRY_COMMAND_MISSING_DESCRIPTION",
+      expectedPath: "commands/review.md",
+    },
+    {
+      name: "command rejects non-markdown files",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "commands/review.json": "{}\n",
+      },
+      expectedCode: "REGISTRY_COMMAND_INVALID_FILE_TYPE",
+      expectedPath: "commands/review.json",
+    },
+    {
+      name: "command invalid id",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "commands/bad id.md": "---\ndescription: Review changes\n---\n\nReview changes.\n",
+      },
+      expectedCode: "REGISTRY_COMMAND_INVALID_ID",
+      expectedPath: "commands/bad id.md",
+    },
+    {
+      name: "command empty file",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "commands/review.md": "\n\n",
+      },
+      expectedCode: "REGISTRY_COMMAND_EMPTY",
+      expectedPath: "commands/review.md",
+    },
+    {
+      name: "command missing frontmatter block",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "commands/review.md": "Review changes.\n",
+      },
+      expectedCode: "REGISTRY_COMMAND_INVALID_FRONTMATTER",
+      expectedPath: "commands/review.md",
+    },
+    {
+      name: "command empty frontmatter block",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "commands/review.md": "---\n---\n\nReview changes.\n",
+      },
+      expectedCode: "REGISTRY_COMMAND_MISSING_DESCRIPTION",
+      expectedPath: "commands/review.md",
+    },
+    {
+      name: "command empty body",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "commands/review.md": "---\ndescription: Review changes\n---\n\n   \n",
+      },
+      expectedCode: "REGISTRY_COMMAND_EMPTY",
+      expectedPath: "commands/review.md",
+    },
+    {
+      name: "command malformed frontmatter",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "commands/review.md": "---\ndescription: [unterminated\n---\n\nReview changes.\n",
+      },
+      expectedCode: "REGISTRY_COMMAND_INVALID_FRONTMATTER",
+      expectedPath: "commands/review.md",
+    },
+    {
+      name: "empty commands directory is acceptable",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+      },
+      expectValid: true,
+      setup: async (repo: string) => {
+        await fs.mkdir(path.join(repo, "commands"), { recursive: true });
+      },
+    },
   ];
 
   for (const entry of cases) {
     const repo = await mkTmpRegistry(entry.files);
+    await entry.setup?.(repo);
     const result = await validateRegistryRepo({ repoPath: repo });
+    if (entry.expectValid) {
+      assert.equal(result.valid, true, entry.name);
+      assert.deepEqual(result.diagnostics, [], `${entry.name}: expected no diagnostics`);
+      continue;
+    }
     assert.equal(result.valid, false, entry.name);
+    assert.ok(entry.expectedCode, `${entry.name}: expectedCode is required for invalid cases`);
     assert.ok(
-      result.diagnostics.some(
-        (diagnostic) =>
-          diagnostic.code === entry.expectedCode &&
-          (entry.expectedPath ? diagnostic.path === entry.expectedPath : true),
-      ),
-      `${entry.name}: missing expected diagnostic ${entry.expectedCode}`,
+      result.diagnostics.some((diagnostic) => diagnostic.code === entry.expectedCode),
+      `${entry.name}: missing expected diagnostic code ${entry.expectedCode}`,
     );
+    if (entry.expectedPath) {
+      assert.ok(
+        result.diagnostics.some(
+          (diagnostic) => diagnostic.code === entry.expectedCode && diagnostic.path === entry.expectedPath,
+        ),
+        `${entry.name}: missing expected diagnostic path ${entry.expectedPath} for ${entry.expectedCode}`,
+      );
+    }
   }
 });
 
