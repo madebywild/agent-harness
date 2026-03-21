@@ -106,6 +106,7 @@ The main package containing the CLI and core engine. Key modules:
 - **Biome** for linting and formatting (2-space indent, double quotes, semicolons, 120 char line width).
 - **Lefthook** pre-commit hooks auto-format and lint staged files; pre-push runs typecheck.
 - Strict TypeScript: `noUncheckedIndexedAccess`, `noImplicitOverride`, full `strict` mode.
+- **Git** — use [Conventional Commits](https://www.conventionalcommits.org/) format (e.g. `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`).
 
 ## Release
 

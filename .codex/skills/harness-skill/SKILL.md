@@ -82,7 +82,7 @@ After `npx harness apply`, provider artifacts are written to the paths described
 ### OpenAI Codex CLI
 
 - **Output path:** `.codex/skills/<skill-id>/SKILL.md` (plus any supporting files)
-- **Discovery:** Codex scans `.agents/skills/` from `$CWD` up to the repo root, and `~/.agents/skills/` for personal skills. Harness writes to `.codex/skills/` which maps to the project-level skills root.
+- **Discovery:** Codex scans both `.codex/skills/` and `.agents/skills/` from `$CWD` up to the repo root. Personal skills live at `~/.agents/skills/` (preferred) or `~/.codex/skills/` (deprecated). Harness writes to `.codex/skills/` at the project level.
 - **Invocation:** Type `/skills` or `$` to mention a skill by name. Codex also selects skills implicitly based on the task description unless `allow_implicit_invocation: false` is set.
 - **How it works:** Codex uses progressive disclosure — it loads only skill metadata initially and reads full instructions upon activation.
 - **Frontmatter fields supported:** `name` and `description` are the primary fields. An optional `agents/openai.yaml` sidecar in the skill directory can set `policy.allow_implicit_invocation`, display metadata, and tool dependencies.
@@ -91,16 +91,19 @@ After `npx harness apply`, provider artifacts are written to the paths described
 ### GitHub Copilot
 
 - **Output path:** `.github/skills/<skill-id>/SKILL.md` (plus any supporting files)
-- **Discovery:** Copilot scans `.github/skills/` for project skills and `~/.copilot/skills/` for personal skills. Works in Copilot coding agent, Copilot CLI, and agent mode in VS Code.
-- **Invocation:** Copilot automatically determines when to use a skill based on context. When activated, the full `SKILL.md` is injected into the agent's context.
+- **Discovery:** Copilot scans `.github/skills/`, `.claude/skills/`, and `.agents/skills/` for project skills. Personal skills live at `~/.copilot/skills/`, `~/.claude/skills/`, or `~/.agents/skills/`. Works in Copilot coding agent, Copilot CLI, and agent mode in VS Code. Harness writes to `.github/skills/` to avoid duplication across the scanned paths.
+- **Invocation:** Copilot automatically determines when to use a skill based on context. When activated, the full `SKILL.md` is injected into the agent's context. In VS Code, skills also appear as `/<skill-name>` slash commands.
 - **How it works:** Skills supplement custom instructions (`.github/copilot-instructions.md`). Use custom instructions for broad coding standards; use skills for detailed, task-specific procedures Copilot should only load when relevant.
 - **Frontmatter fields supported:**
 
   | Field | Required | Notes |
   |---|---|---|
-  | `name` | Yes | Unique lowercase identifier matching the directory name. |
-  | `description` | Yes | What the skill does and when Copilot should use it. |
-  | `license` | No | Applicable licensing terms. |
+  | `name` | Yes | Unique lowercase identifier matching the directory name (max 64 chars). |
+  | `description` | Yes | What the skill does and when Copilot should use it (max 1024 chars). |
+  | `argument-hint` | No | Hint text for slash command invocation (VS Code). |
+  | `disable-model-invocation` | No | `true` = Copilot won't auto-load this skill (VS Code). |
+  | `user-invocable` | No | `false` = hidden from `/` menu (VS Code). |
+  | `license` | No | Applicable licensing terms (coding agent). |
 
 - **Official docs:** https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/create-skills
 
@@ -112,8 +115,8 @@ After `npx harness apply`, provider artifacts are written to the paths described
 |---|---|---|---|
 | Output root | `.claude/skills/` | `.codex/skills/` | `.github/skills/` |
 | Invocation | `/<skill-id>` | `/skills` or `$mention` | Automatic on context match |
-| Auto-invoke | Yes (opt-out via frontmatter) | Yes (opt-out via `openai.yaml`) | Yes (always context-driven) |
-| Frontmatter richness | Extensive (9+ fields) | Minimal (`name`, `description`) | Minimal (`name`, `description`, `license`) |
+| Auto-invoke | Yes (opt-out via frontmatter) | Yes (opt-out via `openai.yaml`) | Yes (opt-out via frontmatter in VS Code) |
+| Frontmatter richness | Extensive (11+ fields) | Minimal (`name`, `description`) | Moderate (`name`, `description`, plus VS Code fields) |
 | Argument passing | `$ARGUMENTS`, `$N` placeholders | Not specified | Not applicable |
 | Subagent execution | `context: fork` | Not applicable | Not applicable |
 | Supporting files | Fully supported | Supported (`scripts/`, `references/`) | Supported |

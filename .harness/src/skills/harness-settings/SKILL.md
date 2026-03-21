@@ -185,8 +185,8 @@ Written to `.codex/config.toml` and merged with MCP server entries, agent defini
 
 | Key | Type | Description |
 |---|---|---|
-| `model` | string | Model to use, e.g. `"gpt-5.4"` |
-| `model_provider` | string | Provider ID (default: `"openai"`) |
+| `model` | string | Model to use, e.g. `"gpt-5-codex"` |
+| `model_provider` | string | Provider ID (default: `"openai"`); use `[model_providers.<id>]` for custom providers |
 | `model_reasoning_effort` | string | `"minimal"`, `"low"`, `"medium"`, `"high"`, or `"xhigh"` |
 | `model_reasoning_summary` | string | `"auto"`, `"concise"`, `"detailed"`, or `"none"` |
 | `approval_policy` | string/object | `"untrusted"`, `"on-request"`, `"never"`, or granular object |
@@ -206,7 +206,7 @@ Written to `.codex/config.toml` and merged with MCP server entries, agent defini
 
 ```json
 {
-  "model": "gpt-5.4",
+  "model": "gpt-5-codex",
   "model_reasoning_effort": "medium",
   "approval_policy": "on-request",
   "sandbox_mode": "workspace-write",

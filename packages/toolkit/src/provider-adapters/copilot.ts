@@ -97,7 +97,7 @@ export function buildCopilotAdapter(skillFilesByEntityId: SkillFileIndex): Provi
 }
 
 function renderCopilotCommandMarkdown(input: CanonicalCommand): string {
-  const frontmatterLines = ["mode: agent", `description: ${JSON.stringify(input.description)}`];
+  const frontmatterLines = ["agent: agent", `description: ${JSON.stringify(input.description)}`];
   const parts = ["---", ...frontmatterLines, "---"];
   if (input.body) {
     parts.push("", input.body);

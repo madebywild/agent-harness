@@ -21,7 +21,7 @@ test("claude renderCommand emits .claude/commands/<id>.md", async () => {
     body: "Fix $ARGUMENTS now.",
   };
 
-  const artifacts = await adapter.renderCommand!(input, undefined);
+  const artifacts = (await adapter.renderCommand?.(input, undefined)) ?? [];
 
   assert.equal(artifacts.length, 1);
   assert.equal(artifacts[0]?.path, ".claude/commands/fix-issue.md");
@@ -37,7 +37,7 @@ test("claude renderCommand includes description in frontmatter", async () => {
     body: "Do the thing.",
   };
 
-  const artifacts = await adapter.renderCommand!(input, undefined);
+  const artifacts = (await adapter.renderCommand?.(input, undefined)) ?? [];
   const content = artifacts[0]?.content ?? "";
 
   assert.ok(content.includes('description: "My command description"'), `content was:\n${content}`);
@@ -52,7 +52,7 @@ test("claude renderCommand includes argument-hint when present", async () => {
     body: "Work on $ARGUMENTS.",
   };
 
-  const artifacts = await adapter.renderCommand!(input, undefined);
+  const artifacts = (await adapter.renderCommand?.(input, undefined)) ?? [];
   const content = artifacts[0]?.content ?? "";
 
   assert.ok(content.includes('argument-hint: "[file-path]"'), `content was:\n${content}`);
@@ -66,7 +66,7 @@ test("claude renderCommand omits argument-hint when not present", async () => {
     body: "Do it.",
   };
 
-  const artifacts = await adapter.renderCommand!(input, undefined);
+  const artifacts = (await adapter.renderCommand?.(input, undefined)) ?? [];
   const content = artifacts[0]?.content ?? "";
 
   assert.ok(!content.includes("argument-hint"), `content was:\n${content}`);
@@ -76,7 +76,7 @@ test("claude renderCommand returns empty when override.enabled is false", async 
   const adapter = buildClaudeAdapter(new Map());
   const input: CanonicalCommand = { id: "cmd", description: "My command", body: "Do it." };
 
-  const artifacts = await adapter.renderCommand!(input, { version: 1, enabled: false });
+  const artifacts = (await adapter.renderCommand?.(input, { version: 1, enabled: false })) ?? [];
 
   assert.equal(artifacts.length, 0);
 });
@@ -85,7 +85,8 @@ test("claude renderCommand respects custom targetPath override", async () => {
   const adapter = buildClaudeAdapter(new Map());
   const input: CanonicalCommand = { id: "cmd", description: "My command", body: "Do it." };
 
-  const artifacts = await adapter.renderCommand!(input, { version: 1, targetPath: ".claude/custom/my-cmd.md" });
+  const artifacts =
+    (await adapter.renderCommand?.(input, { version: 1, targetPath: ".claude/custom/my-cmd.md" })) ?? [];
 
   assert.equal(artifacts[0]?.path, ".claude/custom/my-cmd.md");
 });
@@ -94,7 +95,7 @@ test("claude renderCommand ends with single trailing newline", async () => {
   const adapter = buildClaudeAdapter(new Map());
   const input: CanonicalCommand = { id: "cmd", description: "My command", body: "Do it." };
 
-  const artifacts = await adapter.renderCommand!(input, undefined);
+  const artifacts = (await adapter.renderCommand?.(input, undefined)) ?? [];
   const content = artifacts[0]?.content ?? "";
 
   assert.ok(content.endsWith("\n"), "content should end with newline");
@@ -113,7 +114,7 @@ test("copilot renderCommand emits .github/prompts/<id>.prompt.md", async () => {
     body: "Fix $ARGUMENTS.",
   };
 
-  const artifacts = await adapter.renderCommand!(input, undefined);
+  const artifacts = (await adapter.renderCommand?.(input, undefined)) ?? [];
 
   assert.equal(artifacts.length, 1);
   assert.equal(artifacts[0]?.path, ".github/prompts/fix-issue.prompt.md");
@@ -121,7 +122,7 @@ test("copilot renderCommand emits .github/prompts/<id>.prompt.md", async () => {
   assert.equal(artifacts[0]?.format, "markdown");
 });
 
-test("copilot renderCommand includes mode: agent in frontmatter", async () => {
+test("copilot renderCommand includes agent: agent in frontmatter", async () => {
   const adapter = buildCopilotAdapter(new Map());
   const input: CanonicalCommand = {
     id: "cmd",
@@ -129,10 +130,10 @@ test("copilot renderCommand includes mode: agent in frontmatter", async () => {
     body: "Do it.",
   };
 
-  const artifacts = await adapter.renderCommand!(input, undefined);
+  const artifacts = (await adapter.renderCommand?.(input, undefined)) ?? [];
   const content = artifacts[0]?.content ?? "";
 
-  assert.ok(content.includes("mode: agent"), `content was:\n${content}`);
+  assert.ok(content.includes("agent: agent"), `content was:\n${content}`);
 });
 
 test("copilot renderCommand includes description in frontmatter", async () => {
@@ -143,7 +144,7 @@ test("copilot renderCommand includes description in frontmatter", async () => {
     body: "Do it.",
   };
 
-  const artifacts = await adapter.renderCommand!(input, undefined);
+  const artifacts = (await adapter.renderCommand?.(input, undefined)) ?? [];
   const content = artifacts[0]?.content ?? "";
 
   assert.ok(content.includes('description: "My copilot description"'), `content was:\n${content}`);
@@ -158,7 +159,7 @@ test("copilot renderCommand does not include argument-hint", async () => {
     body: "Do it.",
   };
 
-  const artifacts = await adapter.renderCommand!(input, undefined);
+  const artifacts = (await adapter.renderCommand?.(input, undefined)) ?? [];
   const content = artifacts[0]?.content ?? "";
 
   assert.ok(!content.includes("argument-hint"), `content was:\n${content}`);
@@ -168,7 +169,7 @@ test("copilot renderCommand returns empty when override.enabled is false", async
   const adapter = buildCopilotAdapter(new Map());
   const input: CanonicalCommand = { id: "cmd", description: "My command", body: "Do it." };
 
-  const artifacts = await adapter.renderCommand!(input, { version: 1, enabled: false });
+  const artifacts = (await adapter.renderCommand?.(input, { version: 1, enabled: false })) ?? [];
 
   assert.equal(artifacts.length, 0);
 });
@@ -177,7 +178,8 @@ test("copilot renderCommand respects custom targetPath override", async () => {
   const adapter = buildCopilotAdapter(new Map());
   const input: CanonicalCommand = { id: "cmd", description: "My command", body: "Do it." };
 
-  const artifacts = await adapter.renderCommand!(input, { version: 1, targetPath: ".github/custom/cmd.prompt.md" });
+  const artifacts =
+    (await adapter.renderCommand?.(input, { version: 1, targetPath: ".github/custom/cmd.prompt.md" })) ?? [];
 
   assert.equal(artifacts[0]?.path, ".github/custom/cmd.prompt.md");
 });

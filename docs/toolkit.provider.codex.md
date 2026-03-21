@@ -15,8 +15,7 @@ Builds the Codex provider adapter.
 - Uses `renderProviderState` to merge enabled MCP/subagent/hook-state into one TOML artifact.
 - TOML payload can include:
   - `mcp_servers` (merged MCP servers)
-  - `experimental_use_role = true` (when subagents are enabled)
-  - `agents.<id>` entries (enabled subagents)
+  - `agents.<id>` entries (enabled subagents, with `developer_instructions` and `description`)
   - `notify = [...]` (projected from hook `turn_complete`)
 - Returns no artifact when merged payload is empty.
 - Output string is normalized to one trailing newline.
