@@ -1,12 +1,6 @@
 import matter from "gray-matter";
 import type { CanonicalCommand, Diagnostic } from "./types.js";
 
-export interface ParsedCanonicalCommandDocument {
-  description: string;
-  argumentHint?: string;
-  body: string;
-}
-
 export function parseCanonicalCommandDocument(
   raw: string,
   sourcePath: string,
