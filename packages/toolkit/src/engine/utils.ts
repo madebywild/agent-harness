@@ -57,6 +57,14 @@ export function registryIdFromInput(value: string): RegistryId {
   return value;
 }
 
+export function lookupRegistryDefinition(manifest: AgentsManifest, registryId: RegistryId): RegistryDefinition {
+  const definition = manifest.registries.entries[registryId];
+  if (!definition) {
+    throw new Error(`REGISTRY_NOT_FOUND: registry '${registryId}' is not configured`);
+  }
+  return definition;
+}
+
 export function resolveEntityRegistrySelection(
   manifest: AgentsManifest,
   explicitRegistry?: string,
@@ -64,11 +72,7 @@ export function resolveEntityRegistrySelection(
   const registryId = explicitRegistry
     ? registryIdFromInput(explicitRegistry)
     : manifest.registries.default || DEFAULT_REGISTRY_ID;
-  const definition = manifest.registries.entries[registryId];
-  if (!definition) {
-    throw new Error(`REGISTRY_NOT_FOUND: registry '${registryId}' is not configured`);
-  }
-  return { id: registryId, definition };
+  return { id: registryId, definition: lookupRegistryDefinition(manifest, registryId) };
 }
 
 export function manifestEntityTypeToCliEntityType(type: EntityType): CliEntityType {

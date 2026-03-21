@@ -10,7 +10,16 @@ export async function handleInit(
     launchDelegate?: typeof launchDelegatedInit;
   },
 ): Promise<InitOutput> {
-  const delegateProvider = input.delegate ? providerIdSchema.parse(input.delegate) : undefined;
+  let delegateProvider: ReturnType<typeof providerIdSchema.parse> | undefined;
+  if (input.delegate) {
+    const parsed = providerIdSchema.safeParse(input.delegate);
+    if (!parsed.success) {
+      throw new Error(
+        `INIT_DELEGATE_INVALID_PROVIDER: '${input.delegate}' is not a valid provider (${providerIdSchema.options.join(", ")})`,
+      );
+    }
+    delegateProvider = parsed.data;
+  }
   if (delegateProvider && input.json) {
     throw new Error("INIT_DELEGATE_JSON_UNSUPPORTED: delegated init cannot be combined with --json");
   }

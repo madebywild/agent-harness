@@ -517,18 +517,21 @@ export async function runInteractiveAdapter(
   while (true) {
     const commandOptions = [
       ...INTERACTIVE_COMMAND_IDS.map((id) => ({
-        value: id,
+        value: id as CommandId | "exit",
         label: getCommandDefinition(id).interactiveLabel ?? getCommandDefinition(id).description,
       })),
       {
-        value: "exit",
+        value: "exit" as const,
         label: "Exit",
       },
-    ] as Array<{ value: CommandId | "exit"; label: string }>;
+    ];
 
-    const command = await select<CommandId | "exit">({
+    // @clack/prompts distributes the generic over the union, requiring a type assertion here
+    const command = await (
+      select as (opts: { message: string; options: typeof commandOptions }) => Promise<CommandId | "exit" | symbol>
+    )({
       message: "Select a command",
-      options: commandOptions as never,
+      options: commandOptions,
     });
 
     const resolvedCommand = getSelectedValue(command);

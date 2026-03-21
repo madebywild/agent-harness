@@ -217,7 +217,6 @@ export const registryManifestSchema = z
 const presetRegistryTargetSchema = z
   .object({
     registry: registryIdSchema,
-    default: z.boolean().optional(),
   })
   .strict();
 

@@ -1,12 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { RegistryId } from "@madebywild/agent-harness-manifest";
-import { DEFAULT_REGISTRY_ID } from "@madebywild/agent-harness-manifest";
+import { lookupRegistryDefinition } from "./engine/utils.js";
 import { fetchPresetFromRegistry, listPresetsFromRegistry } from "./entity-registries.js";
 import { resolveHarnessPaths } from "./paths.js";
 import { BUILTIN_PRESETS } from "./preset-builtin.js";
 import { listPresetDirectories, readPresetPackageFromDir } from "./preset-packages.js";
-import type { AgentsManifest, PresetSummary, RegistryDefinition, ResolvedPreset } from "./types.js";
+import type { AgentsManifest, PresetSummary, ResolvedPreset } from "./types.js";
 
 export function summarizePreset(preset: ResolvedPreset): PresetSummary {
   return {
@@ -41,7 +41,7 @@ export async function listLocalPresets(cwd: string): Promise<ResolvedPreset[]> {
 }
 
 export async function listRegistryPresets(manifest: AgentsManifest, registryId: RegistryId): Promise<ResolvedPreset[]> {
-  const definition = resolveRegistryDefinition(manifest, registryId);
+  const definition = lookupRegistryDefinition(manifest, registryId);
   const fetched = await listPresetsFromRegistry(registryId, definition);
   return fetched.map((entry) => ({
     source: "registry" as const,
@@ -63,7 +63,7 @@ export async function resolvePreset(
     if (!options.manifest) {
       throw new Error(`REGISTRY_NOT_FOUND: registry '${options.registry}' is not configured`);
     }
-    const definition = resolveRegistryDefinition(options.manifest, options.registry);
+    const definition = lookupRegistryDefinition(options.manifest, options.registry);
     const fetched = await fetchPresetFromRegistry(options.registry, definition, options.presetId);
     return {
       source: "registry",
@@ -94,13 +94,4 @@ export async function resolvePreset(
     definition: loaded.definition,
     content: loaded.content,
   };
-}
-
-function resolveRegistryDefinition(manifest: AgentsManifest, registryId: RegistryId): RegistryDefinition {
-  const resolvedRegistryId = registryId || manifest.registries.default || DEFAULT_REGISTRY_ID;
-  const definition = manifest.registries.entries[resolvedRegistryId];
-  if (!definition) {
-    throw new Error(`REGISTRY_NOT_FOUND: registry '${resolvedRegistryId}' is not configured`);
-  }
-  return definition;
 }

@@ -4,7 +4,7 @@ import * as TOML from "@iarna/toml";
 import { type PresetDefinition, parsePresetDefinition, providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { listFilesRecursively } from "./repository.js";
 import type { ProviderId, ResolvedPresetSource } from "./types.js";
-import { normalizeRelativePath, parseJsonAsRecord, parseTomlAsRecord } from "./utils.js";
+import { exists, normalizeRelativePath, parseJsonAsRecord, parseTomlAsRecord } from "./utils.js";
 
 export interface LoadedPresetPackage {
   definition: PresetDefinition;
@@ -19,37 +19,37 @@ export async function readPresetPackageFromDir(presetDir: string): Promise<Loade
   const content: ResolvedPresetSource = {};
 
   const promptPath = path.join(presetDir, "prompt.md");
-  if (await pathExists(promptPath)) {
+  if (await exists(promptPath)) {
     content.prompt = await fs.readFile(promptPath, "utf8");
   }
 
   const skillsDir = path.join(presetDir, "skills");
-  if (await pathExists(skillsDir)) {
+  if (await exists(skillsDir)) {
     content.skills = await loadPresetSkills(skillsDir);
   }
 
   const mcpDir = path.join(presetDir, "mcp");
-  if (await pathExists(mcpDir)) {
+  if (await exists(mcpDir)) {
     content.mcp = await loadObjectFiles(mcpDir, ".json");
   }
 
   const subagentsDir = path.join(presetDir, "subagents");
-  if (await pathExists(subagentsDir)) {
+  if (await exists(subagentsDir)) {
     content.subagents = await loadTextFiles(subagentsDir, ".md");
   }
 
   const hooksDir = path.join(presetDir, "hooks");
-  if (await pathExists(hooksDir)) {
+  if (await exists(hooksDir)) {
     content.hooks = await loadObjectFiles(hooksDir, ".json");
   }
 
   const settingsDir = path.join(presetDir, "settings");
-  if (await pathExists(settingsDir)) {
+  if (await exists(settingsDir)) {
     content.settings = await loadSettingsFiles(settingsDir);
   }
 
   const commandsDir = path.join(presetDir, "commands");
-  if (await pathExists(commandsDir)) {
+  if (await exists(commandsDir)) {
     content.commands = await loadTextFiles(commandsDir, ".md");
   }
 
@@ -57,7 +57,7 @@ export async function readPresetPackageFromDir(presetDir: string): Promise<Loade
 }
 
 export async function listPresetDirectories(rootDir: string): Promise<string[]> {
-  if (!(await pathExists(rootDir))) {
+  if (!(await exists(rootDir))) {
     return [];
   }
 
@@ -132,7 +132,7 @@ async function loadSettingsFiles(settingsDir: string): Promise<Partial<Record<Pr
   for (const provider of providerIdSchema.options) {
     const fileName = provider === "codex" ? "codex.toml" : `${provider}.json`;
     const filePath = path.join(settingsDir, fileName);
-    if (!(await pathExists(filePath))) {
+    if (!(await exists(filePath))) {
       continue;
     }
 
@@ -141,16 +141,4 @@ async function loadSettingsFiles(settingsDir: string): Promise<Partial<Record<Pr
   }
 
   return result;
-}
-
-async function pathExists(targetPath: string): Promise<boolean> {
-  try {
-    await fs.stat(targetPath);
-    return true;
-  } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
-      return false;
-    }
-    throw error;
-  }
 }

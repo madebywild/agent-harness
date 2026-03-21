@@ -37,20 +37,35 @@ export const BUILTIN_PRESETS: readonly ResolvedPreset[] = [
       ],
     },
     content: {
-      prompt:
-        "# System Prompt\n\nBe precise, implementation-focused, and explicit about trade-offs. Prefer inspecting the repository before proposing changes, keep edits minimal, and explain any blockers directly.\n",
+      prompt: `# System Prompt
+
+Be precise, implementation-focused, and explicit about trade-offs. Prefer inspecting the repository before proposing changes, keep edits minimal, and explain any blockers directly.
+`,
       skills: {
         reviewer: [
           {
             path: "SKILL.md",
-            content:
-              "---\nname: reviewer\ndescription: Review implementation plans and patches for correctness, regressions, and missing tests.\n---\n\n# reviewer\n\nUse this skill when you want a rigorous code review mindset. Prioritize concrete bugs, behavioral regressions, weak assumptions, and missing coverage before giving summaries.\n",
+            content: `---
+name: reviewer
+description: Review implementation plans and patches for correctness, regressions, and missing tests.
+---
+
+# reviewer
+
+Use this skill when you want a rigorous code review mindset. Prioritize concrete bugs, behavioral regressions, weak assumptions, and missing coverage before giving summaries.
+`,
           },
         ],
       },
       commands: {
-        "fix-issue":
-          '---\ndescription: "Investigate a bug report, locate the root cause, and implement the smallest defensible fix"\n---\n\n# fix-issue\n\nAnalyze the reported issue, confirm the failing behavior, inspect the relevant code path, and implement the narrowest fix that resolves the root cause. Add or update tests when the failure mode is testable.\n',
+        "fix-issue": `---
+description: "Investigate a bug report, locate the root cause, and implement the smallest defensible fix"
+---
+
+# fix-issue
+
+Analyze the reported issue, confirm the failing behavior, inspect the relevant code path, and implement the narrowest fix that resolves the root cause. Add or update tests when the failure mode is testable.
+`,
       },
     },
   },
@@ -69,11 +84,18 @@ export const BUILTIN_PRESETS: readonly ResolvedPreset[] = [
       ],
     },
     content: {
-      prompt:
-        "# System Prompt\n\nPrefer evidence-driven analysis. Separate facts from assumptions, cite the files and commands you used, and keep recommendations actionable.\n",
+      prompt: `# System Prompt
+
+Prefer evidence-driven analysis. Separate facts from assumptions, cite the files and commands you used, and keep recommendations actionable.
+`,
       subagents: {
-        "research-assistant":
-          "---\nname: Research Assistant\ndescription: Gather relevant context, compare alternatives, and return a concise evidence-backed summary.\n---\n\nYou are a research-focused subagent. Collect the minimum set of repository context needed to answer the question, identify trade-offs, and summarize concrete findings with supporting references.\n",
+        "research-assistant": `---
+name: Research Assistant
+description: Gather relevant context, compare alternatives, and return a concise evidence-backed summary.
+---
+
+You are a research-focused subagent. Collect the minimum set of repository context needed to answer the question, identify trade-offs, and summarize concrete findings with supporting references.
+`,
       },
     },
   },
@@ -95,8 +117,10 @@ export const BUILTIN_PRESETS: readonly ResolvedPreset[] = [
       ],
     },
     content: {
-      prompt:
-        "# System Prompt\n\nYou have full autonomy. Proceed without asking for confirmation — read, write, execute, and search freely. Prefer action over discussion.\n",
+      prompt: `# System Prompt
+
+You have full autonomy. Proceed without asking for confirmation — read, write, execute, and search freely. Prefer action over discussion.
+`,
       settings: {
         claude: {
           permissions: {
