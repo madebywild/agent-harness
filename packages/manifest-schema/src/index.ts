@@ -226,10 +226,6 @@ const presetEntitySourceSchema = z
   })
   .strict();
 
-const presetSettingsSourceSchema = presetEntitySourceSchema.extend({
-  payload: z.record(z.string(), z.unknown()).optional(),
-});
-
 const presetOperationBaseSchema = z
   .object({
     label: z.string().min(1).optional(),
@@ -291,7 +287,7 @@ export const presetAddHookOperationSchema = presetOperationBaseSchema.extend({
 export const presetAddSettingsOperationSchema = presetOperationBaseSchema.extend({
   type: z.literal("add_settings"),
   provider: providerIdSchema,
-  source: presetSettingsSourceSchema.optional(),
+  source: presetEntitySourceSchema.optional(),
 });
 
 export const presetAddCommandOperationSchema = presetOperationBaseSchema.extend({

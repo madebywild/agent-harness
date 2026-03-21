@@ -109,275 +109,217 @@ export async function fetchEntityFromRegistry(
   entityType: EntityType,
   id: string,
 ): Promise<FetchedRegistryEntity> {
-  if (definition.type === "local") {
-    throw new RegistryError("REGISTRY_FETCH_FAILED", registryId, "Local registry does not support remote fetch");
-  }
-
-  const authToken = definition.tokenEnvVar ? process.env[definition.tokenEnvVar] : undefined;
-  if (definition.tokenEnvVar && !authToken) {
-    throw new RegistryError(
-      "REGISTRY_AUTH_MISSING",
-      registryId,
-      `Missing required token environment variable '${definition.tokenEnvVar}' for registry '${registryId}'`,
-    );
-  }
-
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-harness-registry-"));
-  const checkoutDir = path.join(tempRoot, "repo");
-
+  const checkout = await checkoutRegistry(registryId, definition);
   try {
-    const cloneCommand = buildGitCloneCommand(definition, authToken, checkoutDir);
-    await execFileAsync("git", cloneCommand.args, {
-      env: {
-        ...process.env,
-        GIT_TERMINAL_PROMPT: "0",
-        GIT_ASKPASS: "",
-      },
-    });
-  } catch (error) {
-    await cleanupTempDir(tempRoot);
-    throw new RegistryError(
-      "REGISTRY_FETCH_FAILED",
-      registryId,
-      `Failed to fetch git registry '${registryId}': ${cloneErrorMessage(error, authToken)}`,
-    );
-  }
-
-  try {
-    const commit = await resolveCommit(checkoutDir, registryId);
-    const registryManifest = await readRegistryManifest(checkoutDir, registryId);
-    const rootPath = definition.rootPath ? normalizeRelativePath(definition.rootPath) : ".";
-
-    if (entityType === "prompt") {
-      if (id !== "system") {
-        throw new RegistryError(
-          "REGISTRY_ENTITY_NOT_FOUND",
-          registryId,
-          `Prompt id must be 'system', received '${id}'`,
-        );
-      }
-
-      const sourceText = await readFileWithNotFound(
-        path.join(checkoutDir, rootPath, "prompts", "system.md"),
-        registryId,
-        `Prompt 'system' not found in registry '${registryId}'`,
-      );
-
-      return {
-        type: "prompt",
-        id,
-        registry: registryId,
-        sourceText,
-        registryManifest,
-        registryRevision: {
-          kind: "git",
-          ref: definition.ref,
-          commit,
-        },
-        importedSourceSha256: sha256(sourceText),
-      };
-    }
-
-    if (entityType === "skill") {
-      const skillDir = path.join(checkoutDir, rootPath, "skills", id);
-      const files = await readSkillFiles(skillDir, registryId, id);
-      const normalizedFiles = files
-        .filter((entry) => !isSkillOverrideFile(entry.path))
-        .map((entry) => ({ path: entry.path, sha256: entry.sha256 }))
-        .sort((left, right) => left.path.localeCompare(right.path));
-
-      return {
-        type: "skill",
-        id,
-        registry: registryId,
-        files,
-        registryManifest,
-        registryRevision: {
-          kind: "git",
-          ref: definition.ref,
-          commit,
-        },
-        importedSourceSha256: sha256(stableStringify(normalizedFiles)),
-      };
-    }
-
-    if (entityType === "mcp_config") {
-      const mcpPath = path.join(checkoutDir, rootPath, "mcp", `${id}.json`);
-      const mcpText = await readFileWithNotFound(
-        mcpPath,
-        registryId,
-        `MCP config '${id}' not found in registry '${registryId}'`,
-      );
-
-      let sourceJson: Record<string, unknown>;
-      try {
-        const parsed = JSON.parse(mcpText) as unknown;
-        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-          throw new Error("MCP config must be a JSON object");
-        }
-        sourceJson = parsed as Record<string, unknown>;
-      } catch (error) {
-        throw new RegistryError(
-          "REGISTRY_FETCH_FAILED",
-          registryId,
-          `MCP config '${id}' in registry '${registryId}' is invalid: ${error instanceof Error ? error.message : "unknown error"}`,
-        );
-      }
-
-      return {
-        type: "mcp_config",
-        id,
-        registry: registryId,
-        sourceJson,
-        registryManifest,
-        registryRevision: {
-          kind: "git",
-          ref: definition.ref,
-          commit,
-        },
-        importedSourceSha256: sha256(stableStringify(sourceJson)),
-      };
-    }
-
-    if (entityType === "hook") {
-      const hookPath = path.join(checkoutDir, rootPath, "hooks", `${id}.json`);
-      const hookText = await readFileWithNotFound(
-        hookPath,
-        registryId,
-        `Hook '${id}' not found in registry '${registryId}'`,
-      );
-
-      let sourceJson: Record<string, unknown>;
-      try {
-        const parsed = JSON.parse(hookText) as unknown;
-        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-          throw new Error("Hook config must be a JSON object");
-        }
-        sourceJson = parsed as Record<string, unknown>;
-      } catch (error) {
-        throw new RegistryError(
-          "REGISTRY_FETCH_FAILED",
-          registryId,
-          `Hook '${id}' in registry '${registryId}' is invalid: ${error instanceof Error ? error.message : "unknown error"}`,
-        );
-      }
-
-      return {
-        type: "hook",
-        id,
-        registry: registryId,
-        sourceJson,
-        registryManifest,
-        registryRevision: {
-          kind: "git",
-          ref: definition.ref,
-          commit,
-        },
-        importedSourceSha256: sha256(stableStringify(sourceJson)),
-      };
-    }
-
-    if (entityType === "subagent") {
-      const subagentPath = path.join(checkoutDir, rootPath, "subagents", `${id}.md`);
-      const sourceText = await readFileWithNotFound(
-        subagentPath,
-        registryId,
-        `Subagent '${id}' not found in registry '${registryId}'`,
-      );
-
-      return {
-        type: "subagent",
-        id,
-        registry: registryId,
-        sourceText,
-        registryManifest,
-        registryRevision: {
-          kind: "git",
-          ref: definition.ref,
-          commit,
-        },
-        importedSourceSha256: sha256(sourceText),
-      };
-    }
-
-    if (entityType === "command") {
-      const commandPath = path.join(checkoutDir, rootPath, "commands", `${id}.md`);
-      const sourceText = await readFileWithNotFound(
-        commandPath,
-        registryId,
-        `Command '${id}' not found in registry '${registryId}'`,
-      );
-
-      return {
-        type: "command",
-        id,
-        registry: registryId,
-        sourceText,
-        registryManifest,
-        registryRevision: {
-          kind: "git",
-          ref: definition.ref,
-          commit,
-        },
-        importedSourceSha256: sha256(sourceText),
-      };
-    }
-
-    if (entityType === "settings") {
-      const parsedProvider = providerIdSchema.safeParse(id);
-      if (!parsedProvider.success) {
-        throw new RegistryError(
-          "REGISTRY_ENTITY_NOT_FOUND",
-          registryId,
-          `Settings id must be one of: ${providerIdSchema.options.join(", ")}`,
-        );
-      }
-
-      const provider = parsedProvider.data;
-      const fileName = provider === "codex" ? "codex.toml" : `${provider}.json`;
-      const settingsPath = path.join(checkoutDir, rootPath, "settings", fileName);
-      const sourceText = await readFileWithNotFound(
-        settingsPath,
-        registryId,
-        `Settings '${provider}' not found in registry '${registryId}'`,
-      );
-
-      let sourcePayload: Record<string, unknown>;
-      try {
-        sourcePayload = provider === "codex" ? parseTomlAsRecord(sourceText, TOML) : parseJsonAsRecord(sourceText);
-      } catch (error) {
-        const format = provider === "codex" ? "TOML" : "JSON";
-        throw new RegistryError(
-          "REGISTRY_FETCH_FAILED",
-          registryId,
-          `Settings '${provider}' in registry '${registryId}' is invalid ${format}: ${error instanceof Error ? error.message : "unknown error"}`,
-        );
-      }
-
-      return {
-        type: "settings",
-        id,
-        provider,
-        registry: registryId,
-        sourcePayload,
-        registryManifest,
-        registryRevision: {
-          kind: "git",
-          ref: definition.ref,
-          commit,
-        },
-        importedSourceSha256: sha256(stableStringify(sourcePayload)),
-      };
-    }
-
-    throw new RegistryError(
-      "REGISTRY_FETCH_FAILED",
-      registryId,
-      `Unsupported entity type '${entityType}' for registry fetch`,
-    );
+    return await fetchEntityFromCheckout(registryId, checkout, entityType, id);
   } finally {
-    await cleanupTempDir(tempRoot);
+    await cleanupTempDir(checkout.tempRoot);
   }
+}
+
+export async function fetchEntityFromCheckout(
+  registryId: RegistryId,
+  checkout: CheckedOutRegistry,
+  entityType: EntityType,
+  id: string,
+): Promise<FetchedRegistryEntity> {
+  const { checkoutDir, registryManifest, registryRevision, rootPath } = checkout;
+
+  if (entityType === "prompt") {
+    if (id !== "system") {
+      throw new RegistryError("REGISTRY_ENTITY_NOT_FOUND", registryId, `Prompt id must be 'system', received '${id}'`);
+    }
+
+    const sourceText = await readFileWithNotFound(
+      path.join(checkoutDir, rootPath, "prompts", "system.md"),
+      registryId,
+      `Prompt 'system' not found in registry '${registryId}'`,
+    );
+
+    return {
+      type: "prompt",
+      id,
+      registry: registryId,
+      sourceText,
+      registryManifest,
+      registryRevision,
+      importedSourceSha256: sha256(sourceText),
+    };
+  }
+
+  if (entityType === "skill") {
+    const skillDir = path.join(checkoutDir, rootPath, "skills", id);
+    const files = await readSkillFiles(skillDir, registryId, id);
+    const normalizedFiles = files
+      .filter((entry) => !isSkillOverrideFile(entry.path))
+      .map((entry) => ({ path: entry.path, sha256: entry.sha256 }))
+      .sort((left, right) => left.path.localeCompare(right.path));
+
+    return {
+      type: "skill",
+      id,
+      registry: registryId,
+      files,
+      registryManifest,
+      registryRevision,
+      importedSourceSha256: sha256(stableStringify(normalizedFiles)),
+    };
+  }
+
+  if (entityType === "mcp_config") {
+    const mcpPath = path.join(checkoutDir, rootPath, "mcp", `${id}.json`);
+    const mcpText = await readFileWithNotFound(
+      mcpPath,
+      registryId,
+      `MCP config '${id}' not found in registry '${registryId}'`,
+    );
+
+    let sourceJson: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(mcpText) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("MCP config must be a JSON object");
+      }
+      sourceJson = parsed as Record<string, unknown>;
+    } catch (error) {
+      throw new RegistryError(
+        "REGISTRY_FETCH_FAILED",
+        registryId,
+        `MCP config '${id}' in registry '${registryId}' is invalid: ${error instanceof Error ? error.message : "unknown error"}`,
+      );
+    }
+
+    return {
+      type: "mcp_config",
+      id,
+      registry: registryId,
+      sourceJson,
+      registryManifest,
+      registryRevision,
+      importedSourceSha256: sha256(stableStringify(sourceJson)),
+    };
+  }
+
+  if (entityType === "hook") {
+    const hookPath = path.join(checkoutDir, rootPath, "hooks", `${id}.json`);
+    const hookText = await readFileWithNotFound(
+      hookPath,
+      registryId,
+      `Hook '${id}' not found in registry '${registryId}'`,
+    );
+
+    let sourceJson: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(hookText) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Hook config must be a JSON object");
+      }
+      sourceJson = parsed as Record<string, unknown>;
+    } catch (error) {
+      throw new RegistryError(
+        "REGISTRY_FETCH_FAILED",
+        registryId,
+        `Hook '${id}' in registry '${registryId}' is invalid: ${error instanceof Error ? error.message : "unknown error"}`,
+      );
+    }
+
+    return {
+      type: "hook",
+      id,
+      registry: registryId,
+      sourceJson,
+      registryManifest,
+      registryRevision,
+      importedSourceSha256: sha256(stableStringify(sourceJson)),
+    };
+  }
+
+  if (entityType === "subagent") {
+    const subagentPath = path.join(checkoutDir, rootPath, "subagents", `${id}.md`);
+    const sourceText = await readFileWithNotFound(
+      subagentPath,
+      registryId,
+      `Subagent '${id}' not found in registry '${registryId}'`,
+    );
+
+    return {
+      type: "subagent",
+      id,
+      registry: registryId,
+      sourceText,
+      registryManifest,
+      registryRevision,
+      importedSourceSha256: sha256(sourceText),
+    };
+  }
+
+  if (entityType === "command") {
+    const commandPath = path.join(checkoutDir, rootPath, "commands", `${id}.md`);
+    const sourceText = await readFileWithNotFound(
+      commandPath,
+      registryId,
+      `Command '${id}' not found in registry '${registryId}'`,
+    );
+
+    return {
+      type: "command",
+      id,
+      registry: registryId,
+      sourceText,
+      registryManifest,
+      registryRevision,
+      importedSourceSha256: sha256(sourceText),
+    };
+  }
+
+  if (entityType === "settings") {
+    const parsedProvider = providerIdSchema.safeParse(id);
+    if (!parsedProvider.success) {
+      throw new RegistryError(
+        "REGISTRY_ENTITY_NOT_FOUND",
+        registryId,
+        `Settings id must be one of: ${providerIdSchema.options.join(", ")}`,
+      );
+    }
+
+    const provider = parsedProvider.data;
+    const fileName = provider === "codex" ? "codex.toml" : `${provider}.json`;
+    const settingsPath = path.join(checkoutDir, rootPath, "settings", fileName);
+    const sourceText = await readFileWithNotFound(
+      settingsPath,
+      registryId,
+      `Settings '${provider}' not found in registry '${registryId}'`,
+    );
+
+    let sourcePayload: Record<string, unknown>;
+    try {
+      sourcePayload = provider === "codex" ? parseTomlAsRecord(sourceText, TOML) : parseJsonAsRecord(sourceText);
+    } catch (error) {
+      const format = provider === "codex" ? "TOML" : "JSON";
+      throw new RegistryError(
+        "REGISTRY_FETCH_FAILED",
+        registryId,
+        `Settings '${provider}' in registry '${registryId}' is invalid ${format}: ${error instanceof Error ? error.message : "unknown error"}`,
+      );
+    }
+
+    return {
+      type: "settings",
+      id,
+      provider,
+      registry: registryId,
+      sourcePayload,
+      registryManifest,
+      registryRevision,
+      importedSourceSha256: sha256(stableStringify(sourcePayload)),
+    };
+  }
+
+  throw new RegistryError(
+    "REGISTRY_FETCH_FAILED",
+    registryId,
+    `Unsupported entity type '${entityType}' for registry fetch`,
+  );
 }
 
 export async function listPresetsFromRegistry(
@@ -442,7 +384,7 @@ export async function fetchPresetFromRegistry(
   return preset;
 }
 
-interface CheckedOutRegistry {
+export interface CheckedOutRegistry {
   checkoutDir: string;
   registryManifest: RegistryManifest;
   registryRevision: RegistryRevision;
@@ -450,7 +392,10 @@ interface CheckedOutRegistry {
   rootPath: string;
 }
 
-async function checkoutRegistry(registryId: RegistryId, definition: RegistryDefinition): Promise<CheckedOutRegistry> {
+export async function checkoutRegistry(
+  registryId: RegistryId,
+  definition: RegistryDefinition,
+): Promise<CheckedOutRegistry> {
   if (definition.type === "local") {
     throw new RegistryError("REGISTRY_FETCH_FAILED", registryId, "Local registry does not support remote fetch");
   }
@@ -636,7 +581,7 @@ async function readFileWithNotFound(filePath: string, registryId: string, notFou
   }
 }
 
-async function cleanupTempDir(tempDir: string): Promise<void> {
+export async function cleanupTempDir(tempDir: string): Promise<void> {
   await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {
     // best-effort temp cleanup
   });

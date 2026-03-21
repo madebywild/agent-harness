@@ -1,5 +1,10 @@
 import { DEFAULT_REGISTRY_ID, type PresetOperation, type ProviderId } from "@madebywild/agent-harness-manifest";
-import { fetchEntityFromRegistry } from "../entity-registries.js";
+import {
+  type CheckedOutRegistry,
+  checkoutRegistry,
+  cleanupTempDir,
+  fetchEntityFromCheckout,
+} from "../entity-registries.js";
 import { resolveHarnessPaths } from "../paths.js";
 import { summarizePreset } from "../presets.js";
 import { writeManifest } from "../repository.js";
@@ -23,54 +28,61 @@ export async function applyResolvedPreset(cwd: string, preset: ResolvedPreset): 
   let manifest = await readManifestOrThrow(paths);
   const results: PresetOperationResult[] = [];
 
-  for (const operation of preset.definition.operations) {
-    switch (operation.type) {
-      case "register_registry": {
-        const existing = manifest.registries.entries[operation.registry];
-        if (!existing) {
-          manifest.registries.entries[operation.registry] = operation.definition;
-          await writeManifest(paths, manifest);
-          results.push(
-            appliedResult(operation.type, operation.registry, `Registered registry '${operation.registry}'.`),
-          );
-        } else if (deepEqual(existing, operation.definition)) {
-          results.push(
-            skipResult(
-              operation.type,
-              operation.registry,
-              `Registry '${operation.registry}' already exists with the same definition.`,
-            ),
-          );
-        } else {
-          throw new Error(
-            `PRESET_CONFLICT: registry '${operation.registry}' already exists with a different definition`,
-          );
-        }
+  // Pre-checkout each unique registry referenced by entity operations so we
+  // clone at most once per registry instead of once per operation.
+  const checkoutCache = new Map<string, CheckedOutRegistry>();
+  try {
+    for (const operation of preset.definition.operations) {
+      switch (operation.type) {
+        case "register_registry": {
+          const existing = manifest.registries.entries[operation.registry];
+          if (!existing) {
+            manifest.registries.entries[operation.registry] = operation.definition;
+            await writeManifest(paths, manifest);
+            results.push(
+              appliedResult(operation.type, operation.registry, `Registered registry '${operation.registry}'.`),
+            );
+          } else if (deepEqual(existing, operation.definition)) {
+            results.push(
+              skipResult(
+                operation.type,
+                operation.registry,
+                `Registry '${operation.registry}' already exists with the same definition.`,
+              ),
+            );
+          } else {
+            throw new Error(
+              `PRESET_CONFLICT: registry '${operation.registry}' already exists with a different definition`,
+            );
+          }
 
-        manifest = await readManifestOrThrow(paths);
-        break;
-      }
-      case "enable_provider": {
-        if (manifest.providers.enabled.includes(operation.provider)) {
-          results.push(
-            skipResult(operation.type, operation.provider, `Provider '${operation.provider}' is already enabled.`),
-          );
+          manifest = await readManifestOrThrow(paths);
           break;
         }
+        case "enable_provider": {
+          if (manifest.providers.enabled.includes(operation.provider)) {
+            results.push(
+              skipResult(operation.type, operation.provider, `Provider '${operation.provider}' is already enabled.`),
+            );
+            break;
+          }
 
-        manifest.providers.enabled = uniqSorted([...manifest.providers.enabled, operation.provider]) as ProviderId[];
-        await writeManifest(paths, manifest);
-        results.push(appliedResult(operation.type, operation.provider, `Enabled provider '${operation.provider}'.`));
-        manifest = await readManifestOrThrow(paths);
-        break;
-      }
-      default: {
-        const result = await applyEntityOperation(cwd, manifest, preset, operation);
-        results.push(result);
-        manifest = await readManifestOrThrow(paths);
-        break;
+          manifest.providers.enabled = uniqSorted([...manifest.providers.enabled, operation.provider]) as ProviderId[];
+          await writeManifest(paths, manifest);
+          results.push(appliedResult(operation.type, operation.provider, `Enabled provider '${operation.provider}'.`));
+          manifest = await readManifestOrThrow(paths);
+          break;
+        }
+        default: {
+          const result = await applyEntityOperation(cwd, manifest, preset, operation, checkoutCache);
+          results.push(result);
+          manifest = await readManifestOrThrow(paths);
+          break;
+        }
       }
     }
+  } finally {
+    await Promise.all([...checkoutCache.values()].map((co) => cleanupTempDir(co.tempRoot)));
   }
 
   return {
@@ -166,6 +178,7 @@ async function applyEntityOperation(
   manifest: AgentsManifest,
   preset: ResolvedPreset,
   operation: EntityAddOperation,
+  checkoutCache: Map<string, CheckedOutRegistry>,
 ): Promise<PresetOperationResult> {
   const spec = describeEntityOperation(operation, preset);
   const { entityType, entityId, label, registry } = spec;
@@ -176,7 +189,7 @@ async function applyEntityOperation(
 
   const desiredSha =
     registry !== DEFAULT_REGISTRY_ID
-      ? await resolveRegistrySha(manifest, registry, entityType, entityId)
+      ? await resolveRegistrySha(manifest, registry, entityType, entityId, checkoutCache)
       : await spec.resolveDesiredSha();
 
   if (existing) {
@@ -284,14 +297,14 @@ async function resolveRegistrySha(
   registry: string,
   entityType: EntityType,
   entityId: string,
+  checkoutCache: Map<string, CheckedOutRegistry>,
 ): Promise<string> {
-  const fetchType = entityType === "mcp_config" ? "mcp_config" : entityType;
-  const fetched = await fetchEntityFromRegistry(
-    registry,
-    lookupRegistryDefinition(manifest, registry),
-    fetchType,
-    entityId,
-  );
+  let checkout = checkoutCache.get(registry);
+  if (!checkout) {
+    checkout = await checkoutRegistry(registry, lookupRegistryDefinition(manifest, registry));
+    checkoutCache.set(registry, checkout);
+  }
+  const fetched = await fetchEntityFromCheckout(registry, checkout, entityType, entityId);
   return fetched.importedSourceSha256;
 }
 
