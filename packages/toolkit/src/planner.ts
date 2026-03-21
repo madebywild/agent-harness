@@ -375,7 +375,7 @@ export async function buildPlan(
       type: settings.entity.type,
       registry: settings.entity.registry,
       sourceSha256: settings.sourceSha256,
-      overrideSha256ByProvider: settings.overrideShaByProvider,
+      overrideSha256ByProvider: {},
       ...resolvePriorRegistryProvenance(
         previousEntityByKey.get(`${settings.entity.type}:${settings.entity.id}`),
         settings.entity.registry,

@@ -121,10 +121,31 @@ export function isNotFoundError(error: unknown): boolean {
   );
 }
 
+export function parseJsonAsRecord(text: string): Record<string, unknown> {
+  const parsed: unknown = JSON.parse(text);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("expected a JSON object");
+  }
+  return parsed as Record<string, unknown>;
+}
+
+export function parseTomlAsRecord(text: string, TOML: { parse(input: string): unknown }): Record<string, unknown> {
+  const parsed: unknown = TOML.parse(text);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("expected a TOML table");
+  }
+  return parsed as Record<string, unknown>;
+}
+
 export function deepEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(sortJsonValue(left)) === JSON.stringify(sortJsonValue(right));
 }
 
+/**
+ * Recursively merges two plain objects. When both sides have an object for the
+ * same key the merge recurses; for any other type conflict the overlay value
+ * wins outright (a scalar in overlay replaces an entire object subtree in base).
+ */
 export function deepMergeObjects(
   base: Record<string, unknown>,
   overlay: Record<string, unknown>,

@@ -35,6 +35,8 @@ import {
   exists,
   normalizeRelativePath,
   nowIso,
+  parseJsonAsRecord,
+  parseTomlAsRecord,
   sha256,
   stableStringify,
   withSingleTrailingNewline,
@@ -169,37 +171,14 @@ function resolveSettingsProviderOrThrow(id: string): ProviderId {
 }
 
 function parseSettingsPayloadFromText(provider: ProviderId, text: string, sourcePath: string): Record<string, unknown> {
-  if (provider === "codex") {
-    let parsed: unknown;
-    try {
-      parsed = TOML.parse(text) as unknown;
-    } catch (error) {
-      throw new Error(
-        `Settings source '${sourcePath}' is invalid TOML: ${error instanceof Error ? error.message : "unknown error"}`,
-      );
-    }
-
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      throw new Error(`Settings source '${sourcePath}' must be a TOML table`);
-    }
-
-    return parsed as Record<string, unknown>;
-  }
-
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(text) as unknown;
+    return provider === "codex" ? parseTomlAsRecord(text, TOML) : parseJsonAsRecord(text);
   } catch (error) {
+    const format = provider === "codex" ? "TOML" : "JSON";
     throw new Error(
-      `Settings source '${sourcePath}' is invalid JSON: ${error instanceof Error ? error.message : "unknown error"}`,
+      `Settings source '${sourcePath}' is invalid ${format}: ${error instanceof Error ? error.message : "unknown error"}`,
     );
   }
-
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error(`Settings source '${sourcePath}' must be a JSON object`);
-  }
-
-  return parsed as Record<string, unknown>;
 }
 
 function serializeSettingsPayload(provider: ProviderId, payload: Record<string, unknown>): string {
@@ -828,12 +807,12 @@ export async function pullRegistryEntities(
   for (const planned of plannedUpdates) {
     const { entity, fetched } = planned;
     await materializeFetchedEntity(cwd, entity, fetched);
-    const ensuredOverrides =
-      entity.type === "settings"
-        ? { overrides: undefined, overrideShaByProvider: {} }
-        : await ensureOverrideFiles(cwd, entity.type, entity.id, entity.overrides);
+
+    let overrideShaByProvider: Partial<Record<ProviderId, string>> = {};
     if (entity.type !== "settings") {
+      const ensuredOverrides = await ensureOverrideFiles(cwd, entity.type, entity.id, entity.overrides);
       entity.overrides = ensuredOverrides.overrides;
+      overrideShaByProvider = ensuredOverrides.overrideShaByProvider;
       manifestMutated = true;
     }
 
@@ -842,7 +821,7 @@ export async function pullRegistryEntities(
       type: entity.type,
       registry: entity.registry,
       sourceSha256: fetched.importedSourceSha256,
-      overrideSha256ByProvider: ensuredOverrides.overrideShaByProvider,
+      overrideSha256ByProvider: overrideShaByProvider,
       importedSourceSha256: fetched.importedSourceSha256,
       registryRevision: fetched.registryRevision,
     });

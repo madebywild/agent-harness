@@ -13,7 +13,7 @@ import {
 } from "@madebywild/agent-harness-manifest";
 import { listFilesRecursively } from "./repository.js";
 import type { EntityType, RegistryId } from "./types.js";
-import { normalizeRelativePath, sha256, stableStringify } from "./utils.js";
+import { normalizeRelativePath, parseJsonAsRecord, parseTomlAsRecord, sha256, stableStringify } from "./utils.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -333,34 +333,15 @@ export async function fetchEntityFromRegistry(
       );
 
       let sourcePayload: Record<string, unknown>;
-      if (provider === "codex") {
-        try {
-          const parsed = TOML.parse(sourceText) as unknown;
-          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-            throw new Error("Settings must be a TOML table");
-          }
-          sourcePayload = parsed as Record<string, unknown>;
-        } catch (error) {
-          throw new RegistryError(
-            "REGISTRY_FETCH_FAILED",
-            registryId,
-            `Settings '${provider}' in registry '${registryId}' is invalid TOML: ${error instanceof Error ? error.message : "unknown error"}`,
-          );
-        }
-      } else {
-        try {
-          const parsed = JSON.parse(sourceText) as unknown;
-          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-            throw new Error("Settings must be a JSON object");
-          }
-          sourcePayload = parsed as Record<string, unknown>;
-        } catch (error) {
-          throw new RegistryError(
-            "REGISTRY_FETCH_FAILED",
-            registryId,
-            `Settings '${provider}' in registry '${registryId}' is invalid JSON: ${error instanceof Error ? error.message : "unknown error"}`,
-          );
-        }
+      try {
+        sourcePayload = provider === "codex" ? parseTomlAsRecord(sourceText, TOML) : parseJsonAsRecord(sourceText);
+      } catch (error) {
+        const format = provider === "codex" ? "TOML" : "JSON";
+        throw new RegistryError(
+          "REGISTRY_FETCH_FAILED",
+          registryId,
+          `Settings '${provider}' in registry '${registryId}' is invalid ${format}: ${error instanceof Error ? error.message : "unknown error"}`,
+        );
       }
 
       return {

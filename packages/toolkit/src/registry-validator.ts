@@ -6,7 +6,14 @@ import { parseRegistryManifest } from "@madebywild/agent-harness-manifest";
 import matter from "gray-matter";
 import { listFilesRecursively } from "./repository.js";
 import type { Diagnostic, RegistryValidationOptions, RegistryValidationResult } from "./types.js";
-import { isNotFoundError, normalizeRelativePath, readTextIfExists, toPosixRelative } from "./utils.js";
+import {
+  isNotFoundError,
+  normalizeRelativePath,
+  parseJsonAsRecord,
+  parseTomlAsRecord,
+  readTextIfExists,
+  toPosixRelative,
+} from "./utils.js";
 
 const ENTITY_ID_PATTERN = /^[a-zA-Z0-9._-]+$/u;
 const REGISTRY_MANIFEST_FILE = "harness-registry.json";
@@ -380,12 +387,7 @@ async function readJsonObject(
   }
 
   try {
-    const parsed = JSON.parse(text) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      diagnostics.push(error(code, `${messagePrefix}: expected a JSON object`, toPosixRelative(absPath, repoPath)));
-      return undefined;
-    }
-    return parsed as Record<string, unknown>;
+    return parseJsonAsRecord(text);
   } catch (err) {
     diagnostics.push(
       error(
@@ -416,12 +418,7 @@ async function readTomlObject(
   }
 
   try {
-    const parsed = TOML.parse(text) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      diagnostics.push(error(code, `${messagePrefix}: expected a TOML table`, toPosixRelative(absPath, repoPath)));
-      return undefined;
-    }
-    return parsed as Record<string, unknown>;
+    return parseTomlAsRecord(text, TOML);
   } catch (err) {
     diagnostics.push(
       error(

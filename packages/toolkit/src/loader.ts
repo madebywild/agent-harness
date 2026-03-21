@@ -42,7 +42,7 @@ import type {
   LoadedSubagent,
   LoadResult,
 } from "./types.js";
-import { normalizeRelativePath, sha256, stableStringify, toPosixRelative } from "./utils.js";
+import { normalizeRelativePath, parseTomlAsRecord, sha256, stableStringify, toPosixRelative } from "./utils.js";
 
 export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsManifest): Promise<LoadResult> {
   const diagnostics: Diagnostic[] = [];
@@ -850,7 +850,7 @@ async function loadSettings(
   }
 
   const provider = parsedProvider.data;
-  let payload: unknown;
+  let payload: Record<string, unknown>;
 
   if (provider === "codex") {
     const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
@@ -858,7 +858,7 @@ async function loadSettings(
 
     try {
       const TOML = await import("@iarna/toml");
-      payload = TOML.parse(substitutedText) as unknown;
+      payload = parseTomlAsRecord(substitutedText, TOML);
     } catch (error) {
       diagnostics.push({
         code: "SETTINGS_TOML_INVALID",
@@ -881,18 +881,18 @@ async function loadSettings(
       });
       return { diagnostics };
     }
-    payload = parsedJson.value;
-  }
 
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    diagnostics.push({
-      code: "SETTINGS_STRUCTURE_INVALID",
-      severity: "error",
-      message: `Settings '${entity.id}' must be a ${provider === "codex" ? "TOML table" : "JSON object"}`,
-      path: sourcePath,
-      entityId: entity.id,
-    });
-    return { diagnostics };
+    if (!parsedJson.value || typeof parsedJson.value !== "object" || Array.isArray(parsedJson.value)) {
+      diagnostics.push({
+        code: "SETTINGS_STRUCTURE_INVALID",
+        severity: "error",
+        message: `Settings '${entity.id}' must be a JSON object`,
+        path: sourcePath,
+        entityId: entity.id,
+      });
+      return { diagnostics };
+    }
+    payload = parsedJson.value as Record<string, unknown>;
   }
 
   return {
@@ -902,12 +902,10 @@ async function loadSettings(
       canonical: {
         id: provider,
         provider,
-        payload: payload as Record<string, unknown>,
+        payload,
         sourceFormat: provider === "codex" ? "toml" : "json",
       },
       sourceSha256: sha256(text),
-      overrideByProvider: new Map(),
-      overrideShaByProvider: {},
     },
   };
 }

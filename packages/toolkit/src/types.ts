@@ -315,8 +315,6 @@ export interface LoadedSettings {
   entity: EntityRef;
   canonical: CanonicalSettings;
   sourceSha256: string;
-  overrideByProvider: Map<ProviderId, ProviderOverride | undefined>;
-  overrideShaByProvider: Partial<Record<ProviderId, string>>;
 }
 
 export interface InternalPlanResult extends PlanResult {
