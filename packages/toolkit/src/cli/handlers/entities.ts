@@ -1,3 +1,4 @@
+import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { HarnessEngine } from "../../engine.js";
 import { CLI_ENTITY_TYPES, isCliEntityType } from "../../types.js";
 import type { CliResolvedContext, EntityMutationOutput } from "../contracts.js";
@@ -130,6 +131,33 @@ export async function handleAddCommand(
       entityType: "command",
       id: input.commandId,
       message: `Added command '${input.commandId}'.`,
+    },
+  };
+}
+
+export async function handleAddSettings(
+  input: { provider: string; registry?: string },
+  context: CliResolvedContext,
+): Promise<EntityMutationOutput> {
+  const parsed = providerIdSchema.safeParse(input.provider);
+  if (!parsed.success) {
+    throw new Error(`provider must be one of: ${providerIdSchema.options.join(", ")}`);
+  }
+
+  const engine = new HarnessEngine(context.cwd);
+  await engine.addSettings(parsed.data, { registry: input.registry });
+
+  return {
+    family: "entity-mutation",
+    command: "add.settings",
+    ok: true,
+    diagnostics: [],
+    exitCode: 0,
+    data: {
+      operation: "add",
+      entityType: "settings",
+      id: parsed.data,
+      message: `Added settings '${parsed.data}'.`,
     },
   };
 }

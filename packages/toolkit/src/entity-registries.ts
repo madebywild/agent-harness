@@ -3,15 +3,17 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import * as TOML from "@iarna/toml";
 import {
   parseRegistryManifest,
+  providerIdSchema,
   type RegistryDefinition,
   type RegistryManifest,
   type RegistryRevision,
 } from "@madebywild/agent-harness-manifest";
 import { listFilesRecursively } from "./repository.js";
 import type { EntityType, RegistryId } from "./types.js";
-import { normalizeRelativePath, sha256, stableStringify } from "./utils.js";
+import { normalizeRelativePath, parseJsonAsRecord, parseTomlAsRecord, sha256, stableStringify } from "./utils.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -76,12 +78,19 @@ export interface FetchedCommandEntity extends FetchedEntityBase {
   readonly sourceText: string;
 }
 
+export interface FetchedSettingsEntity extends FetchedEntityBase {
+  readonly type: "settings";
+  readonly provider: "codex" | "claude" | "copilot";
+  readonly sourcePayload: Record<string, unknown>;
+}
+
 export type FetchedRegistryEntity =
   | FetchedPromptEntity
   | FetchedSkillEntity
   | FetchedMcpEntity
   | FetchedSubagentEntity
   | FetchedHookEntity
+  | FetchedSettingsEntity
   | FetchedCommandEntity;
 
 export async function fetchEntityFromRegistry(
@@ -301,6 +310,53 @@ export async function fetchEntityFromRegistry(
           commit,
         },
         importedSourceSha256: sha256(sourceText),
+      };
+    }
+
+    if (entityType === "settings") {
+      const parsedProvider = providerIdSchema.safeParse(id);
+      if (!parsedProvider.success) {
+        throw new RegistryError(
+          "REGISTRY_ENTITY_NOT_FOUND",
+          registryId,
+          `Settings id must be one of: ${providerIdSchema.options.join(", ")}`,
+        );
+      }
+
+      const provider = parsedProvider.data;
+      const fileName = provider === "codex" ? "codex.toml" : `${provider}.json`;
+      const settingsPath = path.join(checkoutDir, rootPath, "settings", fileName);
+      const sourceText = await readFileWithNotFound(
+        settingsPath,
+        registryId,
+        `Settings '${provider}' not found in registry '${registryId}'`,
+      );
+
+      let sourcePayload: Record<string, unknown>;
+      try {
+        sourcePayload = provider === "codex" ? parseTomlAsRecord(sourceText, TOML) : parseJsonAsRecord(sourceText);
+      } catch (error) {
+        const format = provider === "codex" ? "TOML" : "JSON";
+        throw new RegistryError(
+          "REGISTRY_FETCH_FAILED",
+          registryId,
+          `Settings '${provider}' in registry '${registryId}' is invalid ${format}: ${error instanceof Error ? error.message : "unknown error"}`,
+        );
+      }
+
+      return {
+        type: "settings",
+        id,
+        provider,
+        registry: registryId,
+        sourcePayload,
+        registryManifest,
+        registryRevision: {
+          kind: "git",
+          ref: definition.ref,
+          commit,
+        },
+        importedSourceSha256: sha256(stableStringify(sourcePayload)),
       };
     }
 

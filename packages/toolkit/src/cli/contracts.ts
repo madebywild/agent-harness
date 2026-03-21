@@ -29,6 +29,7 @@ export type CommandId =
   | "add.mcp"
   | "add.subagent"
   | "add.hook"
+  | "add.settings"
   | "add.command"
   | "remove"
   | "validate"

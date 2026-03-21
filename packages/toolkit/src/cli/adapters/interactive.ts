@@ -29,6 +29,7 @@ const INTERACTIVE_COMMAND_IDS: readonly CommandId[] = [
   "add.mcp",
   "add.subagent",
   "add.hook",
+  "add.settings",
   "add.command",
   "remove",
   "validate",
@@ -311,6 +312,31 @@ async function promptCommandInput(command: CommandId): Promise<CommandInput | nu
         command,
         args: {
           hookId,
+        },
+        options: {
+          registry,
+        },
+      };
+    }
+    case "add.settings": {
+      const provider = await select({
+        message: "Provider",
+        options: providerIdSchema.options.map((entry) => ({ value: entry, label: entry })),
+      });
+      const resolvedProvider = getSelectedValue(provider);
+      if (resolvedProvider === null) {
+        return null;
+      }
+
+      const registry = await promptOptionalText("Registry id");
+      if (registry === null) {
+        return null;
+      }
+
+      return {
+        command,
+        args: {
+          provider: String(resolvedProvider),
         },
         options: {
           registry,

@@ -280,6 +280,49 @@ test("runCliArgv add command creates command entity and source file", async () =
   );
 });
 
+test("runCliCommand add.settings creates settings entity and source file", async () => {
+  const cwd = await mkTmpRepo();
+  await runCliCommand(
+    {
+      command: "init",
+      options: { force: false },
+    },
+    {
+      cwd,
+      env: {},
+      isTty: false,
+      isCi: false,
+      stdout: () => {},
+      stderr: () => {},
+    },
+  );
+
+  const output = await runCliCommand(
+    {
+      command: "add.settings",
+      args: { provider: "codex" },
+    },
+    {
+      cwd,
+      env: {},
+      isTty: false,
+      isCi: false,
+      stdout: () => {},
+      stderr: () => {},
+    },
+  );
+
+  assert.equal(output.family, "entity-mutation");
+  assert.equal(output.command, "add.settings");
+  assert.equal(output.ok, true);
+  if (output.data.operation !== "add") {
+    assert.fail(`Expected add operation, got '${output.data.operation}'`);
+  }
+  assert.equal(output.data.entityType, "settings");
+  assert.equal(output.data.id, "codex");
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/settings/codex.toml")));
+});
+
 test("isNoArgShortcutEligible rejects commander-owned option-only invocations", () => {
   assert.equal(isNoArgShortcutEligible([]), true);
   assert.equal(isNoArgShortcutEligible(["--interactive"]), true);

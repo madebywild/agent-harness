@@ -181,6 +181,7 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
             },
           ],
         }),
+        "settings/codex.toml": 'model = "gpt-5.4"\n',
       },
       private: false,
       namePrefix: "corp",
@@ -223,6 +224,7 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
     await runHarnessCli(workspace, ["add", "mcp", "playwright"]);
     await runHarnessCli(workspace, ["add", "subagent", "researcher"]);
     await runHarnessCli(workspace, ["add", "hook", "ci-guard"]);
+    await runHarnessCli(workspace, ["add", "settings", "codex"]);
 
     // Verify source content came from remote
     const prompt = await readWorkspaceText(workspace, ".harness/src/prompts/system.md");
@@ -253,6 +255,9 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
     assert.equal(hookSource.mode, "best_effort");
     assert.ok(hookSource.events.pre_tool_use, "hook should have pre_tool_use from remote");
     assert.ok(hookSource.events.turn_complete, "hook should have turn_complete from remote");
+
+    const settingsSource = await readWorkspaceText(workspace, ".harness/src/settings/codex.toml");
+    assert.match(settingsSource, /gpt-5\.4/u, "codex settings should contain remote model");
 
     // All entities should be attributed to corp registry
     const manifest = await readWorkspaceJson<ManifestJson>(workspace, ".harness/manifest.json");
@@ -303,6 +308,7 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
     const codexToml = await readWorkspaceText(workspace, ".codex/config.toml");
     assert.match(codexToml, /notify/u);
     assert.match(codexToml, /corp-notify\.py/u);
+    assert.match(codexToml, /gpt-5\.4/u);
 
     // Claude settings should have pre_tool_use hook
     const claudeSettings = await readWorkspaceJson<{ hooks?: Record<string, unknown[]> }>(
@@ -310,6 +316,22 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
       ".claude/settings.json",
     );
     assert.ok(claudeSettings.hooks?.PreToolUse, "claude should render PreToolUse from ci-guard hook");
+  });
+
+  // ---- Phase 4b: Pull unchanged settings then apply remains lock-stable --
+  test("phase 4b — unchanged settings pull keeps lock stable on apply", async (t) => {
+    if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
+
+    await runHarnessCli(workspace, ["registry", "pull", "settings", "codex"]);
+    const lockAfterPull = await readWorkspaceText(workspace, ".harness/manifest.lock.json");
+
+    const applyResult = await runHarnessCli(workspace, ["apply", "--json"]);
+    const apply = JSON.parse(applyResult.stdout) as ApplyJsonOutput;
+    assert.equal(apply.ok, true);
+    assert.equal(apply.data.result.diagnostics.filter((d) => d.severity === "error").length, 0);
+
+    const lockAfterApply = await readWorkspaceText(workspace, ".harness/manifest.lock.json");
+    assert.equal(lockAfterApply, lockAfterPull);
   });
 
   // ---- Phase 5: Local modification → pull detects drift ------------------

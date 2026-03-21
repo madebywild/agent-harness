@@ -1,6 +1,6 @@
 import * as TOML from "@iarna/toml";
 import type { ProviderAdapter } from "../types.js";
-import { normalizeRelativePath, uniqSorted, withSingleTrailingNewline } from "../utils.js";
+import { deepMergeObjects, normalizeRelativePath, uniqSorted, withSingleTrailingNewline } from "../utils.js";
 import { PROVIDER_DEFAULTS } from "./constants.js";
 import { createProviderAdapter } from "./create-adapter.js";
 import { resolveCodexNotifyCommand } from "./hooks.js";
@@ -33,8 +33,9 @@ export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): Provide
         (entry) => input.subagentOverrideByEntity?.get(entry.id)?.enabled !== false,
       );
       const enabledHooks = input.hooks.filter((entry) => input.hookOverrideByEntity?.get(entry.id)?.enabled !== false);
+      const settingsPayload = input.settings?.payload;
 
-      if (enabledMcps.length === 0 && enabledSubagents.length === 0 && enabledHooks.length === 0) {
+      if (enabledMcps.length === 0 && enabledSubagents.length === 0 && enabledHooks.length === 0 && !settingsPayload) {
         return [];
       }
 
@@ -79,7 +80,11 @@ export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): Provide
         payload.notify = notifyCommand as unknown as TOML.AnyJson;
       }
 
-      if (Object.keys(payload).length === 0) {
+      const mergedPayload = settingsPayload
+        ? deepMergeObjects(payload, settingsPayload as Record<string, unknown>)
+        : payload;
+
+      if (Object.keys(mergedPayload).length === 0) {
         return [];
       }
 
@@ -87,12 +92,13 @@ export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): Provide
         ...enabledMcps.map((entry) => entry.id),
         ...enabledSubagents.map((entry) => entry.id),
         ...enabledHooks.map((entry) => entry.id),
+        ...(input.settings ? [input.settings.id] : []),
       ]).join(",");
 
       return [
         {
           path: targetPath,
-          content: withSingleTrailingNewline(TOML.stringify(payload as unknown as TOML.JsonMap)),
+          content: withSingleTrailingNewline(TOML.stringify(mergedPayload as unknown as TOML.JsonMap)),
           ownerEntityId,
           provider: "codex",
           format: "toml",

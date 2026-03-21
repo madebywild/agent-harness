@@ -26,7 +26,7 @@ export type {
   RegistryManifest,
 };
 
-export const CLI_ENTITY_TYPES = ["prompt", "skill", "mcp", "subagent", "hook", "command"] as const;
+export const CLI_ENTITY_TYPES = ["prompt", "skill", "mcp", "subagent", "hook", "settings", "command"] as const;
 export type CliEntityType = (typeof CLI_ENTITY_TYPES)[number];
 
 export const CLI_ENTITY_TO_MANIFEST_ENTITY: Record<CliEntityType, EntityType> = {
@@ -35,6 +35,7 @@ export const CLI_ENTITY_TO_MANIFEST_ENTITY: Record<CliEntityType, EntityType> = 
   mcp: "mcp_config",
   subagent: "subagent",
   hook: "hook",
+  settings: "settings",
   command: "command",
 };
 
@@ -100,6 +101,13 @@ export interface CanonicalCommand {
   body: string;
 }
 
+export interface CanonicalSettings {
+  id: ProviderId;
+  provider: ProviderId;
+  payload: Record<string, unknown>;
+  sourceFormat: "json" | "toml";
+}
+
 export interface CanonicalHook {
   id: string;
   mode: CanonicalHookMode;
@@ -121,6 +129,7 @@ export interface ProviderStateInput {
   subagentOverrideByEntity?: Map<string, ProviderOverride | undefined>;
   hooks: CanonicalHook[];
   hookOverrideByEntity?: Map<string, ProviderOverride | undefined>;
+  settings?: CanonicalSettings;
 }
 
 export interface ProviderAdapter {
@@ -137,6 +146,7 @@ export interface ProviderAdapter {
     overrideByEntity?: Map<string, ProviderOverride | undefined>,
   ): Promise<RenderedArtifact[]>;
   renderCommand?(input: CanonicalCommand, override?: ProviderOverride): Promise<RenderedArtifact[]>;
+  renderSettings?(input: CanonicalSettings): Promise<RenderedArtifact[]>;
   renderProviderState?(input: ProviderStateInput): Promise<RenderedArtifact[]>;
 }
 
@@ -301,6 +311,12 @@ export interface LoadedCommand {
   overrideShaByProvider: Partial<Record<ProviderId, string>>;
 }
 
+export interface LoadedSettings {
+  entity: EntityRef;
+  canonical: CanonicalSettings;
+  sourceSha256: string;
+}
+
 export interface InternalPlanResult extends PlanResult {
   artifactsByPath: Map<string, { content: string; provider: ProviderId; ownerEntityIds: string[] }>;
   nextManagedIndex: ManagedIndex;
@@ -314,5 +330,6 @@ export interface LoadResult {
   mcps: LoadedMcp[];
   subagents: LoadedSubagent[];
   hooks: LoadedHook[];
+  settings: LoadedSettings[];
   commands: LoadedCommand[];
 }

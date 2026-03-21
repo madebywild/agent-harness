@@ -1,11 +1,19 @@
 import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import * as TOML from "@iarna/toml";
 import { parseRegistryManifest } from "@madebywild/agent-harness-manifest";
 import matter from "gray-matter";
 import { listFilesRecursively } from "./repository.js";
 import type { Diagnostic, RegistryValidationOptions, RegistryValidationResult } from "./types.js";
-import { isNotFoundError, normalizeRelativePath, readTextIfExists, toPosixRelative } from "./utils.js";
+import {
+  isNotFoundError,
+  normalizeRelativePath,
+  parseJsonAsRecord,
+  parseTomlAsRecord,
+  readTextIfExists,
+  toPosixRelative,
+} from "./utils.js";
 
 const ENTITY_ID_PATTERN = /^[a-zA-Z0-9._-]+$/u;
 const REGISTRY_MANIFEST_FILE = "harness-registry.json";
@@ -300,6 +308,59 @@ export async function validateRegistryRepo(options: RegistryValidationOptions = 
     }
   }
 
+  const settingsDir = path.join(rootAbs, "settings");
+  let settingsEntries: Dirent[] | null = null;
+  try {
+    settingsEntries = await fs.readdir(settingsDir, { withFileTypes: true });
+  } catch (err) {
+    if (!isNotFoundError(err)) {
+      throw err;
+    }
+  }
+
+  if (settingsEntries) {
+    for (const entry of settingsEntries) {
+      const settingsPath = path.join(settingsDir, entry.name);
+      const settingsPathRel = toPosixRelative(settingsPath, repoPath);
+
+      if (!entry.isFile()) {
+        diagnostics.push(error("REGISTRY_SETTINGS_INVALID", "settings/ may only contain files", settingsPathRel));
+        continue;
+      }
+
+      if (entry.name === "codex.toml") {
+        await readTomlObject(
+          settingsPath,
+          "REGISTRY_SETTINGS_INVALID",
+          "Settings 'codex' is invalid",
+          diagnostics,
+          repoPath,
+        );
+        continue;
+      }
+
+      if (entry.name === "claude.json" || entry.name === "copilot.json") {
+        const id = entry.name.replace(".json", "");
+        await readJsonObject(
+          settingsPath,
+          "REGISTRY_SETTINGS_INVALID",
+          `Settings '${id}' is invalid`,
+          diagnostics,
+          repoPath,
+        );
+        continue;
+      }
+
+      diagnostics.push(
+        error(
+          "REGISTRY_SETTINGS_INVALID",
+          "settings/ may only contain codex.toml, claude.json, and copilot.json",
+          settingsPathRel,
+        ),
+      );
+    }
+  }
+
   const commandsDir = path.join(rootAbs, "commands");
   let commandEntries: Dirent[] | null = null;
   try {
@@ -425,12 +486,7 @@ async function readJsonObject(
   }
 
   try {
-    const parsed = JSON.parse(text) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      diagnostics.push(error(code, `${messagePrefix}: expected a JSON object`, toPosixRelative(absPath, repoPath)));
-      return undefined;
-    }
-    return parsed as Record<string, unknown>;
+    return parseJsonAsRecord(text);
   } catch (err) {
     diagnostics.push(
       error(
@@ -445,6 +501,33 @@ async function readJsonObject(
 
 function isValidEntityId(value: string): boolean {
   return ENTITY_ID_PATTERN.test(value);
+}
+
+async function readTomlObject(
+  absPath: string,
+  code: string,
+  messagePrefix: string,
+  diagnostics: Diagnostic[],
+  repoPath: string,
+): Promise<Record<string, unknown> | undefined> {
+  const text = await readTextIfExists(absPath);
+  if (text === null) {
+    diagnostics.push(error(code, `${messagePrefix}: file is missing`, toPosixRelative(absPath, repoPath)));
+    return undefined;
+  }
+
+  try {
+    return parseTomlAsRecord(text, TOML);
+  } catch (err) {
+    diagnostics.push(
+      error(
+        code,
+        `${messagePrefix}: ${err instanceof Error ? err.message : "invalid TOML"}`,
+        toPosixRelative(absPath, repoPath),
+      ),
+    );
+    return undefined;
+  }
 }
 
 function hasDelimitedFrontmatterBlock(text: string): boolean {

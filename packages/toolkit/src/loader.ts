@@ -21,6 +21,7 @@ import {
   defaultHookSourcePath,
   defaultMcpOverridePath,
   defaultPromptOverridePath,
+  defaultSettingsSourcePath,
   defaultSkillOverridePath,
   defaultSubagentOverridePath,
 } from "./paths.js";
@@ -36,11 +37,12 @@ import type {
   LoadedHook,
   LoadedMcp,
   LoadedPrompt,
+  LoadedSettings,
   LoadedSkill,
   LoadedSubagent,
   LoadResult,
 } from "./types.js";
-import { normalizeRelativePath, sha256, stableStringify, toPosixRelative } from "./utils.js";
+import { normalizeRelativePath, parseTomlAsRecord, sha256, stableStringify, toPosixRelative } from "./utils.js";
 
 export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsManifest): Promise<LoadResult> {
   const diagnostics: Diagnostic[] = [];
@@ -117,6 +119,16 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
     }
   }
 
+  const settingsEntities = manifest.entities.filter((entity) => entity.type === "settings" && entity.enabled !== false);
+  const settings: LoadedSettings[] = [];
+  for (const settingsEntity of settingsEntities) {
+    const loadedSettings = await loadSettings(paths, settingsEntity, envVars);
+    diagnostics.push(...loadedSettings.diagnostics);
+    if (loadedSettings.settings) {
+      settings.push(loadedSettings.settings);
+    }
+  }
+
   const commandEntities = manifest.entities.filter((entity) => entity.type === "command" && entity.enabled !== false);
   const commands: LoadedCommand[] = [];
   for (const commandEntity of commandEntities) {
@@ -135,6 +147,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
     mcps: mcps.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     subagents: subagents.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     hooks: hooks.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
+    settings: settings.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     commands: commands.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
   };
 }
@@ -296,6 +309,30 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
           path: sourcePath,
           entityId: entity.id,
         });
+      }
+    }
+
+    if (entity.type === "settings") {
+      const parsedProvider = providerIdSchema.safeParse(entity.id);
+      if (!parsedProvider.success) {
+        diagnostics.push({
+          code: "SETTINGS_ID_INVALID",
+          severity: "error",
+          message: `Settings entity id must be one of: ${providerIdSchema.options.join(", ")}`,
+          path: sourcePath,
+          entityId: entity.id,
+        });
+      } else {
+        const expectedPath = defaultSettingsSourcePath(parsedProvider.data);
+        if (sourcePath !== expectedPath) {
+          diagnostics.push({
+            code: "SETTINGS_SOURCE_INVALID",
+            severity: "error",
+            message: `Settings '${entity.id}' sourcePath must be '${expectedPath}'`,
+            path: sourcePath,
+            entityId: entity.id,
+          });
+        }
       }
     }
 
@@ -773,6 +810,102 @@ async function loadHook(
       sourceSha256: sha256(text),
       overrideByProvider,
       overrideShaByProvider,
+    },
+  };
+}
+
+async function loadSettings(
+  paths: HarnessPaths,
+  entity: EntityRef,
+  envVars: Map<string, string>,
+): Promise<{ settings?: LoadedSettings; diagnostics: Diagnostic[] }> {
+  const diagnostics: Diagnostic[] = [];
+  const sourcePath = normalizeRelativePath(entity.sourcePath);
+  const sourceAbs = path.join(paths.root, sourcePath);
+
+  const parsedProvider = providerIdSchema.safeParse(entity.id);
+  if (!parsedProvider.success) {
+    diagnostics.push({
+      code: "SETTINGS_ID_INVALID",
+      severity: "error",
+      message: `Settings entity id must be one of: ${providerIdSchema.options.join(", ")}`,
+      path: sourcePath,
+      entityId: entity.id,
+    });
+    return { diagnostics };
+  }
+
+  let text: string;
+  try {
+    text = await fs.readFile(sourceAbs, "utf8");
+  } catch {
+    diagnostics.push({
+      code: "SETTINGS_SOURCE_MISSING",
+      severity: "error",
+      message: `Settings source '${sourcePath}' could not be read`,
+      path: sourcePath,
+      entityId: entity.id,
+    });
+    return { diagnostics };
+  }
+
+  const provider = parsedProvider.data;
+  let payload: Record<string, unknown>;
+
+  if (provider === "codex") {
+    const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
+    pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
+
+    try {
+      const TOML = await import("@iarna/toml");
+      payload = parseTomlAsRecord(substitutedText, TOML);
+    } catch (error) {
+      diagnostics.push({
+        code: "SETTINGS_TOML_INVALID",
+        severity: "error",
+        message: `Codex settings '${entity.id}' is not valid TOML: ${error instanceof Error ? error.message : "unknown error"}`,
+        path: sourcePath,
+        entityId: entity.id,
+      });
+      return { diagnostics };
+    }
+  } else {
+    const parsedJson = parseJsonWithEnvSubstitution(text, envVars, diagnostics, sourcePath, entity.id);
+    if (parsedJson.error) {
+      diagnostics.push({
+        code: "SETTINGS_JSON_INVALID",
+        severity: "error",
+        message: `Settings '${entity.id}' is not valid JSON: ${parsedJson.error instanceof Error ? parsedJson.error.message : "unknown error"}`,
+        path: sourcePath,
+        entityId: entity.id,
+      });
+      return { diagnostics };
+    }
+
+    if (!parsedJson.value || typeof parsedJson.value !== "object" || Array.isArray(parsedJson.value)) {
+      diagnostics.push({
+        code: "SETTINGS_STRUCTURE_INVALID",
+        severity: "error",
+        message: `Settings '${entity.id}' must be a JSON object`,
+        path: sourcePath,
+        entityId: entity.id,
+      });
+      return { diagnostics };
+    }
+    payload = parsedJson.value as Record<string, unknown>;
+  }
+
+  return {
+    diagnostics,
+    settings: {
+      entity,
+      canonical: {
+        id: provider,
+        provider,
+        payload,
+        sourceFormat: provider === "codex" ? "toml" : "json",
+      },
+      sourceSha256: sha256(text),
     },
   };
 }

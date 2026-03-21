@@ -8,6 +8,7 @@ import {
   addHookEntity,
   addMcpEntity,
   addPromptEntity,
+  addSettingsEntity,
   addSkillEntity,
   addSubagentEntity,
   pullRegistryEntities,
@@ -90,6 +91,7 @@ export class HarnessEngine {
     await fs.mkdir(paths.mcpDir, { recursive: true });
     await fs.mkdir(paths.subagentDir, { recursive: true });
     await fs.mkdir(paths.hookDir, { recursive: true });
+    await fs.mkdir(paths.settingsDir, { recursive: true });
     await fs.mkdir(paths.commandDir, { recursive: true });
 
     const manifest: AgentsManifest = {
@@ -251,6 +253,11 @@ export class HarnessEngine {
     await addCommandEntity(this.cwd, commandId, options);
   }
 
+  async addSettings(provider: ProviderId, options?: { registry?: string }): Promise<void> {
+    await this.assertWorkspaceVersionCurrent();
+    await addSettingsEntity(this.cwd, provider, options);
+  }
+
   async pullRegistry(options?: {
     entityType?: CliEntityType;
     id?: string;
@@ -357,6 +364,7 @@ export class HarnessEngine {
         path.join(base, "manifest.json"),
         path.join(base, "src/**/*.md"),
         path.join(base, "src/**/*.json"),
+        path.join(base, "src/**/*.toml"),
         path.join(base, "src/**/*.overrides.*.yaml"),
         path.join(base, "src/**/OVERRIDES.*.yaml"),
         paths.envFile,

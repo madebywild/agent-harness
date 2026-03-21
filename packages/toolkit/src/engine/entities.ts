@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import * as TOML from "@iarna/toml";
 import type { ProviderId } from "@madebywild/agent-harness-manifest";
 import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { fetchEntityFromRegistry } from "../entity-registries.js";
@@ -12,6 +13,7 @@ import {
   defaultMcpOverridePath,
   defaultMcpSourcePath,
   defaultPromptOverridePath,
+  defaultSettingsSourcePath,
   defaultSkillOverridePath,
   defaultSkillSourcePath,
   defaultSubagentOverridePath,
@@ -28,7 +30,17 @@ import type {
   RemoveResult,
 } from "../types.js";
 import { CLI_ENTITY_TO_MANIFEST_ENTITY, CLI_ENTITY_TYPES } from "../types.js";
-import { ensureParentDir, exists, normalizeRelativePath, nowIso, sha256, stableStringify } from "../utils.js";
+import {
+  ensureParentDir,
+  exists,
+  normalizeRelativePath,
+  nowIso,
+  parseJsonAsRecord,
+  parseTomlAsRecord,
+  sha256,
+  stableStringify,
+  withSingleTrailingNewline,
+} from "../utils.js";
 import {
   readLockOrDefault,
   readManifestOrThrow,
@@ -50,7 +62,7 @@ import {
 
 export async function ensureOverrideFiles(
   cwd: string,
-  entityType: EntityType,
+  entityType: Exclude<EntityType, "settings">,
   entityId: string,
   existing?: Partial<Record<ProviderId, string>>,
 ): Promise<{
@@ -59,7 +71,7 @@ export async function ensureOverrideFiles(
 }> {
   const overrides: Partial<Record<ProviderId, string>> = {};
   const overrideShaByProvider: Partial<Record<ProviderId, string>> = {};
-  const defaultOverridePath: Record<EntityType, (id: string, p: ProviderId) => string> = {
+  const defaultOverridePath: Record<Exclude<EntityType, "settings">, (id: string, p: ProviderId) => string> = {
     prompt: (_id, p) => defaultPromptOverridePath(p),
     skill: (id, p) => defaultSkillOverridePath(id, p),
     mcp_config: (id, p) => defaultMcpOverridePath(id, p),
@@ -115,6 +127,13 @@ export async function readCurrentSourceSha(cwd: string, entity: AgentsManifest["
     return sha256(stableStringify(parsed));
   }
 
+  if (entity.type === "settings") {
+    const text = await fs.readFile(sourceAbs, "utf8");
+    const provider = resolveSettingsProviderOrThrow(entity.id);
+    const parsed = parseSettingsPayloadFromText(provider, text, entity.sourcePath);
+    return sha256(stableStringify(parsed));
+  }
+
   if (entity.type === "command") {
     const text = await fs.readFile(sourceAbs, "utf8");
     return sha256(text);
@@ -141,6 +160,33 @@ export async function loadSkillSourceHashes(skillRootAbs: string): Promise<Array
 
   output.sort((left, right) => left.path.localeCompare(right.path));
   return output;
+}
+
+function resolveSettingsProviderOrThrow(id: string): ProviderId {
+  try {
+    return providerIdSchema.parse(id);
+  } catch {
+    throw new Error(`Settings id must be one of: ${providerIdSchema.options.join(", ")}`);
+  }
+}
+
+function parseSettingsPayloadFromText(provider: ProviderId, text: string, sourcePath: string): Record<string, unknown> {
+  try {
+    return provider === "codex" ? parseTomlAsRecord(text, TOML) : parseJsonAsRecord(text);
+  } catch (error) {
+    const format = provider === "codex" ? "TOML" : "JSON";
+    throw new Error(
+      `Settings source '${sourcePath}' is invalid ${format}: ${error instanceof Error ? error.message : "unknown error"}`,
+    );
+  }
+}
+
+function serializeSettingsPayload(provider: ProviderId, payload: Record<string, unknown>): string {
+  if (provider === "codex") {
+    return withSingleTrailingNewline(TOML.stringify(payload as unknown as TOML.JsonMap));
+  }
+
+  return stableStringify(payload);
 }
 
 export async function materializeFetchedEntity(
@@ -173,6 +219,13 @@ export async function materializeFetchedEntity(
     const sourceAbs = path.join(cwd, entity.sourcePath);
     await ensureParentDir(sourceAbs);
     await fs.writeFile(sourceAbs, fetched.sourceText, "utf8");
+    return;
+  }
+
+  if (entity.type === "settings" && fetched.type === "settings") {
+    const sourceAbs = path.join(cwd, entity.sourcePath);
+    await ensureParentDir(sourceAbs);
+    await fs.writeFile(sourceAbs, serializeSettingsPayload(fetched.provider, fetched.sourcePayload), "utf8");
     return;
   }
 
@@ -553,6 +606,66 @@ export async function addHookEntity(cwd: string, hookId: string, options?: { reg
   });
 }
 
+export async function addSettingsEntity(
+  cwd: string,
+  provider: ProviderId,
+  options?: { registry?: string },
+): Promise<void> {
+  const settingsProvider = providerIdSchema.parse(provider);
+  const paths = resolveHarnessPaths(cwd);
+  const manifest = await readManifestOrThrow(paths);
+
+  if (manifest.entities.some((entity) => entity.type === "settings" && entity.id === settingsProvider)) {
+    throw new Error(`Settings '${settingsProvider}' already exists`);
+  }
+
+  const sourcePath = defaultSettingsSourcePath(settingsProvider);
+  const sourceAbs = path.join(cwd, sourcePath);
+  if (await exists(sourceAbs)) {
+    throw new Error(`Cannot add settings because '${sourcePath}' already exists`);
+  }
+
+  const registry = resolveEntityRegistrySelection(manifest, options?.registry);
+  let sourcePayload: Record<string, unknown> = {};
+  let importedSourceSha256: string | undefined;
+  let registryRevision: RegistryRevision | undefined;
+
+  if (registry.definition.type === "git") {
+    const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "settings", settingsProvider);
+    if (fetched.type !== "settings") {
+      throw new Error(`REGISTRY_FETCH_FAILED: expected settings '${settingsProvider}' from registry '${registry.id}'`);
+    }
+    sourcePayload = fetched.sourcePayload;
+    importedSourceSha256 = fetched.importedSourceSha256;
+    registryRevision = fetched.registryRevision;
+  }
+
+  const sourceContent = serializeSettingsPayload(settingsProvider, sourcePayload);
+  await ensureParentDir(sourceAbs);
+  await fs.writeFile(sourceAbs, sourceContent, "utf8");
+
+  manifest.entities.push({
+    id: settingsProvider,
+    type: "settings",
+    registry: registry.id,
+    sourcePath,
+    enabled: true,
+  });
+  manifest.entities = sortEntities(manifest.entities);
+
+  await writeManifest(paths, manifest);
+  await writeManagedSourceIndex(paths, manifest);
+  await upsertLockEntityRecord(paths, manifest, {
+    id: settingsProvider,
+    type: "settings",
+    registry: registry.id,
+    sourceSha256: sha256(sourceContent),
+    overrideSha256ByProvider: {},
+    importedSourceSha256,
+    registryRevision,
+  });
+}
+
 export async function addCommandEntity(cwd: string, commandId: string, options?: { registry?: string }): Promise<void> {
   validateEntityId(commandId, "command");
   const paths = resolveHarnessPaths(cwd);
@@ -694,16 +807,26 @@ export async function pullRegistryEntities(
   for (const planned of plannedUpdates) {
     const { entity, fetched } = planned;
     await materializeFetchedEntity(cwd, entity, fetched);
-    const ensuredOverrides = await ensureOverrideFiles(cwd, entity.type, entity.id, entity.overrides);
-    entity.overrides = ensuredOverrides.overrides;
-    manifestMutated = true;
+
+    let overrideShaByProvider: Partial<Record<ProviderId, string>> = {};
+    if (entity.type !== "settings") {
+      const ensuredOverrides = await ensureOverrideFiles(cwd, entity.type, entity.id, entity.overrides);
+      entity.overrides = ensuredOverrides.overrides;
+      overrideShaByProvider = ensuredOverrides.overrideShaByProvider;
+      manifestMutated = true;
+    }
+
+    const sourceSha256ForLock =
+      entity.type === "settings" && fetched.type === "settings"
+        ? sha256(serializeSettingsPayload(fetched.provider, fetched.sourcePayload))
+        : fetched.importedSourceSha256;
 
     setLockEntityRecord(lock, {
       id: entity.id,
       type: entity.type,
       registry: entity.registry,
-      sourceSha256: fetched.importedSourceSha256,
-      overrideSha256ByProvider: ensuredOverrides.overrideShaByProvider,
+      sourceSha256: sourceSha256ForLock,
+      overrideSha256ByProvider: overrideShaByProvider,
       importedSourceSha256: fetched.importedSourceSha256,
       registryRevision: fetched.registryRevision,
     });
