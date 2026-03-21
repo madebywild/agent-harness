@@ -10,6 +10,7 @@ export const BUILTIN_PRESETS: readonly ResolvedPreset[] = [
       recommended: true,
       operations: [
         { type: "enable_provider", provider: "claude" },
+        { type: "enable_provider", provider: "codex" },
         { type: "enable_provider", provider: "copilot" },
         { type: "add_prompt" },
         { type: "add_skill", id: "reviewer" },
@@ -42,6 +43,7 @@ export const BUILTIN_PRESETS: readonly ResolvedPreset[] = [
       description: "A preset for repositories that need synthesis-heavy work with a dedicated research subagent.",
       operations: [
         { type: "enable_provider", provider: "claude" },
+        { type: "enable_provider", provider: "codex" },
         { type: "enable_provider", provider: "copilot" },
         { type: "add_prompt" },
         { type: "add_subagent", id: "research-assistant" },
@@ -53,6 +55,44 @@ export const BUILTIN_PRESETS: readonly ResolvedPreset[] = [
       subagents: {
         "research-assistant":
           "---\nname: Research Assistant\ndescription: Gather relevant context, compare alternatives, and return a concise evidence-backed summary.\n---\n\nYou are a research-focused subagent. Collect the minimum set of repository context needed to answer the question, identify trade-offs, and summarize concrete findings with supporting references.\n",
+      },
+    },
+  },
+  {
+    source: "builtin",
+    definition: {
+      id: "yolo",
+      name: "YOLO Mode",
+      description:
+        "Maximum autonomy — all providers enabled with full permissions, no approval prompts, and no sandboxing.",
+      operations: [
+        { type: "enable_provider", provider: "claude" },
+        { type: "enable_provider", provider: "codex" },
+        { type: "enable_provider", provider: "copilot" },
+        { type: "add_prompt" },
+        { type: "add_settings", provider: "claude" },
+        { type: "add_settings", provider: "codex" },
+        { type: "add_settings", provider: "copilot" },
+      ],
+    },
+    content: {
+      prompt:
+        "# System Prompt\n\nYou have full autonomy. Proceed without asking for confirmation — read, write, execute, and search freely. Prefer action over discussion.\n",
+      settings: {
+        claude: {
+          permissions: {
+            allow: ["Bash", "Read", "Edit", "Write", "WebFetch", "WebSearch", "Agent", "mcp__*"],
+            defaultMode: "bypassPermissions",
+          },
+        },
+        codex: {
+          approval_policy: "never",
+          sandbox_mode: "danger-full-access",
+        },
+        copilot: {
+          "chat.tools.global.autoApprove": true,
+          "chat.autopilot.enabled": true,
+        },
       },
     },
   },

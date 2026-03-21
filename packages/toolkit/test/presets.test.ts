@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import * as TOML from "@iarna/toml";
 import { HarnessEngine } from "../src/engine.ts";
 import { mkTmpRepo } from "./helpers.ts";
 
@@ -12,6 +13,7 @@ test("listPresets returns bundled presets before workspace initialization", asyn
   const presets = await engine.listPresets();
   assert.ok(presets.some((preset) => preset.id === "starter" && preset.source === "builtin"));
   assert.ok(presets.some((preset) => preset.id === "researcher" && preset.source === "builtin"));
+  assert.ok(presets.some((preset) => preset.id === "yolo" && preset.source === "builtin"));
 });
 
 test("applyPreset materializes bundled preset content and enables providers", async () => {
@@ -30,7 +32,7 @@ test("applyPreset materializes bundled preset content and enables providers", as
     entities: Array<{ type: string; id: string }>;
   };
 
-  assert.deepEqual(manifest.providers.enabled, ["claude", "copilot"]);
+  assert.deepEqual(manifest.providers.enabled, ["claude", "codex", "copilot"]);
   assert.ok(manifest.entities.some((entity) => entity.type === "prompt" && entity.id === "system"));
   assert.ok(manifest.entities.some((entity) => entity.type === "skill" && entity.id === "reviewer"));
   assert.ok(manifest.entities.some((entity) => entity.type === "command" && entity.id === "fix-issue"));
@@ -38,6 +40,50 @@ test("applyPreset materializes bundled preset content and enables providers", as
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/prompts/system.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/commands/fix-issue.md")));
+});
+
+test("applyPreset materializes yolo preset with settings for all providers", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  const result = await engine.applyPreset("yolo");
+
+  assert.equal(result.preset.id, "yolo");
+  assert.ok(result.results.some((entry) => entry.type === "add_prompt" && entry.outcome === "applied"));
+  assert.ok(result.results.some((entry) => entry.type === "add_settings" && entry.target === "settings:claude"));
+  assert.ok(result.results.some((entry) => entry.type === "add_settings" && entry.target === "settings:codex"));
+  assert.ok(result.results.some((entry) => entry.type === "add_settings" && entry.target === "settings:copilot"));
+
+  const manifest = JSON.parse(await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8")) as {
+    providers: { enabled: string[] };
+    entities: Array<{ type: string; id: string }>;
+  };
+
+  assert.deepEqual(manifest.providers.enabled, ["claude", "codex", "copilot"]);
+  assert.ok(manifest.entities.some((entity) => entity.type === "settings" && entity.id === "claude"));
+  assert.ok(manifest.entities.some((entity) => entity.type === "settings" && entity.id === "codex"));
+  assert.ok(manifest.entities.some((entity) => entity.type === "settings" && entity.id === "copilot"));
+
+  const claudeSettings = JSON.parse(
+    await fs.readFile(path.join(cwd, ".harness/src/settings/claude.json"), "utf8"),
+  ) as Record<string, unknown>;
+  assert.deepEqual(
+    (claudeSettings as { permissions: { defaultMode: string } }).permissions.defaultMode,
+    "bypassPermissions",
+  );
+
+  const codexSettings = TOML.parse(
+    await fs.readFile(path.join(cwd, ".harness/src/settings/codex.toml"), "utf8"),
+  ) as Record<string, unknown>;
+  assert.equal(codexSettings.approval_policy, "never");
+  assert.equal(codexSettings.sandbox_mode, "danger-full-access");
+
+  const copilotSettings = JSON.parse(
+    await fs.readFile(path.join(cwd, ".harness/src/settings/copilot.json"), "utf8"),
+  ) as Record<string, unknown>;
+  assert.equal(copilotSettings["chat.tools.global.autoApprove"], true);
+  assert.equal(copilotSettings["chat.autopilot.enabled"], true);
 });
 
 test("applyPreset skips when bundled preset content is already present", async () => {
