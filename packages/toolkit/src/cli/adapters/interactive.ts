@@ -1,7 +1,7 @@
 import { cancel, confirm, intro, isCancel, outro, select, text } from "@clack/prompts";
 import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import ora from "ora";
-import { HarnessEngine } from "../../engine.js";
+import { listBuiltinPresets, summarizePreset } from "../../presets.js";
 import { CLI_ENTITY_TYPES } from "../../types.js";
 import { getCommandDefinition } from "../command-registry.js";
 import type { CliResolvedContext, CommandId, CommandInput, CommandOutput } from "../contracts.js";
@@ -88,7 +88,7 @@ async function promptRequiredText(message: string): Promise<string | null> {
   return String(resolved);
 }
 
-async function promptCommandInput(command: CommandId, context: CliResolvedContext): Promise<CommandInput | null> {
+async function promptCommandInput(command: CommandId): Promise<CommandInput | null> {
   switch (command) {
     case "init": {
       const force = await confirm({
@@ -100,9 +100,7 @@ async function promptCommandInput(command: CommandId, context: CliResolvedContex
         return null;
       }
 
-      const presets = (await new HarnessEngine(context.cwd).listPresets()).filter(
-        (preset) => preset.source === "builtin",
-      );
+      const presets = (await listBuiltinPresets()).map((preset) => summarizePreset(preset));
       const preset = await select({
         message: "Select a preset to apply during init",
         options: [
@@ -540,7 +538,7 @@ export async function runInteractiveAdapter(
     }
 
     const parsedCommand = String(resolvedCommand) as CommandId;
-    const input = await promptCommandInput(parsedCommand, context);
+    const input = await promptCommandInput(parsedCommand);
     if (input === null) {
       cancel("Cancelled command input.");
       continue;

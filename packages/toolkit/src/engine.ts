@@ -59,6 +59,7 @@ import type {
   RegistryListEntry,
   RegistryPullResult,
   RemoveResult,
+  ResolvedPreset,
   ValidationResult,
 } from "./types.js";
 import {
@@ -259,7 +260,7 @@ export class HarnessEngine {
     );
   }
 
-  async describePreset(presetId: string, options?: { registry?: string }) {
+  async describePreset(presetId: string, options?: { registry?: string }): Promise<ResolvedPreset> {
     const manifest = options?.registry ? await readManifestOrThrow(resolveHarnessPaths(this.cwd)) : undefined;
     return resolvePreset(this.cwd, {
       presetId,

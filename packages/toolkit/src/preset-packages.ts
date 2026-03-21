@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import * as TOML from "@iarna/toml";
 import { type PresetDefinition, parsePresetDefinition, providerIdSchema } from "@madebywild/agent-harness-manifest";
+import { defaultSettingsSourcePath } from "./paths.js";
 import { listFilesRecursively } from "./repository.js";
 import type { ProviderId, ResolvedPresetSource } from "./types.js";
 import { exists, normalizeRelativePath, parseJsonAsRecord, parseTomlAsRecord } from "./utils.js";
@@ -130,14 +131,14 @@ async function loadSettingsFiles(settingsDir: string): Promise<Partial<Record<Pr
   const result: Partial<Record<ProviderId, Record<string, unknown>>> = {};
 
   for (const provider of providerIdSchema.options) {
-    const fileName = provider === "codex" ? "codex.toml" : `${provider}.json`;
+    const fileName = path.basename(defaultSettingsSourcePath(provider));
     const filePath = path.join(settingsDir, fileName);
     if (!(await exists(filePath))) {
       continue;
     }
 
     const text = await fs.readFile(filePath, "utf8");
-    result[provider] = provider === "codex" ? parseTomlAsRecord(text, TOML) : parseJsonAsRecord(text);
+    result[provider] = fileName.endsWith(".toml") ? parseTomlAsRecord(text, TOML) : parseJsonAsRecord(text);
   }
 
   return result;

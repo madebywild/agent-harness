@@ -1,9 +1,9 @@
-import { DEFAULT_REGISTRY_ID, type ProviderId } from "@madebywild/agent-harness-manifest";
+import { DEFAULT_REGISTRY_ID, type PresetOperation, type ProviderId } from "@madebywild/agent-harness-manifest";
 import { fetchEntityFromRegistry } from "../entity-registries.js";
 import { resolveHarnessPaths } from "../paths.js";
 import { summarizePreset } from "../presets.js";
 import { writeManifest } from "../repository.js";
-import type { AgentsManifest, PresetApplyResult, PresetOperationResult, ResolvedPreset } from "../types.js";
+import type { AgentsManifest, EntityType, PresetApplyResult, PresetOperationResult, ResolvedPreset } from "../types.js";
 import { deepEqual, sha256, stableStringify, uniqSorted } from "../utils.js";
 import {
   addCommandEntity,
@@ -30,19 +30,17 @@ export async function applyResolvedPreset(cwd: string, preset: ResolvedPreset): 
         if (!existing) {
           manifest.registries.entries[operation.registry] = operation.definition;
           await writeManifest(paths, manifest);
-          results.push({
-            type: operation.type,
-            target: operation.registry,
-            outcome: "applied",
-            message: `Registered registry '${operation.registry}'.`,
-          });
+          results.push(
+            appliedResult(operation.type, operation.registry, `Registered registry '${operation.registry}'.`),
+          );
         } else if (deepEqual(existing, operation.definition)) {
-          results.push({
-            type: operation.type,
-            target: operation.registry,
-            outcome: "skipped",
-            message: `Registry '${operation.registry}' already exists with the same definition.`,
-          });
+          results.push(
+            skipResult(
+              operation.type,
+              operation.registry,
+              `Registry '${operation.registry}' already exists with the same definition.`,
+            ),
+          );
         } else {
           throw new Error(
             `PRESET_CONFLICT: registry '${operation.registry}' already exists with a different definition`,
@@ -54,238 +52,21 @@ export async function applyResolvedPreset(cwd: string, preset: ResolvedPreset): 
       }
       case "enable_provider": {
         if (manifest.providers.enabled.includes(operation.provider)) {
-          results.push({
-            type: operation.type,
-            target: operation.provider,
-            outcome: "skipped",
-            message: `Provider '${operation.provider}' is already enabled.`,
-          });
+          results.push(
+            skipResult(operation.type, operation.provider, `Provider '${operation.provider}' is already enabled.`),
+          );
           break;
         }
 
         manifest.providers.enabled = uniqSorted([...manifest.providers.enabled, operation.provider]) as ProviderId[];
         await writeManifest(paths, manifest);
-        results.push({
-          type: operation.type,
-          target: operation.provider,
-          outcome: "applied",
-          message: `Enabled provider '${operation.provider}'.`,
-        });
+        results.push(appliedResult(operation.type, operation.provider, `Enabled provider '${operation.provider}'.`));
         manifest = await readManifestOrThrow(paths);
         break;
       }
-      case "add_prompt": {
-        const desiredRegistry = operation.source?.registry ?? DEFAULT_REGISTRY_ID;
-        const existing = manifest.entities.find((entity) => entity.type === "prompt");
-        const desiredSourceSha = await resolveDesiredPromptSha(manifest, preset, desiredRegistry);
-        if (existing) {
-          await assertExistingEntityCompatible(cwd, existing, desiredRegistry, desiredSourceSha, "prompt:system");
-          results.push(
-            skipResult(operation.type, "prompt:system", "Prompt entity already exists with matching content."),
-          );
-          break;
-        }
-
-        if (desiredRegistry !== DEFAULT_REGISTRY_ID) {
-          await addPromptEntity(cwd, { registry: desiredRegistry });
-        } else {
-          await addPromptEntity(cwd, { sourceText: requireEmbeddedPrompt(preset) });
-        }
-        results.push(appliedResult(operation.type, "prompt:system", "Added prompt entity 'system'."));
-        manifest = await readManifestOrThrow(paths);
-        break;
-      }
-      case "add_skill": {
-        const desiredRegistry = operation.source?.registry ?? DEFAULT_REGISTRY_ID;
-        const existing = manifest.entities.find((entity) => entity.type === "skill" && entity.id === operation.id);
-        const desiredSourceSha = await resolveDesiredSkillSha(manifest, preset, operation.id, desiredRegistry);
-        if (existing) {
-          await assertExistingEntityCompatible(
-            cwd,
-            existing,
-            desiredRegistry,
-            desiredSourceSha,
-            `skill:${operation.id}`,
-          );
-          results.push(
-            skipResult(
-              operation.type,
-              `skill:${operation.id}`,
-              `Skill '${operation.id}' already exists with matching content.`,
-            ),
-          );
-          break;
-        }
-
-        if (desiredRegistry !== DEFAULT_REGISTRY_ID) {
-          await addSkillEntity(cwd, operation.id, {
-            registry: desiredRegistry,
-          });
-        } else {
-          await addSkillEntity(cwd, operation.id, { files: requireEmbeddedSkill(preset, operation.id) });
-        }
-        results.push(appliedResult(operation.type, `skill:${operation.id}`, `Added skill '${operation.id}'.`));
-        manifest = await readManifestOrThrow(paths);
-        break;
-      }
-      case "add_mcp": {
-        const desiredRegistry = operation.source?.registry ?? DEFAULT_REGISTRY_ID;
-        const existing = manifest.entities.find((entity) => entity.type === "mcp_config" && entity.id === operation.id);
-        const desiredSourceSha = await resolveDesiredMcpSha(manifest, preset, operation.id, desiredRegistry);
-        if (existing) {
-          await assertExistingEntityCompatible(cwd, existing, desiredRegistry, desiredSourceSha, `mcp:${operation.id}`);
-          results.push(
-            skipResult(
-              operation.type,
-              `mcp:${operation.id}`,
-              `MCP config '${operation.id}' already exists with matching content.`,
-            ),
-          );
-          break;
-        }
-
-        if (desiredRegistry !== DEFAULT_REGISTRY_ID) {
-          await addMcpEntity(cwd, operation.id, { registry: desiredRegistry });
-        } else {
-          await addMcpEntity(cwd, operation.id, { sourceJson: requireEmbeddedMcp(preset, operation.id) });
-        }
-        results.push(appliedResult(operation.type, `mcp:${operation.id}`, `Added MCP config '${operation.id}'.`));
-        manifest = await readManifestOrThrow(paths);
-        break;
-      }
-      case "add_subagent": {
-        const desiredRegistry = operation.source?.registry ?? DEFAULT_REGISTRY_ID;
-        const existing = manifest.entities.find((entity) => entity.type === "subagent" && entity.id === operation.id);
-        const desiredSourceSha = await resolveDesiredSubagentSha(manifest, preset, operation.id, desiredRegistry);
-        if (existing) {
-          await assertExistingEntityCompatible(
-            cwd,
-            existing,
-            desiredRegistry,
-            desiredSourceSha,
-            `subagent:${operation.id}`,
-          );
-          results.push(
-            skipResult(
-              operation.type,
-              `subagent:${operation.id}`,
-              `Subagent '${operation.id}' already exists with matching content.`,
-            ),
-          );
-          break;
-        }
-
-        if (desiredRegistry !== DEFAULT_REGISTRY_ID) {
-          await addSubagentEntity(cwd, operation.id, {
-            registry: desiredRegistry,
-          });
-        } else {
-          await addSubagentEntity(cwd, operation.id, { sourceText: requireEmbeddedSubagent(preset, operation.id) });
-        }
-        results.push(appliedResult(operation.type, `subagent:${operation.id}`, `Added subagent '${operation.id}'.`));
-        manifest = await readManifestOrThrow(paths);
-        break;
-      }
-      case "add_hook": {
-        const desiredRegistry = operation.source?.registry ?? DEFAULT_REGISTRY_ID;
-        const existing = manifest.entities.find((entity) => entity.type === "hook" && entity.id === operation.id);
-        const desiredSourceSha = await resolveDesiredHookSha(manifest, preset, operation.id, desiredRegistry);
-        if (existing) {
-          await assertExistingEntityCompatible(
-            cwd,
-            existing,
-            desiredRegistry,
-            desiredSourceSha,
-            `hook:${operation.id}`,
-          );
-          results.push(
-            skipResult(
-              operation.type,
-              `hook:${operation.id}`,
-              `Hook '${operation.id}' already exists with matching content.`,
-            ),
-          );
-          break;
-        }
-
-        if (desiredRegistry !== DEFAULT_REGISTRY_ID) {
-          await addHookEntity(cwd, operation.id, { registry: desiredRegistry });
-        } else {
-          await addHookEntity(cwd, operation.id, { sourceJson: requireEmbeddedHook(preset, operation.id) });
-        }
-        results.push(appliedResult(operation.type, `hook:${operation.id}`, `Added hook '${operation.id}'.`));
-        manifest = await readManifestOrThrow(paths);
-        break;
-      }
-      case "add_settings": {
-        const desiredRegistry = operation.source?.registry ?? DEFAULT_REGISTRY_ID;
-        const existing = manifest.entities.find(
-          (entity) => entity.type === "settings" && entity.id === operation.provider,
-        );
-        const desiredSourceSha = await resolveDesiredSettingsSha(manifest, preset, operation.provider, desiredRegistry);
-        if (existing) {
-          await assertExistingEntityCompatible(
-            cwd,
-            existing,
-            desiredRegistry,
-            desiredSourceSha,
-            `settings:${operation.provider}`,
-          );
-          results.push(
-            skipResult(
-              operation.type,
-              `settings:${operation.provider}`,
-              `Settings '${operation.provider}' already exist with matching content.`,
-            ),
-          );
-          break;
-        }
-
-        if (desiredRegistry !== DEFAULT_REGISTRY_ID) {
-          await addSettingsEntity(cwd, operation.provider, {
-            registry: desiredRegistry,
-          });
-        } else {
-          await addSettingsEntity(cwd, operation.provider, {
-            sourcePayload: requireEmbeddedSettings(preset, operation.provider),
-          });
-        }
-        results.push(
-          appliedResult(operation.type, `settings:${operation.provider}`, `Added settings '${operation.provider}'.`),
-        );
-        manifest = await readManifestOrThrow(paths);
-        break;
-      }
-      case "add_command": {
-        const desiredRegistry = operation.source?.registry ?? DEFAULT_REGISTRY_ID;
-        const existing = manifest.entities.find((entity) => entity.type === "command" && entity.id === operation.id);
-        const desiredSourceSha = await resolveDesiredCommandSha(manifest, preset, operation.id, desiredRegistry);
-        if (existing) {
-          await assertExistingEntityCompatible(
-            cwd,
-            existing,
-            desiredRegistry,
-            desiredSourceSha,
-            `command:${operation.id}`,
-          );
-          results.push(
-            skipResult(
-              operation.type,
-              `command:${operation.id}`,
-              `Command '${operation.id}' already exists with matching content.`,
-            ),
-          );
-          break;
-        }
-
-        if (desiredRegistry !== DEFAULT_REGISTRY_ID) {
-          await addCommandEntity(cwd, operation.id, {
-            registry: desiredRegistry,
-          });
-        } else {
-          await addCommandEntity(cwd, operation.id, { sourceText: requireEmbeddedCommand(preset, operation.id) });
-        }
-        results.push(appliedResult(operation.type, `command:${operation.id}`, `Added command '${operation.id}'.`));
+      default: {
+        const result = await applyEntityOperation(cwd, manifest, preset, operation);
+        results.push(result);
         manifest = await readManifestOrThrow(paths);
         break;
       }
@@ -298,12 +79,191 @@ export async function applyResolvedPreset(cwd: string, preset: ResolvedPreset): 
   };
 }
 
+// ---------------------------------------------------------------------------
+// Generic entity operation handler
+// ---------------------------------------------------------------------------
+
+type EntityAddOperation = Exclude<PresetOperation, { type: "register_registry" } | { type: "enable_provider" }>;
+
+interface EntityOperationSpec {
+  entityType: EntityType;
+  entityId: string;
+  label: string;
+  registry: string;
+  resolveDesiredSha: () => Promise<string>;
+}
+
+function describeEntityOperation(operation: EntityAddOperation, preset: ResolvedPreset): EntityOperationSpec {
+  switch (operation.type) {
+    case "add_prompt":
+      return {
+        entityType: "prompt",
+        entityId: "system",
+        label: "prompt:system",
+        registry: operation.source?.registry ?? DEFAULT_REGISTRY_ID,
+        resolveDesiredSha: () => Promise.resolve(sha256(requireEmbedded(preset, "prompt"))),
+      };
+    case "add_skill":
+      return {
+        entityType: "skill",
+        entityId: operation.id,
+        label: `skill:${operation.id}`,
+        registry: operation.source?.registry ?? DEFAULT_REGISTRY_ID,
+        resolveDesiredSha: () => {
+          const files = requireEmbeddedSkillFiles(preset, operation.id);
+          return Promise.resolve(
+            computeSkillSourceSha(files.map((file) => ({ path: file.path, sha256: sha256(file.content) }))),
+          );
+        },
+      };
+    case "add_mcp":
+      return {
+        entityType: "mcp_config",
+        entityId: operation.id,
+        label: `mcp:${operation.id}`,
+        registry: operation.source?.registry ?? DEFAULT_REGISTRY_ID,
+        resolveDesiredSha: () => Promise.resolve(sha256(stableStringify(requireEmbedded(preset, "mcp", operation.id)))),
+      };
+    case "add_subagent":
+      return {
+        entityType: "subagent",
+        entityId: operation.id,
+        label: `subagent:${operation.id}`,
+        registry: operation.source?.registry ?? DEFAULT_REGISTRY_ID,
+        resolveDesiredSha: () => Promise.resolve(sha256(requireEmbedded(preset, "subagents", operation.id))),
+      };
+    case "add_hook":
+      return {
+        entityType: "hook",
+        entityId: operation.id,
+        label: `hook:${operation.id}`,
+        registry: operation.source?.registry ?? DEFAULT_REGISTRY_ID,
+        resolveDesiredSha: () =>
+          Promise.resolve(sha256(stableStringify(requireEmbedded(preset, "hooks", operation.id)))),
+      };
+    case "add_settings":
+      return {
+        entityType: "settings",
+        entityId: operation.provider,
+        label: `settings:${operation.provider}`,
+        registry: operation.source?.registry ?? DEFAULT_REGISTRY_ID,
+        resolveDesiredSha: () =>
+          Promise.resolve(sha256(stableStringify(requireEmbedded(preset, "settings", operation.provider)))),
+      };
+    case "add_command":
+      return {
+        entityType: "command",
+        entityId: operation.id,
+        label: `command:${operation.id}`,
+        registry: operation.source?.registry ?? DEFAULT_REGISTRY_ID,
+        resolveDesiredSha: () => Promise.resolve(sha256(requireEmbedded(preset, "commands", operation.id))),
+      };
+  }
+}
+
+async function applyEntityOperation(
+  cwd: string,
+  manifest: AgentsManifest,
+  preset: ResolvedPreset,
+  operation: EntityAddOperation,
+): Promise<PresetOperationResult> {
+  const spec = describeEntityOperation(operation, preset);
+  const { entityType, entityId, label, registry } = spec;
+
+  const existing = manifest.entities.find(
+    (entity) => entity.type === entityType && (entityType === "prompt" || entity.id === entityId),
+  );
+
+  const desiredSha =
+    registry !== DEFAULT_REGISTRY_ID
+      ? await resolveRegistrySha(manifest, registry, entityType, entityId)
+      : await spec.resolveDesiredSha();
+
+  if (existing) {
+    await assertExistingEntityCompatible(cwd, existing, registry, desiredSha, label);
+    return skipResult(
+      operation.type,
+      label,
+      `${capitalize(entityType)} '${entityId}' already exists with matching content.`,
+    );
+  }
+
+  if (registry !== DEFAULT_REGISTRY_ID) {
+    await addEntityFromRegistry(cwd, entityType, entityId, registry);
+  } else {
+    await addEntityFromEmbedded(cwd, preset, operation);
+  }
+
+  return appliedResult(operation.type, label, `Added ${entityType} '${entityId}'.`);
+}
+
+// ---------------------------------------------------------------------------
+// Add entity dispatchers
+// ---------------------------------------------------------------------------
+
+async function addEntityFromRegistry(
+  cwd: string,
+  entityType: EntityType,
+  entityId: string,
+  registry: string,
+): Promise<void> {
+  switch (entityType) {
+    case "prompt":
+      return addPromptEntity(cwd, { registry });
+    case "skill":
+      return addSkillEntity(cwd, entityId, { registry });
+    case "mcp_config":
+      return addMcpEntity(cwd, entityId, { registry });
+    case "subagent":
+      return addSubagentEntity(cwd, entityId, { registry });
+    case "hook":
+      return addHookEntity(cwd, entityId, { registry });
+    case "settings":
+      return addSettingsEntity(cwd, entityId as ProviderId, { registry });
+    case "command":
+      return addCommandEntity(cwd, entityId, { registry });
+  }
+}
+
+async function addEntityFromEmbedded(
+  cwd: string,
+  preset: ResolvedPreset,
+  operation: EntityAddOperation,
+): Promise<void> {
+  switch (operation.type) {
+    case "add_prompt":
+      return addPromptEntity(cwd, { sourceText: requireEmbedded(preset, "prompt") });
+    case "add_skill":
+      return addSkillEntity(cwd, operation.id, { files: requireEmbeddedSkillFiles(preset, operation.id) });
+    case "add_mcp":
+      return addMcpEntity(cwd, operation.id, { sourceJson: requireEmbedded(preset, "mcp", operation.id) });
+    case "add_subagent":
+      return addSubagentEntity(cwd, operation.id, { sourceText: requireEmbedded(preset, "subagents", operation.id) });
+    case "add_hook":
+      return addHookEntity(cwd, operation.id, { sourceJson: requireEmbedded(preset, "hooks", operation.id) });
+    case "add_settings":
+      return addSettingsEntity(cwd, operation.provider, {
+        sourcePayload: requireEmbedded(preset, "settings", operation.provider),
+      });
+    case "add_command":
+      return addCommandEntity(cwd, operation.id, { sourceText: requireEmbedded(preset, "commands", operation.id) });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function appliedResult(type: PresetOperationResult["type"], target: string, message: string): PresetOperationResult {
   return { type, target, outcome: "applied", message };
 }
 
 function skipResult(type: PresetOperationResult["type"], target: string, message: string): PresetOperationResult {
   return { type, target, outcome: "skipped", message };
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 async function assertExistingEntityCompatible(
@@ -319,180 +279,53 @@ async function assertExistingEntityCompatible(
   }
 }
 
-async function resolveDesiredPromptSha(
+async function resolveRegistrySha(
   manifest: AgentsManifest,
-  preset: ResolvedPreset,
   registry: string,
+  entityType: EntityType,
+  entityId: string,
 ): Promise<string> {
-  if (registry !== DEFAULT_REGISTRY_ID) {
-    const fetched = await fetchEntityFromRegistry(
-      registry,
-      lookupRegistryDefinition(manifest, registry),
-      "prompt",
-      "system",
-    );
-    return fetched.importedSourceSha256;
-  }
-
-  return sha256(requireEmbeddedPrompt(preset));
+  const fetchType = entityType === "mcp_config" ? "mcp_config" : entityType;
+  const fetched = await fetchEntityFromRegistry(
+    registry,
+    lookupRegistryDefinition(manifest, registry),
+    fetchType,
+    entityId,
+  );
+  return fetched.importedSourceSha256;
 }
 
-async function resolveDesiredSkillSha(
-  manifest: AgentsManifest,
+function requireEmbedded(preset: ResolvedPreset, key: "prompt"): string;
+function requireEmbedded(preset: ResolvedPreset, key: "subagents" | "commands", id: string): string;
+function requireEmbedded(preset: ResolvedPreset, key: "mcp" | "hooks", id: string): Record<string, unknown>;
+function requireEmbedded(preset: ResolvedPreset, key: "settings", id: string): Record<string, unknown>;
+function requireEmbedded(
   preset: ResolvedPreset,
-  id: string,
-  registry: string,
-): Promise<string> {
-  if (registry !== DEFAULT_REGISTRY_ID) {
-    const fetched = await fetchEntityFromRegistry(registry, lookupRegistryDefinition(manifest, registry), "skill", id);
-    return fetched.importedSourceSha256;
+  key: "prompt" | "subagents" | "commands" | "mcp" | "hooks" | "settings",
+  id?: string,
+): string | Record<string, unknown> {
+  if (key === "prompt") {
+    const value = preset.content.prompt;
+    if (!value) {
+      throw new Error(`PRESET_INVALID: preset '${preset.definition.id}' is missing embedded prompt content`);
+    }
+    return value;
   }
 
-  const files = requireEmbeddedSkill(preset, id);
-  return computeSkillSourceSha(files.map((file) => ({ path: file.path, sha256: sha256(file.content) })));
-}
-
-async function resolveDesiredMcpSha(
-  manifest: AgentsManifest,
-  preset: ResolvedPreset,
-  id: string,
-  registry: string,
-): Promise<string> {
-  if (registry !== DEFAULT_REGISTRY_ID) {
-    const fetched = await fetchEntityFromRegistry(
-      registry,
-      lookupRegistryDefinition(manifest, registry),
-      "mcp_config",
-      id,
-    );
-    return fetched.importedSourceSha256;
+  const lookupId = id as string;
+  // Settings uses ProviderId keys; all other maps use plain string keys.
+  const value =
+    key === "settings" ? preset.content.settings?.[lookupId as ProviderId] : preset.content[key]?.[lookupId];
+  if (!value) {
+    throw new Error(`PRESET_INVALID: preset '${preset.definition.id}' is missing embedded ${key} '${lookupId}'`);
   }
-
-  return sha256(stableStringify(requireEmbeddedMcp(preset, id)));
+  return value;
 }
 
-async function resolveDesiredSubagentSha(
-  manifest: AgentsManifest,
-  preset: ResolvedPreset,
-  id: string,
-  registry: string,
-): Promise<string> {
-  if (registry !== DEFAULT_REGISTRY_ID) {
-    const fetched = await fetchEntityFromRegistry(
-      registry,
-      lookupRegistryDefinition(manifest, registry),
-      "subagent",
-      id,
-    );
-    return fetched.importedSourceSha256;
-  }
-
-  return sha256(requireEmbeddedSubagent(preset, id));
-}
-
-async function resolveDesiredHookSha(
-  manifest: AgentsManifest,
-  preset: ResolvedPreset,
-  id: string,
-  registry: string,
-): Promise<string> {
-  if (registry !== DEFAULT_REGISTRY_ID) {
-    const fetched = await fetchEntityFromRegistry(registry, lookupRegistryDefinition(manifest, registry), "hook", id);
-    return fetched.importedSourceSha256;
-  }
-
-  return sha256(stableStringify(requireEmbeddedHook(preset, id)));
-}
-
-async function resolveDesiredSettingsSha(
-  manifest: AgentsManifest,
-  preset: ResolvedPreset,
-  provider: ProviderId,
-  registry: string,
-): Promise<string> {
-  if (registry !== DEFAULT_REGISTRY_ID) {
-    const fetched = await fetchEntityFromRegistry(
-      registry,
-      lookupRegistryDefinition(manifest, registry),
-      "settings",
-      provider,
-    );
-    return fetched.importedSourceSha256;
-  }
-
-  return sha256(stableStringify(requireEmbeddedSettings(preset, provider)));
-}
-
-async function resolveDesiredCommandSha(
-  manifest: AgentsManifest,
-  preset: ResolvedPreset,
-  id: string,
-  registry: string,
-): Promise<string> {
-  if (registry !== DEFAULT_REGISTRY_ID) {
-    const fetched = await fetchEntityFromRegistry(
-      registry,
-      lookupRegistryDefinition(manifest, registry),
-      "command",
-      id,
-    );
-    return fetched.importedSourceSha256;
-  }
-
-  return sha256(requireEmbeddedCommand(preset, id));
-}
-
-function requireEmbeddedPrompt(preset: ResolvedPreset): string {
-  if (!preset.content.prompt) {
-    throw new Error(`PRESET_INVALID: preset '${preset.definition.id}' is missing embedded prompt content`);
-  }
-  return preset.content.prompt;
-}
-
-function requireEmbeddedSkill(preset: ResolvedPreset, id: string): Array<{ path: string; content: string }> {
+function requireEmbeddedSkillFiles(preset: ResolvedPreset, id: string): Array<{ path: string; content: string }> {
   const files = preset.content.skills?.[id];
   if (!files || files.length === 0) {
     throw new Error(`PRESET_INVALID: preset '${preset.definition.id}' is missing embedded skill '${id}'`);
   }
   return files;
-}
-
-function requireEmbeddedMcp(preset: ResolvedPreset, id: string): Record<string, unknown> {
-  const value = preset.content.mcp?.[id];
-  if (!value) {
-    throw new Error(`PRESET_INVALID: preset '${preset.definition.id}' is missing embedded MCP config '${id}'`);
-  }
-  return value;
-}
-
-function requireEmbeddedSubagent(preset: ResolvedPreset, id: string): string {
-  const value = preset.content.subagents?.[id];
-  if (!value) {
-    throw new Error(`PRESET_INVALID: preset '${preset.definition.id}' is missing embedded subagent '${id}'`);
-  }
-  return value;
-}
-
-function requireEmbeddedHook(preset: ResolvedPreset, id: string): Record<string, unknown> {
-  const value = preset.content.hooks?.[id];
-  if (!value) {
-    throw new Error(`PRESET_INVALID: preset '${preset.definition.id}' is missing embedded hook '${id}'`);
-  }
-  return value;
-}
-
-function requireEmbeddedSettings(preset: ResolvedPreset, provider: ProviderId): Record<string, unknown> {
-  const value = preset.content.settings?.[provider];
-  if (!value) {
-    throw new Error(`PRESET_INVALID: preset '${preset.definition.id}' is missing embedded settings '${provider}'`);
-  }
-  return value;
-}
-
-function requireEmbeddedCommand(preset: ResolvedPreset, id: string): string {
-  const value = preset.content.commands?.[id];
-  if (!value) {
-    throw new Error(`PRESET_INVALID: preset '${preset.definition.id}' is missing embedded command '${id}'`);
-  }
-  return value;
 }

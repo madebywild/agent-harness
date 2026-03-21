@@ -3,10 +3,17 @@ import type { ProviderId } from "@madebywild/agent-harness-manifest";
 
 export const DELEGATED_INIT_PRESET_ID = "delegate";
 
-const DELEGATED_INIT_BINARIES: Record<ProviderId, string> = {
-  claude: "claude",
-  codex: "codex",
-  copilot: "copilot",
+/**
+ * Provider-specific CLI invocation details.
+ *
+ * - claude: `claude -p <task>` runs non-interactively (print mode).
+ * - codex:  `codex exec <task>` runs non-interactively.
+ * - copilot: `copilot -p <task>` runs non-interactively (prompt mode).
+ */
+const DELEGATED_INIT_COMMANDS: Record<ProviderId, { binary: string; buildArgs: (task: string) => string[] }> = {
+  claude: { binary: "claude", buildArgs: (task) => ["-p", task] },
+  codex: { binary: "codex", buildArgs: (task) => ["exec", task] },
+  copilot: { binary: "copilot", buildArgs: (task) => ["-p", task] },
 };
 
 export function buildDelegatedBootstrapPrompt(): string {
@@ -69,8 +76,8 @@ export function launchDelegatedInit(
   },
   spawnImpl: SpawnLike = (command, args, options) => spawn(command, [...args], options),
 ): Promise<void> {
-  const binary = DELEGATED_INIT_BINARIES[input.provider];
-  const child = spawnImpl(binary, [buildDelegatedInitTask()], {
+  const { binary, buildArgs } = DELEGATED_INIT_COMMANDS[input.provider];
+  const child = spawnImpl(binary, buildArgs(buildDelegatedInitTask()), {
     cwd: input.cwd,
     env: input.env,
     stdio: "inherit",

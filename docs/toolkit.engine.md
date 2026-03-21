@@ -14,6 +14,7 @@ Supporting logic is split across submodules in `engine/`:
     - `addSubagentEntity`
     - `addHookEntity`
     - `addSettingsEntity`
+    - `addCommandEntity`
   - registry pull/remove helpers:
     - `pullRegistryEntities`
     - `removeEntity`
@@ -31,6 +32,8 @@ Supporting logic is split across submodules in `engine/`:
     - `upsertLockEntityRecord`
     - `removeLockEntityRecord`
     - `writeManagedSourceIndex`
+- `engine/presets.ts`
+  - `applyResolvedPreset(cwd, preset)`: applies a resolved preset's ordered operations against the workspace.
 - `engine/utils.ts`
   - pure helpers:
     - sort/validate/resolve helpers
@@ -57,6 +60,10 @@ Supporting logic is split across submodules in `engine/`:
   - `setDefaultRegistry`
   - `getDefaultRegistry`
   - `pullRegistry({ entityType?, id?, registry?, force? })`
+- preset methods:
+  - `listPresets({ registry? })`: returns bundled + local presets by default, or registry presets when `registry` is specified.
+  - `describePreset(presetId, { registry? })`: resolves a single preset with full definition and embedded content.
+  - `applyPreset(presetId, { registry? })`: materializes a preset into the workspace (providers, entities, settings).
 - `remove(entityType, id, deleteSource)`: removes entity and optionally source/override files.
 - `validate()`, `plan()`, `apply()`, `watch(debounceMs)`, `doctor({ json? })`, `migrate({ ... })`.
 

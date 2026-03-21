@@ -24,6 +24,8 @@ Canonical entity types:
 - `mcp_config`
 - `subagent`
 - `hook`
+- `settings` (per-provider; id is the provider name)
+- `command`
 
 Bootstrap primitive:
 
@@ -36,6 +38,8 @@ Default source locations:
 - MCP: `.harness/src/mcp/<id>.json`
 - Subagents: `.harness/src/subagents/<id>.md`
 - Hooks: `.harness/src/hooks/<id>.json`
+- Settings: `.harness/src/settings/<provider>.json` (codex uses `.toml`)
+- Commands: `.harness/src/commands/<id>.md`
 
 Provider override sidecars are YAML files with schema `version: 1` and optional `enabled`, `targetPath`, `options`.
 

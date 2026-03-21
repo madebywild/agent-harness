@@ -59,6 +59,7 @@ Implements the layered CLI runtime with shared command execution for both non-in
 - `preset list --registry <name>` lists presets exposed by a configured git registry.
 - `preset describe <id>` resolves a preset and returns its metadata plus ordered operations.
 - `preset apply <id>` materializes normal harness state into the workspace; the preset itself is not persisted in `manifest.json`.
-- Bundled presets include a single `delegate` preset. It enables `claude`, `codex`, and `copilot` together and seeds `.harness/src/prompts/system.md` with one shared bootstrap prompt for all providers.
+- Bundled presets: `delegate` (bootstrap prompt for delegated authoring), `starter` (prompt + reviewer skill + fix-issue command), `researcher` (prompt + research subagent), `yolo` (prompt + permissive settings for all providers). All four enable `claude`, `codex`, and `copilot`.
 - `init --delegate <provider>` is the intended first-run path when the user wants `claude`, `codex`, or `copilot` to author the real project-specific prompt and any related harness entities from the current repository context.
 - Delegated init is interactive-only and should not be combined with `--json`, because the selected provider CLI takes over the terminal session.
+- Provider CLIs are invoked non-interactively: `claude -p <task>`, `codex exec <task>`, `copilot -p <task>`. See [`toolkit.delegated-init.md`](./toolkit.delegated-init.md) for details.

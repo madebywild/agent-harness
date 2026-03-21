@@ -330,13 +330,6 @@ export const presetDefinitionSchema = z
   })
   .strict();
 
-export const presetCatalogSchema = z
-  .object({
-    version: z.literal(1),
-    presets: z.array(presetDefinitionSchema).default([]),
-  })
-  .strict();
-
 export const agentsManifestSchema = agentsManifestV1Schema;
 export const manifestLockSchema = manifestLockV1Schema;
 export const managedIndexSchema = managedIndexV1Schema;
@@ -349,7 +342,6 @@ export const schemas = {
   providerOverrideV1Schema,
   registryManifestSchema,
   presetDefinitionSchema,
-  presetCatalogSchema,
   presetOperationSchema,
   localRegistryDefinitionSchema,
   gitRegistryDefinitionSchema,
@@ -382,7 +374,6 @@ export type ManifestLock = z.infer<typeof manifestLockV1Schema>;
 export type ManagedIndex = z.infer<typeof managedIndexV1Schema>;
 export type RegistryManifest = z.infer<typeof registryManifestSchema>;
 export type PresetDefinition = z.infer<typeof presetDefinitionSchema>;
-export type PresetCatalog = z.infer<typeof presetCatalogSchema>;
 export type PresetOperation = z.infer<typeof presetOperationSchema>;
 
 export function toJsonSchemas(): Record<string, object> {
@@ -417,10 +408,6 @@ export function parseRegistryManifest(input: unknown): RegistryManifest {
 
 export function parsePresetDefinition(input: unknown): PresetDefinition {
   return presetDefinitionSchema.parse(input);
-}
-
-export function parsePresetCatalog(input: unknown): PresetCatalog {
-  return presetCatalogSchema.parse(input);
 }
 
 function parseVersionedDocument<TSchema extends z.ZodTypeAny>(
