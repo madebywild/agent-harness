@@ -435,6 +435,7 @@ function hasDelimitedFrontmatterBlock(text: string): boolean {
   if (!text.startsWith("---")) {
     return false;
   }
+  // Ensure the opening delimiter is exactly `---` on its own line (not `----` or other prefixes).
   if (!/^---(?:\r?\n|$)/u.test(text)) {
     return false;
   }
