@@ -15,15 +15,15 @@
       "id": "claude",
       "overrideSha256ByProvider": {},
       "registry": "local",
-      "sourceSha256": "dd0f39d2e3f139e178d9a5f27cd6f810fcd516799777d78f44d2102cfbfea8db",
+      "sourceSha256": "b28075a65e095bd80fdb0d7b657088eeae68482f23ff1d0485e431bb4788815d",
       "type": "settings"
     }
   ],
-  "generatedAt": "2026-03-21T14:57:00.254Z",
+  "generatedAt": "2026-03-21T15:03:01.334Z",
   "manifestFingerprint": "cc6a00d18fed044da64c40e1ec1a0f360366bdbe38cee6b0a12fbe8a07b1b940",
   "outputs": [
     {
-      "contentSha256": "dd0f39d2e3f139e178d9a5f27cd6f810fcd516799777d78f44d2102cfbfea8db",
+      "contentSha256": "ad1e01a8644304d236d4af8094b9d29cdcb803be660e6bf3e448a308a86945af",
       "ownerEntityIds": ["claude"],
       "path": ".claude/settings.json",
       "provider": "claude"
