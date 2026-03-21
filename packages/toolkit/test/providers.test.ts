@@ -323,7 +323,6 @@ test("codex merges MCP and subagents into shared config", async () => {
 
   const tomlContent = await fs.readFile(path.join(cwd, ".codex/config.toml"), "utf8");
   assert.match(tomlContent, /\[mcp_servers\.test\]/u);
-  assert.match(tomlContent, /experimental_use_role = true/u);
   assert.match(tomlContent, /\[agents\.researcher\]/u);
   assert.match(tomlContent, /model = "gpt-5"/u);
   assert.match(tomlContent, /tools = \[\s*"web_search"\s*\]/u);

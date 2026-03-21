@@ -121,7 +121,7 @@ test("copilot renderCommand emits .github/prompts/<id>.prompt.md", async () => {
   assert.equal(artifacts[0]?.format, "markdown");
 });
 
-test("copilot renderCommand includes mode: agent in frontmatter", async () => {
+test("copilot renderCommand includes agent: agent in frontmatter", async () => {
   const adapter = buildCopilotAdapter(new Map());
   const input: CanonicalCommand = {
     id: "cmd",
@@ -132,7 +132,7 @@ test("copilot renderCommand includes mode: agent in frontmatter", async () => {
   const artifacts = await adapter.renderCommand!(input, undefined);
   const content = artifacts[0]?.content ?? "";
 
-  assert.ok(content.includes("mode: agent"), `content was:\n${content}`);
+  assert.ok(content.includes("agent: agent"), `content was:\n${content}`);
 });
 
 test("copilot renderCommand includes description in frontmatter", async () => {

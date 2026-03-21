@@ -60,8 +60,8 @@ Recommendation: start with `"best_effort"` during development, switch to `"stric
 | `post_tool_failure` | Yes (`PostToolUseFailure`) | No | No |
 | `notification` | Yes (`Notification`) | No | No |
 | `subagent_start` | Yes (`SubagentStart`) | No | No |
-| `subagent_stop` | Yes (`SubagentStop`) | Yes (`subagentStop`) | No |
-| `stop` | Yes (`Stop`) | Yes (`stop`) | No |
+| `subagent_stop` | Yes (`SubagentStop`) | No | No |
+| `stop` | Yes (`Stop`) | No | No |
 | `stop_failure` | Yes (`StopFailure`) | No | No |
 | `teammate_idle` | Yes (`TeammateIdle`) | No | No |
 | `task_completed` | Yes (`TaskCompleted`) | No | No |
@@ -84,7 +84,7 @@ Recommendation: start with `"best_effort"` during development, switch to `"stric
 
 - **Output file:** `.claude/settings.json` (key: `hooks`)
 - **Event names:** PascalCase (e.g., `pre_tool_use` → `PreToolUse`)
-- **Handler types:** `command` only (harness canonical)
+- **Handler types:** `command` only (harness canonical). Claude Code natively supports `command`, `http`, `prompt`, and `agent` handler types, but the harness canonical format only supports `command`.
 - **Matcher:** supported on most events — filters by tool name, session source, exit reason, etc. Specify `"matcher"` on the handler; harness groups handlers with the same matcher under one entry.
 - **Output shape:**
 
@@ -110,7 +110,7 @@ Recommendation: start with `"best_effort"` during development, switch to `"stric
 
 - **Output file:** `.github/hooks/harness.generated.json` (top-level `version: 1`)
 - **Event names:** camelCase (e.g., `pre_tool_use` → `preToolUse`, `prompt_submit` → `userPromptSubmitted`)
-- **Supported canonical events:** `session_start`, `session_end`, `prompt_submit`, `pre_tool_use`, `post_tool_use`, `stop`, `subagent_stop`, `error`
+- **Supported canonical events:** `session_start`, `session_end`, `prompt_submit`, `pre_tool_use`, `post_tool_use`, `error`
 - **Handler types:** `command` only
 - **Matcher:** NOT supported — fails in `"strict"` mode, silently ignored in `"best_effort"` mode
 - **Output shape:**

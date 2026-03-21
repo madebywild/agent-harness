@@ -90,14 +90,14 @@ Reference: https://code.claude.com/docs/en/slash-commands
 
 - Output path: `.github/prompts/<command-id>.prompt.md`
 - Invocation: `/<command-id>` in Copilot Chat (VS Code, Visual Studio, JetBrains)
-- Format: Markdown with YAML frontmatter; always includes `mode: agent`
+- Format: Markdown with YAML frontmatter; always includes `agent: agent`
 
-Generated frontmatter always sets `mode: agent`. The `description` from your source is included. Body is written as-is.
+Generated frontmatter always sets `agent: agent` (runs in agent mode). The `description` from your source is included. Body is written as-is.
 
 Example output at `.github/prompts/fix-issue.prompt.md`:
 ```markdown
 ---
-mode: agent
+agent: agent
 description: "Fix a GitHub issue"
 ---
 
@@ -119,7 +119,7 @@ If you need Codex-specific reusable prompts, use a `skill` entity instead.
 | Provider | Supported | Output path | Format |
 |---|---|---|---|
 | Claude Code | Yes | `.claude/commands/<id>.md` | Markdown + frontmatter |
-| GitHub Copilot | Yes | `.github/prompts/<id>.prompt.md` | Markdown + frontmatter (`mode: agent`) |
+| GitHub Copilot | Yes | `.github/prompts/<id>.prompt.md` | Markdown + frontmatter (`agent: agent`) |
 | OpenAI Codex | No | — | — |
 
 ## Harness CLI commands

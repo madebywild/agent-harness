@@ -76,7 +76,7 @@ describe("command lifecycle journey", { timeout: 120_000 }, () => {
       "expected .github/prompts/fix-issue.prompt.md",
     );
     const copilotContent = await readWorkspaceText(workspace, ".github/prompts/fix-issue.prompt.md");
-    assert.ok(copilotContent.includes("mode: agent"));
+    assert.ok(copilotContent.includes("agent: agent"));
     assert.ok(copilotContent.includes('description: "Fix the issue described in the arguments"'));
     assert.ok(!copilotContent.includes("argument-hint"), "copilot should not have argument-hint");
     assert.ok(copilotContent.includes("Fix the issue: $ARGUMENTS"));

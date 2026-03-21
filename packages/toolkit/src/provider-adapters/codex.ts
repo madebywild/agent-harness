@@ -52,7 +52,6 @@ export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): Provide
       }
 
       if (enabledSubagents.length > 0) {
-        payload.experimental_use_role = true;
         const agents = Object.fromEntries(
           enabledSubagents
             .slice()
@@ -61,7 +60,7 @@ export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): Provide
               const options = parseCodexSubagentOptions(input.subagentOverrideByEntity?.get(subagent.id));
               const agentState: Record<string, unknown> = {
                 description: subagent.description,
-                prompt: subagent.body,
+                developer_instructions: subagent.body,
               };
               if (options.model) {
                 agentState.model = options.model;

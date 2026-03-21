@@ -42,13 +42,12 @@ Official docs: https://code.claude.com/docs/en/sub-agents
 |------|-------|
 | Output path | `.codex/config.toml` |
 | Format | TOML, section `[agents.<subagent-id>]` |
-| Required fields | `description`, `prompt` (body) |
-| Optional fields | `model`, `tools` (`string[]`) |
-| Required top-level flag | `experimental_use_role = true` (auto-injected by harness) |
+| Required fields | `description`, `developer_instructions` (body) |
+| Optional fields | `model`, `model_reasoning_effort`, `nickname_candidates` |
 
-Harness writes all enabled subagents into `.codex/config.toml` under `[agents.<id>]` entries and sets `experimental_use_role = true` at the top level automatically — you do not need to set this manually. The `description` drives when Codex routes to that agent role; the body becomes `prompt`. Custom agents placed in `.codex/agents/` as standalone TOML files (outside of harness management) take precedence over same-named built-in agents.
+Harness writes all enabled subagents into `.codex/config.toml` under `[agents.<id>]` entries. The `description` drives when Codex routes to that agent role; the body becomes `developer_instructions`. Codex also supports standalone TOML agent files in `.codex/agents/` (outside of harness management), which are auto-discovered and take precedence over same-named inline entries.
 
-Official docs: https://developers.openai.com/codex/subagents
+Official docs: https://developers.openai.com/codex/config-reference
 
 ### GitHub Copilot
 
@@ -59,7 +58,7 @@ Official docs: https://developers.openai.com/codex/subagents
 | Required frontmatter | `description` |
 | Optional frontmatter | `name`, `tools` (`string[]`), `model`, `handoffs`, `mcp-servers`, `target`, `disable-model-invocation`, `user-invocable` |
 
-Copilot discovers agent files in `.github/agents/` at the repository level. The `handoffs` field is Copilot-specific: it defines routing buttons that let users switch to another agent mid-conversation, optionally with a pre-filled prompt. Example handoff entry:
+Copilot discovers agent files in `.github/agents/` at the repository level. The `handoffs` field is Copilot-specific and is supported in VS Code agent mode: it defines routing buttons that let users switch to another agent mid-conversation, optionally with a pre-filled prompt. **Note:** handoffs are currently not supported by the Copilot coding agent on GitHub.com — they are silently ignored there. Example handoff entry (VS Code only):
 
 ```yaml
 handoffs:
@@ -81,9 +80,10 @@ Official docs: https://docs.github.com/en/copilot/reference/custom-agents-config
 |-------|-------------|-----------|----------------|
 | `name` | required | via TOML key | optional |
 | `description` | required | required | required |
-| `tools` | `string` or `string[]` | `string[]` | `string[]` |
+| `tools` | `string` or `string[]` | — | `string[]` |
 | `model` | optional | optional | optional |
-| `handoffs` | — | — | optional |
+| `developer_instructions` | — | required (body) | — |
+| `handoffs` | — | — | optional (VS Code only) |
 
 Provider-specific options (`model`, `tools`, `handoffs`) are set through override sidecar files, not in the canonical source frontmatter — see the Override sidecars section below.
 
@@ -252,7 +252,7 @@ Check `.claude/agents/`, `.codex/config.toml`, and `.github/agents/` to verify t
 ## References
 
 - Claude Code sub-agents: https://code.claude.com/docs/en/sub-agents
-- OpenAI Codex subagents: https://developers.openai.com/codex/subagents
+- OpenAI Codex agents: https://developers.openai.com/codex/config-reference
 - OpenAI Codex config reference: https://developers.openai.com/codex/config-reference
 - GitHub Copilot custom agents configuration: https://docs.github.com/en/copilot/reference/custom-agents-configuration
 - GitHub Copilot custom agents how-to: https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/create-custom-agents
