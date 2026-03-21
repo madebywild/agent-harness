@@ -71,12 +71,18 @@ export interface FetchedHookEntity extends FetchedEntityBase {
   readonly sourceJson: Record<string, unknown>;
 }
 
+export interface FetchedCommandEntity extends FetchedEntityBase {
+  readonly type: "command";
+  readonly sourceText: string;
+}
+
 export type FetchedRegistryEntity =
   | FetchedPromptEntity
   | FetchedSkillEntity
   | FetchedMcpEntity
   | FetchedSubagentEntity
-  | FetchedHookEntity;
+  | FetchedHookEntity
+  | FetchedCommandEntity;
 
 export async function fetchEntityFromRegistry(
   registryId: RegistryId,
@@ -262,6 +268,29 @@ export async function fetchEntityFromRegistry(
 
       return {
         type: "subagent",
+        id,
+        registry: registryId,
+        sourceText,
+        registryManifest,
+        registryRevision: {
+          kind: "git",
+          ref: definition.ref,
+          commit,
+        },
+        importedSourceSha256: sha256(sourceText),
+      };
+    }
+
+    if (entityType === "command") {
+      const commandPath = path.join(checkoutDir, rootPath, "commands", `${id}.md`);
+      const sourceText = await readFileWithNotFound(
+        commandPath,
+        registryId,
+        `Command '${id}' not found in registry '${registryId}'`,
+      );
+
+      return {
+        type: "command",
         id,
         registry: registryId,
         sourceText,

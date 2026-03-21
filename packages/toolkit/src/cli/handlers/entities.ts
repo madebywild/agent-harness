@@ -112,6 +112,28 @@ export async function handleAddHook(
   };
 }
 
+export async function handleAddCommand(
+  input: { commandId: string; registry?: string },
+  context: CliResolvedContext,
+): Promise<EntityMutationOutput> {
+  const engine = new HarnessEngine(context.cwd);
+  await engine.addCommand(input.commandId, { registry: input.registry });
+
+  return {
+    family: "entity-mutation",
+    command: "add.command",
+    ok: true,
+    diagnostics: [],
+    exitCode: 0,
+    data: {
+      operation: "add",
+      entityType: "command",
+      id: input.commandId,
+      message: `Added command '${input.commandId}'.`,
+    },
+  };
+}
+
 export async function handleRemoveEntity(
   input: { entityType: string; id: string; deleteSource: boolean },
   context: CliResolvedContext,

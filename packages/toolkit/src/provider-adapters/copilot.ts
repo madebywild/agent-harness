@@ -1,5 +1,5 @@
-import type { ProviderAdapter } from "../types.js";
-import { normalizeRelativePath, uniqSorted } from "../utils.js";
+import type { CanonicalCommand, ProviderAdapter } from "../types.js";
+import { normalizeRelativePath, uniqSorted, withSingleTrailingNewline } from "../utils.js";
 import { PROVIDER_DEFAULTS } from "./constants.js";
 import { createProviderAdapter } from "./create-adapter.js";
 import { renderCopilotHookConfig, resolveHookTargetPath } from "./hooks.js";
@@ -61,5 +61,31 @@ export function buildCopilotAdapter(skillFilesByEntityId: SkillFileIndex): Provi
         },
       ];
     },
+    async renderCommand(input, override) {
+      if (override?.enabled === false) {
+        return [];
+      }
+
+      const defaultTarget = `${PROVIDER_DEFAULTS.copilot.commandRoot}/${input.id}.prompt.md`;
+      const targetPath = normalizeRelativePath(override?.targetPath ?? defaultTarget);
+      return [
+        {
+          path: targetPath,
+          content: renderCopilotCommandMarkdown(input),
+          ownerEntityId: input.id,
+          provider: "copilot",
+          format: "markdown",
+        },
+      ];
+    },
   };
+}
+
+function renderCopilotCommandMarkdown(input: CanonicalCommand): string {
+  const frontmatterLines = ["mode: agent", `description: ${JSON.stringify(input.description)}`];
+  const parts = ["---", ...frontmatterLines, "---"];
+  if (input.body) {
+    parts.push("", input.body);
+  }
+  return withSingleTrailingNewline(parts.join("\n"));
 }

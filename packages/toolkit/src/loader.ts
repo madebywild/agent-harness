@@ -9,11 +9,14 @@ import type {
 } from "@madebywild/agent-harness-manifest";
 import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness-manifest";
 import matter from "gray-matter";
+import { parseCanonicalCommandDocument } from "./commands.js";
 import { loadEnvVars, pushUnresolvedEnvDiagnostics, substituteEnvVars } from "./env.js";
 import { canonicalHookHasErrors, parseCanonicalHookDocument, withHookId } from "./hooks.js";
 import type { HarnessPaths } from "./paths.js";
 import {
   DEFAULT_PROMPT_SOURCE_PATH,
+  defaultCommandOverridePath,
+  defaultCommandSourcePath,
   defaultHookOverridePath,
   defaultHookSourcePath,
   defaultMcpOverridePath,
@@ -29,6 +32,7 @@ import {
 } from "./repository.js";
 import type {
   Diagnostic,
+  LoadedCommand,
   LoadedHook,
   LoadedMcp,
   LoadedPrompt,
@@ -113,6 +117,16 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
     }
   }
 
+  const commandEntities = manifest.entities.filter((entity) => entity.type === "command" && entity.enabled !== false);
+  const commands: LoadedCommand[] = [];
+  for (const commandEntity of commandEntities) {
+    const loadedCommand = await loadCommand(paths, commandEntity, envVars);
+    diagnostics.push(...loadedCommand.diagnostics);
+    if (loadedCommand.command) {
+      commands.push(loadedCommand.command);
+    }
+  }
+
   return {
     manifest,
     diagnostics,
@@ -121,6 +135,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
     mcps: mcps.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     subagents: subagents.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     hooks: hooks.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
+    commands: commands.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
   };
 }
 
@@ -278,6 +293,19 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
           code: "HOOK_SOURCE_INVALID",
           severity: "error",
           message: `Hook '${entity.id}' sourcePath must be '${expectedPath}'`,
+          path: sourcePath,
+          entityId: entity.id,
+        });
+      }
+    }
+
+    if (entity.type === "command") {
+      const expectedPath = defaultCommandSourcePath(entity.id);
+      if (sourcePath !== expectedPath) {
+        diagnostics.push({
+          code: "COMMAND_SOURCE_INVALID",
+          severity: "error",
+          message: `Command '${entity.id}' sourcePath must be '${expectedPath}'`,
           path: sourcePath,
           entityId: entity.id,
         });
@@ -742,6 +770,63 @@ async function loadHook(
     hook: {
       entity,
       canonical: withHookId(parsedHook.canonical, entity.id),
+      sourceSha256: sha256(text),
+      overrideByProvider,
+      overrideShaByProvider,
+    },
+  };
+}
+
+async function loadCommand(
+  paths: HarnessPaths,
+  entity: EntityRef,
+  envVars: Map<string, string>,
+): Promise<{ command?: LoadedCommand; diagnostics: Diagnostic[] }> {
+  const diagnostics: Diagnostic[] = [];
+  const sourcePath = normalizeRelativePath(entity.sourcePath);
+  const sourceAbs = path.join(paths.root, sourcePath);
+
+  let text: string;
+  try {
+    text = await fs.readFile(sourceAbs, "utf8");
+  } catch {
+    diagnostics.push({
+      code: "COMMAND_SOURCE_MISSING",
+      severity: "error",
+      message: `Command source '${sourcePath}' could not be read`,
+      path: sourcePath,
+      entityId: entity.id,
+    });
+    return { diagnostics };
+  }
+
+  const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
+  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
+
+  const parsedCommand = parseCanonicalCommandDocument(substitutedText, sourcePath, entity.id);
+  diagnostics.push(...parsedCommand.diagnostics);
+  if (!parsedCommand.canonical) {
+    return { diagnostics };
+  }
+
+  const overrideByProvider = new Map<ProviderId, ProviderOverride | undefined>();
+  const overrideShaByProvider: Partial<Record<ProviderId, string>> = {};
+
+  for (const provider of providerIdSchema.options) {
+    const overridePath = entity.overrides?.[provider] ?? defaultCommandOverridePath(entity.id, provider);
+    const parsedOverride = await parseOverride(paths, provider, entity, overridePath, envVars);
+    diagnostics.push(...parsedOverride.diagnostics);
+    overrideByProvider.set(provider, parsedOverride.override);
+    if (parsedOverride.sha256) {
+      overrideShaByProvider[provider] = parsedOverride.sha256;
+    }
+  }
+
+  return {
+    diagnostics,
+    command: {
+      entity,
+      canonical: parsedCommand.canonical,
       sourceSha256: sha256(text),
       overrideByProvider,
       overrideShaByProvider,

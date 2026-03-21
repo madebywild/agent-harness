@@ -16,7 +16,7 @@ export const PROVIDERS = ["codex", "claude", "copilot"] as const;
 export const providerIdSchema = z.enum(PROVIDERS);
 export type ProviderId = z.infer<typeof providerIdSchema>;
 
-export const entityTypes = ["prompt", "skill", "mcp_config", "subagent", "hook"] as const;
+export const entityTypes = ["prompt", "skill", "mcp_config", "subagent", "hook", "command"] as const;
 export const entityTypeSchema = z.enum(entityTypes);
 export type EntityType = z.infer<typeof entityTypeSchema>;
 
@@ -117,12 +117,17 @@ export const hookEntityRefSchema = entityRefBaseSchema.extend({
   type: z.literal("hook"),
 });
 
+export const commandEntityRefSchema = entityRefBaseSchema.extend({
+  type: z.literal("command"),
+});
+
 export const entityRefSchema = z.discriminatedUnion("type", [
   promptEntityRefSchema,
   skillEntityRefSchema,
   mcpEntityRefSchema,
   subagentEntityRefSchema,
   hookEntityRefSchema,
+  commandEntityRefSchema,
 ]);
 
 export const agentsManifestV1Schema = z
@@ -228,6 +233,7 @@ export const schemas = {
   mcpEntityRefSchema,
   subagentEntityRefSchema,
   hookEntityRefSchema,
+  commandEntityRefSchema,
 };
 
 export type ProviderOverride = z.infer<typeof providerOverrideSchema>;
@@ -237,6 +243,7 @@ export type SkillEntityRef = z.infer<typeof skillEntityRefSchema>;
 export type McpEntityRef = z.infer<typeof mcpEntityRefSchema>;
 export type SubagentEntityRef = z.infer<typeof subagentEntityRefSchema>;
 export type HookEntityRef = z.infer<typeof hookEntityRefSchema>;
+export type CommandEntityRef = z.infer<typeof commandEntityRefSchema>;
 export type AgentsManifest = z.infer<typeof agentsManifestV1Schema>;
 export type ManifestLock = z.infer<typeof manifestLockV1Schema>;
 export type ManagedIndex = z.infer<typeof managedIndexV1Schema>;

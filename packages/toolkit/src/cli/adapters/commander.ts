@@ -406,6 +406,28 @@ export async function runCommanderAdapter(
   );
 
   addJsonOption(
+    addCommand
+      .command("command")
+      .description("Create a command entity")
+      .argument("<command-id>", "command id")
+      .option("--registry <registry>", "registry id (defaults to configured default/local)")
+      .action(async (commandId: string, options: { registry?: string; json?: boolean }) => {
+        await runCommand(
+          {
+            command: "add.command",
+            args: {
+              commandId,
+            },
+            options: {
+              registry: options.registry,
+            },
+          },
+          options,
+        );
+      }),
+  );
+
+  addJsonOption(
     program
       .command("remove")
       .description("Remove an existing entity")

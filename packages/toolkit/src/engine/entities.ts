@@ -5,6 +5,8 @@ import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness
 import { fetchEntityFromRegistry } from "../entity-registries.js";
 import {
   DEFAULT_PROMPT_SOURCE_PATH,
+  defaultCommandOverridePath,
+  defaultCommandSourcePath,
   defaultHookOverridePath,
   defaultHookSourcePath,
   defaultMcpOverridePath,
@@ -63,6 +65,7 @@ export async function ensureOverrideFiles(
     mcp_config: (id, p) => defaultMcpOverridePath(id, p),
     subagent: (id, p) => defaultSubagentOverridePath(id, p),
     hook: (id, p) => defaultHookOverridePath(id, p),
+    command: (id, p) => defaultCommandOverridePath(id, p),
   };
 
   for (const provider of providerIdSchema.options) {
@@ -110,6 +113,11 @@ export async function readCurrentSourceSha(cwd: string, entity: AgentsManifest["
       throw new Error(`Hook source '${entity.sourcePath}' must be a JSON object`);
     }
     return sha256(stableStringify(parsed));
+  }
+
+  if (entity.type === "command") {
+    const text = await fs.readFile(sourceAbs, "utf8");
+    return sha256(text);
   }
 
   const skillRoot = path.join(cwd, `.harness/src/skills/${entity.id}`);
@@ -162,6 +170,13 @@ export async function materializeFetchedEntity(
   }
 
   if (entity.type === "subagent" && fetched.type === "subagent") {
+    const sourceAbs = path.join(cwd, entity.sourcePath);
+    await ensureParentDir(sourceAbs);
+    await fs.writeFile(sourceAbs, fetched.sourceText, "utf8");
+    return;
+  }
+
+  if (entity.type === "command" && fetched.type === "command") {
     const sourceAbs = path.join(cwd, entity.sourcePath);
     await ensureParentDir(sourceAbs);
     await fs.writeFile(sourceAbs, fetched.sourceText, "utf8");
@@ -532,6 +547,66 @@ export async function addHookEntity(cwd: string, hookId: string, options?: { reg
     type: "hook",
     registry: registry.id,
     sourceSha256: sha256(stableStringify(sourceJson)),
+    overrideSha256ByProvider: overrideShaByProvider,
+    importedSourceSha256,
+    registryRevision,
+  });
+}
+
+export async function addCommandEntity(cwd: string, commandId: string, options?: { registry?: string }): Promise<void> {
+  validateEntityId(commandId, "command");
+  const paths = resolveHarnessPaths(cwd);
+  const manifest = await readManifestOrThrow(paths);
+
+  if (manifest.entities.some((entity) => entity.type === "command" && entity.id === commandId)) {
+    throw new Error(`Command '${commandId}' already exists`);
+  }
+
+  const sourcePath = defaultCommandSourcePath(commandId);
+  const sourceAbs = path.join(cwd, sourcePath);
+  if (await exists(sourceAbs)) {
+    throw new Error(`Cannot add command because '${sourcePath}' already exists`);
+  }
+
+  const registry = resolveEntityRegistrySelection(manifest, options?.registry);
+  let sourceText: string;
+  let importedSourceSha256: string | undefined;
+  let registryRevision: RegistryRevision | undefined;
+
+  if (registry.definition.type === "git") {
+    const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "command", commandId);
+    if (fetched.type !== "command") {
+      throw new Error(`REGISTRY_FETCH_FAILED: expected command '${commandId}' from registry '${registry.id}'`);
+    }
+    sourceText = fetched.sourceText;
+    importedSourceSha256 = fetched.importedSourceSha256;
+    registryRevision = fetched.registryRevision;
+  } else {
+    sourceText = `---\ndescription: "Describe what this command does"\n---\n\n# ${commandId}\n\nDescribe the task here. Use $ARGUMENTS to reference arguments passed to this command.\n`;
+  }
+
+  await ensureParentDir(sourceAbs);
+  await fs.writeFile(sourceAbs, sourceText, "utf8");
+
+  const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "command", commandId);
+
+  manifest.entities.push({
+    id: commandId,
+    type: "command",
+    registry: registry.id,
+    sourcePath,
+    overrides,
+    enabled: true,
+  });
+  manifest.entities = sortEntities(manifest.entities);
+
+  await writeManifest(paths, manifest);
+  await writeManagedSourceIndex(paths, manifest);
+  await upsertLockEntityRecord(paths, manifest, {
+    id: commandId,
+    type: "command",
+    registry: registry.id,
+    sourceSha256: sha256(sourceText),
     overrideSha256ByProvider: overrideShaByProvider,
     importedSourceSha256,
     registryRevision,

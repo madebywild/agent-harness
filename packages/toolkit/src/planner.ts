@@ -160,6 +160,24 @@ export async function buildPlan(
         });
       }
     }
+
+    for (const command of loaded.commands) {
+      if (!adapter.renderCommand) {
+        continue;
+      }
+
+      try {
+        artifacts.push(...(await adapter.renderCommand(command.canonical, command.overrideByProvider.get(provider))));
+      } catch (error) {
+        diagnostics.push({
+          code: "COMMAND_RENDER_FAILED",
+          severity: "error",
+          message: error instanceof Error ? error.message : "Command render failed",
+          entityId: command.entity.id,
+          provider,
+        });
+      }
+    }
   }
 
   const desiredByPath = new Map<string, DesiredArtifact>();
@@ -334,6 +352,17 @@ export async function buildPlan(
       ...resolvePriorRegistryProvenance(
         previousEntityByKey.get(`${hook.entity.type}:${hook.entity.id}`),
         hook.entity.registry,
+      ),
+    })),
+    ...loaded.commands.map((command) => ({
+      id: command.entity.id,
+      type: command.entity.type,
+      registry: command.entity.registry,
+      sourceSha256: command.sourceSha256,
+      overrideSha256ByProvider: command.overrideShaByProvider,
+      ...resolvePriorRegistryProvenance(
+        previousEntityByKey.get(`${command.entity.type}:${command.entity.id}`),
+        command.entity.registry,
       ),
     })),
   ].sort((left, right) => {

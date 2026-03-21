@@ -26,7 +26,7 @@ export type {
   RegistryManifest,
 };
 
-export const CLI_ENTITY_TYPES = ["prompt", "skill", "mcp", "subagent", "hook"] as const;
+export const CLI_ENTITY_TYPES = ["prompt", "skill", "mcp", "subagent", "hook", "command"] as const;
 export type CliEntityType = (typeof CLI_ENTITY_TYPES)[number];
 
 export const CLI_ENTITY_TO_MANIFEST_ENTITY: Record<CliEntityType, EntityType> = {
@@ -35,6 +35,7 @@ export const CLI_ENTITY_TO_MANIFEST_ENTITY: Record<CliEntityType, EntityType> = 
   mcp: "mcp_config",
   subagent: "subagent",
   hook: "hook",
+  command: "command",
 };
 
 export function isCliEntityType(value: string): value is CliEntityType {
@@ -92,6 +93,13 @@ export interface CanonicalHookNotifyHandler {
 
 export type CanonicalHookHandler = CanonicalHookCommandHandler | CanonicalHookNotifyHandler;
 
+export interface CanonicalCommand {
+  id: string;
+  description: string;
+  argumentHint?: string;
+  body: string;
+}
+
 export interface CanonicalHook {
   id: string;
   mode: CanonicalHookMode;
@@ -128,6 +136,7 @@ export interface ProviderAdapter {
     input: CanonicalHook[],
     overrideByEntity?: Map<string, ProviderOverride | undefined>,
   ): Promise<RenderedArtifact[]>;
+  renderCommand?(input: CanonicalCommand, override?: ProviderOverride): Promise<RenderedArtifact[]>;
   renderProviderState?(input: ProviderStateInput): Promise<RenderedArtifact[]>;
 }
 
@@ -284,6 +293,14 @@ export interface LoadedHook {
   overrideShaByProvider: Partial<Record<ProviderId, string>>;
 }
 
+export interface LoadedCommand {
+  entity: EntityRef;
+  canonical: CanonicalCommand;
+  sourceSha256: string;
+  overrideByProvider: Map<ProviderId, ProviderOverride | undefined>;
+  overrideShaByProvider: Partial<Record<ProviderId, string>>;
+}
+
 export interface InternalPlanResult extends PlanResult {
   artifactsByPath: Map<string, { content: string; provider: ProviderId; ownerEntityIds: string[] }>;
   nextManagedIndex: ManagedIndex;
@@ -297,4 +314,5 @@ export interface LoadResult {
   mcps: LoadedMcp[];
   subagents: LoadedSubagent[];
   hooks: LoadedHook[];
+  commands: LoadedCommand[];
 }

@@ -13,12 +13,14 @@ export const PROVIDER_DEFAULTS = {
     skillRoot: ".claude/skills",
     mcpTarget: ".mcp.json",
     hookTarget: ".claude/settings.json",
+    commandRoot: ".claude/commands",
   },
   copilot: {
     promptTarget: ".github/copilot-instructions.md",
     skillRoot: ".github/skills",
     mcpTarget: ".vscode/mcp.json",
     hookTarget: ".github/hooks/harness.generated.json",
+    commandRoot: ".github/prompts",
   },
 } as const satisfies Record<ProviderId, ProviderDefaults>;
 

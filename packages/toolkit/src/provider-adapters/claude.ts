@@ -1,5 +1,5 @@
-import type { ProviderAdapter } from "../types.js";
-import { normalizeRelativePath, uniqSorted } from "../utils.js";
+import type { CanonicalCommand, ProviderAdapter } from "../types.js";
+import { normalizeRelativePath, uniqSorted, withSingleTrailingNewline } from "../utils.js";
 import { PROVIDER_DEFAULTS } from "./constants.js";
 import { createProviderAdapter } from "./create-adapter.js";
 import { renderClaudeHookSettings, resolveHookTargetPath } from "./hooks.js";
@@ -60,5 +60,34 @@ export function buildClaudeAdapter(skillFilesByEntityId: SkillFileIndex): Provid
         },
       ];
     },
+    async renderCommand(input, override) {
+      if (override?.enabled === false) {
+        return [];
+      }
+
+      const defaultTarget = `${PROVIDER_DEFAULTS.claude.commandRoot}/${input.id}.md`;
+      const targetPath = normalizeRelativePath(override?.targetPath ?? defaultTarget);
+      return [
+        {
+          path: targetPath,
+          content: renderClaudeCommandMarkdown(input),
+          ownerEntityId: input.id,
+          provider: "claude",
+          format: "markdown",
+        },
+      ];
+    },
   };
+}
+
+function renderClaudeCommandMarkdown(input: CanonicalCommand): string {
+  const frontmatterLines = [`description: ${JSON.stringify(input.description)}`];
+  if (input.argumentHint) {
+    frontmatterLines.push(`argument-hint: ${JSON.stringify(input.argumentHint)}`);
+  }
+  const parts = ["---", ...frontmatterLines, "---"];
+  if (input.body) {
+    parts.push("", input.body);
+  }
+  return withSingleTrailingNewline(parts.join("\n"));
 }

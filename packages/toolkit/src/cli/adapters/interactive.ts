@@ -29,6 +29,7 @@ const INTERACTIVE_COMMAND_IDS: readonly CommandId[] = [
   "add.mcp",
   "add.subagent",
   "add.hook",
+  "add.command",
   "remove",
   "validate",
   "doctor",
@@ -310,6 +311,27 @@ async function promptCommandInput(command: CommandId): Promise<CommandInput | nu
         command,
         args: {
           hookId,
+        },
+        options: {
+          registry,
+        },
+      };
+    }
+    case "add.command": {
+      const commandId = await promptRequiredText("Command id");
+      if (commandId === null) {
+        return null;
+      }
+
+      const registry = await promptOptionalText("Registry id");
+      if (registry === null) {
+        return null;
+      }
+
+      return {
+        command,
+        args: {
+          commandId,
         },
         options: {
           registry,

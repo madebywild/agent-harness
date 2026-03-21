@@ -7,6 +7,7 @@ export interface ProviderDefaults {
   readonly skillRoot: string;
   readonly mcpTarget: string;
   readonly hookTarget: string;
+  readonly commandRoot?: string;
 }
 
 export interface ProviderMcpRenderer {

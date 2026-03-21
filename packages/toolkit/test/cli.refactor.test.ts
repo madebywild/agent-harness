@@ -259,6 +259,27 @@ test("runCliCommand add.hook creates hook entity and source file", async () => {
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/hooks/guard.json")));
 });
 
+test("runCliArgv add command creates command entity and source file", async () => {
+  const cwd = await mkTmpRepo();
+  const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
+
+  const initResult = await runCliArgv(["init"], capture.context);
+  assert.equal(initResult.exitCode, 0);
+
+  const addResult = await runCliArgv(["add", "command", "fix-issue"], capture.context);
+  assert.equal(addResult.exitCode, 0);
+
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/commands/fix-issue.md")));
+  const manifestText = await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8");
+  const manifest = JSON.parse(manifestText) as {
+    entities: Array<{ type: string; id: string }>;
+  };
+  assert.ok(
+    manifest.entities.some((entity) => entity.type === "command" && entity.id === "fix-issue"),
+    "expected command entity to be registered in manifest",
+  );
+});
+
 test("isNoArgShortcutEligible rejects commander-owned option-only invocations", () => {
   assert.equal(isNoArgShortcutEligible([]), true);
   assert.equal(isNoArgShortcutEligible(["--interactive"]), true);
