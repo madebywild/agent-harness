@@ -18,6 +18,7 @@ Agent Harness is a TypeScript CLI tool and library that manages AI agent configu
 - Reusable skill management synchronized across providers
 - Centralized MCP server configuration with merged outputs
 - Subagent management with provider-specific rendering
+- Lifecycle hook management (webhooks, scripts, notifications)
 - Per-entity registry provenance with built-in `local` and Git-backed external registries
 - Explicit `registry pull` workflow for refreshing imported entities
 - Environment variable substitution via `{{PLACEHOLDER}}` syntax with `.env` file support
@@ -28,15 +29,15 @@ Agent Harness is a TypeScript CLI tool and library that manages AI agent configu
 ## Quick Start
 
 ```bash
-# Install dependencies
-pnpm install
+npm install --save-dev @madebywild/agent-harness-framework
+npx harness init
+```
 
-# Build the project
-pnpm build
+Then configure your workspace:
 
-# Initialize harness in a project
-cd /path/to/your/project
-harness init
+```bash
+# Launch interactive TUI (default when TTY)
+harness
 
 # Enable providers
 harness provider enable codex
@@ -44,7 +45,7 @@ harness provider enable claude
 harness provider enable copilot
 
 # Configure a git registry and set it as default
-harness registry add corp --git-url git@github.com:acme/harness-registry.git --ref main
+harness registry add corp --gitUrl git@github.com:acme/harness-registry.git --ref main
 harness registry default set corp
 
 # Add a system prompt
@@ -59,6 +60,9 @@ harness add mcp my-mcp
 # Add subagent
 harness add subagent researcher
 
+# Add lifecycle hook
+harness add hook my-hook
+
 # Generate outputs
 harness apply
 
@@ -66,16 +70,9 @@ harness apply
 harness watch
 ```
 
-## Installation
+## Installation from source
 
-### From npm
-
-```bash
-npm install --save-dev @madebywild/agent-harness-framework
-npx harness init
-```
-
-### From source
+For development of the library itself:
 
 ```bash
 git clone <repo-url>
@@ -90,28 +87,30 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 
 | Command                         | Description                                         |
 | ------------------------------- | --------------------------------------------------- |
-| `harness init`                  | Initialize `.harness/` structure                    |
-| `harness ui`                    | Launch interactive prompt wizard                    |
-| `harness`                       | No-arg: interactive on TTY, `plan` on non-TTY/CI   |
+| `harness init [--force]`        | Initialize `.harness/` structure                    |
+| `harness`                       | Interactive TUI on TTY, `plan` on non-TTY/CI        |
+| `harness --interactive`         | Force interactive mode                              |
 | `harness --version`             | Print CLI version                                   |
 | `harness doctor`                | Report schema version health and migration blockers |
-| `harness migrate`               | Upgrade schema files to latest supported version    |
+| `harness migrate [--dryRun]`    | Upgrade schema files to latest supported version    |
 | `harness provider enable <id>`  | Enable a provider (codex/claude/copilot)            |
 | `harness provider disable <id>` | Disable a provider                                  |
 | `harness registry list`         | List configured registries                          |
-| `harness registry add <name> --git-url <url>` | Add a Git registry entry                |
+| `harness registry add <name> --gitUrl <url> [--ref <branch>]` | Add a Git registry entry   |
 | `harness registry remove <name>` | Remove a configured registry                       |
 | `harness registry default show/set <name>` | Show or set default registry              |
 | `harness registry pull [<type> <id>] [--registry <name>] [--force]` | Refresh imported entities |
+| `harness registry validate [--path <path>]` | Validate a registry's structure            |
 | `harness add prompt [--registry <name>]` | Add system prompt entity                     |
 | `harness add skill <id> [--registry <name>]` | Add a skill entity                     |
 | `harness add mcp <id> [--registry <name>]` | Add an MCP config entity                 |
 | `harness add subagent <id> [--registry <name>]` | Add a subagent entity               |
+| `harness add hook <id> [--registry <name>]` | Add a lifecycle hook entity              |
 | `harness remove <type> <id> [--no-delete-source]` | Remove an entity (deletes source by default) |
 | `harness validate`              | Validate manifest and files                         |
 | `harness plan`                  | Preview changes (dry-run)                           |
 | `harness apply`                 | Generate provider outputs                           |
-| `harness watch`                 | Watch mode with auto-apply                          |
+| `harness watch [--debounceMs]`  | Watch mode with auto-apply                          |
 
 Global flags:
 - `--cwd <path>`: run against a specific workspace root.
@@ -154,22 +153,25 @@ Global flags:
         ├── my-mcp.overrides.codex.yaml
         ├── my-mcp.overrides.claude.yaml
         └── my-mcp.overrides.copilot.yaml
-    └── subagents/
-        ├── researcher.md
-        ├── researcher.overrides.codex.yaml
-        ├── researcher.overrides.claude.yaml
-        └── researcher.overrides.copilot.yaml
+    ├── subagents/
+    │   ├── researcher.md
+    │   ├── researcher.overrides.codex.yaml
+    │   ├── researcher.overrides.claude.yaml
+    │   └── researcher.overrides.copilot.yaml
+    └── hooks/
+        └── my-hook.json
 .env.harness                   # Shared env parameters (optionally committed)
 ```
 
 ## Generated Outputs
 
-| Entity | Codex                | Claude            | Copilot                           |
-| ------ | -------------------- | ----------------- | --------------------------------- |
-| Prompt | `AGENTS.md`          | `CLAUDE.md`       | `.github/copilot-instructions.md` |
-| Skills | `.codex/skills/`     | `.claude/skills/` | `.github/skills/`                 |
-| MCP    | `.codex/config.toml` | `.mcp.json`       | `.vscode/mcp.json`                |
-| Subagents | `.codex/config.toml` (merged `agents.*`) | `.claude/agents/<id>.md` | `.github/agents/<id>.agent.md` |
+| Entity    | Codex                                    | Claude                   | Copilot                           |
+| --------- | ---------------------------------------- | ------------------------ | --------------------------------- |
+| Prompt    | `AGENTS.md`                              | `.claude/CLAUDE.md`      | `.github/copilot-instructions.md` |
+| Skills    | `.codex/skills/`                         | `.claude/skills/`        | `.github/skills/`                 |
+| MCP       | `.codex/config.toml`                     | `.mcp.json`              | `.vscode/mcp.json`                |
+| Subagents | `.codex/config.toml` (merged `agents.*`) | `.claude/agents/<id>.md` | `.github/agents/<id>.agent.md`    |
+| Hooks     | `.codex/config.toml`                     | `.claude/settings.json`  | `.github/hooks/...`               |
 
 ## Monorepo Packages
 
