@@ -1,9 +1,56 @@
+import { providerIdSchema } from "@madebywild/agent-harness-manifest";
+import { DELEGATED_INIT_PRESET_ID, launchDelegatedInit } from "../../delegated-init.js";
 import { HarnessEngine } from "../../engine.js";
 import type { CliResolvedContext, InitOutput } from "../contracts.js";
 
-export async function handleInit(input: { force: boolean }, context: CliResolvedContext): Promise<InitOutput> {
+export async function handleInit(
+  input: { force: boolean; preset?: string; delegate?: string; json?: boolean },
+  context: CliResolvedContext,
+  dependencies?: {
+    launchDelegate?: typeof launchDelegatedInit;
+  },
+): Promise<InitOutput> {
+  let delegateProvider: ReturnType<typeof providerIdSchema.parse> | undefined;
+  if (input.delegate) {
+    const parsed = providerIdSchema.safeParse(input.delegate);
+    if (!parsed.success) {
+      throw new Error(
+        `INIT_DELEGATE_INVALID_PROVIDER: '${input.delegate}' is not a valid provider (${providerIdSchema.options.join(", ")})`,
+      );
+    }
+    delegateProvider = parsed.data;
+  }
+  if (delegateProvider && input.json) {
+    throw new Error("INIT_DELEGATE_JSON_UNSUPPORTED: delegated init cannot be combined with --json");
+  }
+
+  if (delegateProvider && (!context.isTty || context.isCi)) {
+    throw new Error("INIT_DELEGATE_REQUIRES_TTY: delegated init requires an interactive TTY outside CI");
+  }
+
+  if (delegateProvider && input.preset && input.preset !== DELEGATED_INIT_PRESET_ID) {
+    throw new Error(
+      `INIT_DELEGATE_PRESET_CONFLICT: --delegate requires --preset '${DELEGATED_INIT_PRESET_ID}' or no preset`,
+    );
+  }
+
+  const preset = input.preset ?? (delegateProvider ? DELEGATED_INIT_PRESET_ID : undefined);
   const engine = new HarnessEngine(context.cwd);
   await engine.init({ force: input.force });
+
+  if (preset) {
+    await engine.applyPreset(preset);
+  }
+
+  const runtime = delegateProvider
+    ? {
+        blockUntilExit: (dependencies?.launchDelegate ?? launchDelegatedInit)({
+          cwd: context.cwd,
+          env: context.env,
+          provider: delegateProvider,
+        }),
+      }
+    : undefined;
 
   return {
     family: "init",
@@ -13,7 +60,14 @@ export async function handleInit(input: { force: boolean }, context: CliResolved
     exitCode: 0,
     data: {
       force: input.force,
-      message: "Initialized .harness workspace.",
+      preset,
+      delegateProvider,
+      message: delegateProvider
+        ? `Initialized .harness workspace and applied preset '${preset}'. Attempting delegated prompt authoring with '${delegateProvider}'.`
+        : preset
+          ? `Initialized .harness workspace and applied preset '${preset}'.`
+          : "Initialized .harness workspace.",
     },
+    runtime,
   };
 }

@@ -15,6 +15,10 @@ Defines shared toolkit interfaces for canonical entities, provider adapters, dia
   - `RenderedArtifact`, `ProviderAdapter`, `ProviderStateInput`
 - Diagnostics/operations:
   - `Diagnostic`, `DiagnosticSeverity`, `Operation`, `OperationType`
+- Preset models:
+  - `PresetSourceKind`, `PresetSummary`, `ResolvedPresetSource`, `ResolvedPreset`
+  - `PresetOperationResult`, `PresetApplyResult`
+  - `PresetDefinition`, `PresetOperation` (re-exported from manifest-schema)
 - Command result models:
   - `ValidationResult`, `PlanResult`, `ApplyResult`, `DoctorResult`, `MigrationResult`
 - Versioning models:

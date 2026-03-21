@@ -264,7 +264,10 @@ export async function materializeFetchedEntity(
   throw new Error(`Fetched entity type mismatch for ${entity.type}:${entity.id}`);
 }
 
-export async function addPromptEntity(cwd: string, options?: { registry?: string }): Promise<void> {
+export async function addPromptEntity(
+  cwd: string,
+  options?: { registry?: string; sourceText?: string },
+): Promise<void> {
   const paths = resolveHarnessPaths(cwd);
   const manifest = await readManifestOrThrow(paths);
 
@@ -280,19 +283,29 @@ export async function addPromptEntity(cwd: string, options?: { registry?: string
     throw new Error(`Cannot add prompt because '${sourcePath}' already exists`);
   }
 
-  const registry = resolveEntityRegistrySelection(manifest, options?.registry);
-  let sourceText = "# System Prompt\n\nDescribe the core behavior for the assistant.\n";
+  let sourceText: string;
+  let registryId: string;
   let importedSourceSha256: string | undefined;
   let registryRevision: RegistryRevision | undefined;
 
-  if (registry.definition.type === "git") {
-    const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "prompt", "system");
-    if (fetched.type !== "prompt") {
-      throw new Error(`REGISTRY_FETCH_FAILED: expected prompt from registry '${registry.id}'`);
+  if (options?.sourceText) {
+    sourceText = options.sourceText;
+    registryId = DEFAULT_REGISTRY_ID;
+  } else {
+    const registry = resolveEntityRegistrySelection(manifest, options?.registry);
+    registryId = registry.id;
+
+    if (registry.definition.type === "git") {
+      const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "prompt", "system");
+      if (fetched.type !== "prompt") {
+        throw new Error(`REGISTRY_FETCH_FAILED: expected prompt from registry '${registry.id}'`);
+      }
+      sourceText = fetched.sourceText;
+      importedSourceSha256 = fetched.importedSourceSha256;
+      registryRevision = fetched.registryRevision;
+    } else {
+      sourceText = "# System Prompt\n\nDescribe the core behavior for the assistant.\n";
     }
-    sourceText = fetched.sourceText;
-    importedSourceSha256 = fetched.importedSourceSha256;
-    registryRevision = fetched.registryRevision;
   }
 
   await ensureParentDir(sourceAbs);
@@ -303,7 +316,7 @@ export async function addPromptEntity(cwd: string, options?: { registry?: string
   manifest.entities.push({
     id: "system",
     type: "prompt",
-    registry: registry.id,
+    registry: registryId,
     sourcePath,
     overrides,
     enabled: true,
@@ -315,7 +328,7 @@ export async function addPromptEntity(cwd: string, options?: { registry?: string
   await upsertLockEntityRecord(paths, manifest, {
     id: "system",
     type: "prompt",
-    registry: registry.id,
+    registry: registryId,
     sourceSha256: sha256(sourceText),
     overrideSha256ByProvider: overrideShaByProvider,
     importedSourceSha256,
@@ -323,7 +336,11 @@ export async function addPromptEntity(cwd: string, options?: { registry?: string
   });
 }
 
-export async function addSkillEntity(cwd: string, skillId: string, options?: { registry?: string }): Promise<void> {
+export async function addSkillEntity(
+  cwd: string,
+  skillId: string,
+  options?: { registry?: string; files?: Array<{ path: string; content: string }> },
+): Promise<void> {
   validateEntityId(skillId, "skill");
   const paths = resolveHarnessPaths(cwd);
   const manifest = await readManifestOrThrow(paths);
@@ -339,35 +356,48 @@ export async function addSkillEntity(cwd: string, skillId: string, options?: { r
     throw new Error(`Cannot add skill because '${skillRootRel}' already exists`);
   }
 
-  const registry = resolveEntityRegistrySelection(manifest, options?.registry);
   let sourceSha256: string;
+  let registryId: string;
   let importedSourceSha256: string | undefined;
   let registryRevision: RegistryRevision | undefined;
   let skillFiles: Array<{ path: string; content: string; sha256: string }>;
 
-  if (registry.definition.type === "git") {
-    const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "skill", skillId);
-    if (fetched.type !== "skill") {
-      throw new Error(`REGISTRY_FETCH_FAILED: expected skill '${skillId}' from registry '${registry.id}'`);
-    }
-    skillFiles = fetched.files.map((file) => ({
-      path: file.path,
+  if (options?.files) {
+    skillFiles = options.files.map((file) => ({
+      path: normalizeRelativePath(file.path),
       content: file.content,
-      sha256: file.sha256,
+      sha256: sha256(file.content),
     }));
-    sourceSha256 = fetched.importedSourceSha256;
-    importedSourceSha256 = fetched.importedSourceSha256;
-    registryRevision = fetched.registryRevision;
-  } else {
-    const content = `---\nname: ${skillId}\ndescription: Describe what this skill does.\n---\n\n# ${skillId}\n\nAdd usage guidance here.\n`;
-    skillFiles = [
-      {
-        path: "SKILL.md",
-        content,
-        sha256: sha256(content),
-      },
-    ];
     sourceSha256 = computeSkillSourceSha(skillFiles.map((file) => ({ path: file.path, sha256: file.sha256 })));
+    registryId = DEFAULT_REGISTRY_ID;
+  } else {
+    const registry = resolveEntityRegistrySelection(manifest, options?.registry);
+    registryId = registry.id;
+
+    if (registry.definition.type === "git") {
+      const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "skill", skillId);
+      if (fetched.type !== "skill") {
+        throw new Error(`REGISTRY_FETCH_FAILED: expected skill '${skillId}' from registry '${registry.id}'`);
+      }
+      skillFiles = fetched.files.map((file) => ({
+        path: file.path,
+        content: file.content,
+        sha256: file.sha256,
+      }));
+      sourceSha256 = fetched.importedSourceSha256;
+      importedSourceSha256 = fetched.importedSourceSha256;
+      registryRevision = fetched.registryRevision;
+    } else {
+      const content = `---\nname: ${skillId}\ndescription: Describe what this skill does.\n---\n\n# ${skillId}\n\nAdd usage guidance here.\n`;
+      skillFiles = [
+        {
+          path: "SKILL.md",
+          content,
+          sha256: sha256(content),
+        },
+      ];
+      sourceSha256 = computeSkillSourceSha(skillFiles.map((file) => ({ path: file.path, sha256: file.sha256 })));
+    }
   }
 
   for (const file of skillFiles) {
@@ -381,7 +411,7 @@ export async function addSkillEntity(cwd: string, skillId: string, options?: { r
   manifest.entities.push({
     id: skillId,
     type: "skill",
-    registry: registry.id,
+    registry: registryId,
     sourcePath,
     overrides,
     enabled: true,
@@ -393,7 +423,7 @@ export async function addSkillEntity(cwd: string, skillId: string, options?: { r
   await upsertLockEntityRecord(paths, manifest, {
     id: skillId,
     type: "skill",
-    registry: registry.id,
+    registry: registryId,
     sourceSha256,
     overrideSha256ByProvider: overrideShaByProvider,
     importedSourceSha256,
@@ -401,7 +431,11 @@ export async function addSkillEntity(cwd: string, skillId: string, options?: { r
   });
 }
 
-export async function addMcpEntity(cwd: string, configId: string, options?: { registry?: string }): Promise<void> {
+export async function addMcpEntity(
+  cwd: string,
+  configId: string,
+  options?: { registry?: string; sourceJson?: Record<string, unknown> },
+): Promise<void> {
   validateEntityId(configId, "mcp_config");
   const paths = resolveHarnessPaths(cwd);
   const manifest = await readManifestOrThrow(paths);
@@ -416,28 +450,36 @@ export async function addMcpEntity(cwd: string, configId: string, options?: { re
     throw new Error(`Cannot add MCP config because '${sourcePath}' already exists`);
   }
 
-  const registry = resolveEntityRegistrySelection(manifest, options?.registry);
   let sourceJson: Record<string, unknown>;
+  let registryId: string;
   let importedSourceSha256: string | undefined;
   let registryRevision: RegistryRevision | undefined;
 
-  if (registry.definition.type === "git") {
-    const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "mcp_config", configId);
-    if (fetched.type !== "mcp_config") {
-      throw new Error(`REGISTRY_FETCH_FAILED: expected mcp config '${configId}' from registry '${registry.id}'`);
-    }
-    sourceJson = fetched.sourceJson;
-    importedSourceSha256 = fetched.importedSourceSha256;
-    registryRevision = fetched.registryRevision;
+  if (options?.sourceJson) {
+    sourceJson = options.sourceJson;
+    registryId = DEFAULT_REGISTRY_ID;
   } else {
-    sourceJson = {
-      servers: {
-        [configId]: {
-          command: "echo",
-          args: ["configure-this-mcp-server"],
+    const registry = resolveEntityRegistrySelection(manifest, options?.registry);
+    registryId = registry.id;
+
+    if (registry.definition.type === "git") {
+      const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "mcp_config", configId);
+      if (fetched.type !== "mcp_config") {
+        throw new Error(`REGISTRY_FETCH_FAILED: expected mcp config '${configId}' from registry '${registry.id}'`);
+      }
+      sourceJson = fetched.sourceJson;
+      importedSourceSha256 = fetched.importedSourceSha256;
+      registryRevision = fetched.registryRevision;
+    } else {
+      sourceJson = {
+        servers: {
+          [configId]: {
+            command: "echo",
+            args: ["configure-this-mcp-server"],
+          },
         },
-      },
-    };
+      };
+    }
   }
 
   const sourceContent = stableStringify(sourceJson);
@@ -449,7 +491,7 @@ export async function addMcpEntity(cwd: string, configId: string, options?: { re
   manifest.entities.push({
     id: configId,
     type: "mcp_config",
-    registry: registry.id,
+    registry: registryId,
     sourcePath,
     overrides,
     enabled: true,
@@ -461,7 +503,7 @@ export async function addMcpEntity(cwd: string, configId: string, options?: { re
   await upsertLockEntityRecord(paths, manifest, {
     id: configId,
     type: "mcp_config",
-    registry: registry.id,
+    registry: registryId,
     sourceSha256: sha256(stableStringify(sourceJson)),
     overrideSha256ByProvider: overrideShaByProvider,
     importedSourceSha256,
@@ -472,7 +514,7 @@ export async function addMcpEntity(cwd: string, configId: string, options?: { re
 export async function addSubagentEntity(
   cwd: string,
   subagentId: string,
-  options?: { registry?: string },
+  options?: { registry?: string; sourceText?: string },
 ): Promise<void> {
   validateEntityId(subagentId, "subagent");
   const paths = resolveHarnessPaths(cwd);
@@ -488,23 +530,31 @@ export async function addSubagentEntity(
     throw new Error(`Cannot add subagent because '${sourcePath}' already exists`);
   }
 
-  const registry = resolveEntityRegistrySelection(manifest, options?.registry);
   let sourceText: string;
+  let registryId: string;
   let importedSourceSha256: string | undefined;
   let registryRevision: RegistryRevision | undefined;
 
-  if (registry.definition.type === "git") {
-    const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "subagent", subagentId);
-    if (fetched.type !== "subagent") {
-      throw new Error(`REGISTRY_FETCH_FAILED: expected subagent '${subagentId}' from registry '${registry.id}'`);
-    }
-    sourceText = fetched.sourceText;
-    importedSourceSha256 = fetched.importedSourceSha256;
-    registryRevision = fetched.registryRevision;
+  if (options?.sourceText) {
+    sourceText = options.sourceText;
+    registryId = DEFAULT_REGISTRY_ID;
   } else {
-    sourceText =
-      `---\nname: ${subagentId}\ndescription: Describe what this subagent does.\n---\n\n` +
-      `You are the ${subagentId} subagent.\n\nAdd instructions here.\n`;
+    const registry = resolveEntityRegistrySelection(manifest, options?.registry);
+    registryId = registry.id;
+
+    if (registry.definition.type === "git") {
+      const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "subagent", subagentId);
+      if (fetched.type !== "subagent") {
+        throw new Error(`REGISTRY_FETCH_FAILED: expected subagent '${subagentId}' from registry '${registry.id}'`);
+      }
+      sourceText = fetched.sourceText;
+      importedSourceSha256 = fetched.importedSourceSha256;
+      registryRevision = fetched.registryRevision;
+    } else {
+      sourceText =
+        `---\nname: ${subagentId}\ndescription: Describe what this subagent does.\n---\n\n` +
+        `You are the ${subagentId} subagent.\n\nAdd instructions here.\n`;
+    }
   }
 
   await ensureParentDir(sourceAbs);
@@ -515,7 +565,7 @@ export async function addSubagentEntity(
   manifest.entities.push({
     id: subagentId,
     type: "subagent",
-    registry: registry.id,
+    registry: registryId,
     sourcePath,
     overrides,
     enabled: true,
@@ -527,7 +577,7 @@ export async function addSubagentEntity(
   await upsertLockEntityRecord(paths, manifest, {
     id: subagentId,
     type: "subagent",
-    registry: registry.id,
+    registry: registryId,
     sourceSha256: sha256(sourceText),
     overrideSha256ByProvider: overrideShaByProvider,
     importedSourceSha256,
@@ -535,7 +585,11 @@ export async function addSubagentEntity(
   });
 }
 
-export async function addHookEntity(cwd: string, hookId: string, options?: { registry?: string }): Promise<void> {
+export async function addHookEntity(
+  cwd: string,
+  hookId: string,
+  options?: { registry?: string; sourceJson?: Record<string, unknown> },
+): Promise<void> {
   validateEntityId(hookId, "hook");
   const paths = resolveHarnessPaths(cwd);
   const manifest = await readManifestOrThrow(paths);
@@ -550,31 +604,39 @@ export async function addHookEntity(cwd: string, hookId: string, options?: { reg
     throw new Error(`Cannot add hook because '${sourcePath}' already exists`);
   }
 
-  const registry = resolveEntityRegistrySelection(manifest, options?.registry);
   let sourceJson: Record<string, unknown>;
+  let registryId: string;
   let importedSourceSha256: string | undefined;
   let registryRevision: RegistryRevision | undefined;
 
-  if (registry.definition.type === "git") {
-    const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "hook", hookId);
-    if (fetched.type !== "hook") {
-      throw new Error(`REGISTRY_FETCH_FAILED: expected hook '${hookId}' from registry '${registry.id}'`);
-    }
-    sourceJson = fetched.sourceJson;
-    importedSourceSha256 = fetched.importedSourceSha256;
-    registryRevision = fetched.registryRevision;
+  if (options?.sourceJson) {
+    sourceJson = options.sourceJson;
+    registryId = DEFAULT_REGISTRY_ID;
   } else {
-    sourceJson = {
-      mode: "best_effort",
-      events: {
-        pre_tool_use: [
-          {
-            type: "command",
-            command: "echo 'replace-with-hook-command'",
-          },
-        ],
-      },
-    };
+    const registry = resolveEntityRegistrySelection(manifest, options?.registry);
+    registryId = registry.id;
+
+    if (registry.definition.type === "git") {
+      const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "hook", hookId);
+      if (fetched.type !== "hook") {
+        throw new Error(`REGISTRY_FETCH_FAILED: expected hook '${hookId}' from registry '${registry.id}'`);
+      }
+      sourceJson = fetched.sourceJson;
+      importedSourceSha256 = fetched.importedSourceSha256;
+      registryRevision = fetched.registryRevision;
+    } else {
+      sourceJson = {
+        mode: "best_effort",
+        events: {
+          pre_tool_use: [
+            {
+              type: "command",
+              command: "echo 'replace-with-hook-command'",
+            },
+          ],
+        },
+      };
+    }
   }
 
   const sourceContent = stableStringify(sourceJson);
@@ -586,7 +648,7 @@ export async function addHookEntity(cwd: string, hookId: string, options?: { reg
   manifest.entities.push({
     id: hookId,
     type: "hook",
-    registry: registry.id,
+    registry: registryId,
     sourcePath,
     overrides,
     enabled: true,
@@ -598,7 +660,7 @@ export async function addHookEntity(cwd: string, hookId: string, options?: { reg
   await upsertLockEntityRecord(paths, manifest, {
     id: hookId,
     type: "hook",
-    registry: registry.id,
+    registry: registryId,
     sourceSha256: sha256(stableStringify(sourceJson)),
     overrideSha256ByProvider: overrideShaByProvider,
     importedSourceSha256,
@@ -609,7 +671,7 @@ export async function addHookEntity(cwd: string, hookId: string, options?: { reg
 export async function addSettingsEntity(
   cwd: string,
   provider: ProviderId,
-  options?: { registry?: string },
+  options?: { registry?: string; sourcePayload?: Record<string, unknown> },
 ): Promise<void> {
   const settingsProvider = providerIdSchema.parse(provider);
   const paths = resolveHarnessPaths(cwd);
@@ -625,19 +687,30 @@ export async function addSettingsEntity(
     throw new Error(`Cannot add settings because '${sourcePath}' already exists`);
   }
 
-  const registry = resolveEntityRegistrySelection(manifest, options?.registry);
-  let sourcePayload: Record<string, unknown> = {};
+  let sourcePayload: Record<string, unknown>;
+  let registryId: string;
   let importedSourceSha256: string | undefined;
   let registryRevision: RegistryRevision | undefined;
 
-  if (registry.definition.type === "git") {
-    const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "settings", settingsProvider);
-    if (fetched.type !== "settings") {
-      throw new Error(`REGISTRY_FETCH_FAILED: expected settings '${settingsProvider}' from registry '${registry.id}'`);
+  if (options?.sourcePayload) {
+    sourcePayload = options.sourcePayload;
+    registryId = DEFAULT_REGISTRY_ID;
+  } else {
+    const registry = resolveEntityRegistrySelection(manifest, options?.registry);
+    registryId = registry.id;
+    sourcePayload = {};
+
+    if (registry.definition.type === "git") {
+      const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "settings", settingsProvider);
+      if (fetched.type !== "settings") {
+        throw new Error(
+          `REGISTRY_FETCH_FAILED: expected settings '${settingsProvider}' from registry '${registry.id}'`,
+        );
+      }
+      sourcePayload = fetched.sourcePayload;
+      importedSourceSha256 = fetched.importedSourceSha256;
+      registryRevision = fetched.registryRevision;
     }
-    sourcePayload = fetched.sourcePayload;
-    importedSourceSha256 = fetched.importedSourceSha256;
-    registryRevision = fetched.registryRevision;
   }
 
   const sourceContent = serializeSettingsPayload(settingsProvider, sourcePayload);
@@ -647,7 +720,7 @@ export async function addSettingsEntity(
   manifest.entities.push({
     id: settingsProvider,
     type: "settings",
-    registry: registry.id,
+    registry: registryId,
     sourcePath,
     enabled: true,
   });
@@ -658,7 +731,7 @@ export async function addSettingsEntity(
   await upsertLockEntityRecord(paths, manifest, {
     id: settingsProvider,
     type: "settings",
-    registry: registry.id,
+    registry: registryId,
     sourceSha256: sha256(sourceContent),
     overrideSha256ByProvider: {},
     importedSourceSha256,
@@ -666,7 +739,11 @@ export async function addSettingsEntity(
   });
 }
 
-export async function addCommandEntity(cwd: string, commandId: string, options?: { registry?: string }): Promise<void> {
+export async function addCommandEntity(
+  cwd: string,
+  commandId: string,
+  options?: { registry?: string; sourceText?: string },
+): Promise<void> {
   validateEntityId(commandId, "command");
   const paths = resolveHarnessPaths(cwd);
   const manifest = await readManifestOrThrow(paths);
@@ -681,21 +758,29 @@ export async function addCommandEntity(cwd: string, commandId: string, options?:
     throw new Error(`Cannot add command because '${sourcePath}' already exists`);
   }
 
-  const registry = resolveEntityRegistrySelection(manifest, options?.registry);
   let sourceText: string;
+  let registryId: string;
   let importedSourceSha256: string | undefined;
   let registryRevision: RegistryRevision | undefined;
 
-  if (registry.definition.type === "git") {
-    const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "command", commandId);
-    if (fetched.type !== "command") {
-      throw new Error(`REGISTRY_FETCH_FAILED: expected command '${commandId}' from registry '${registry.id}'`);
-    }
-    sourceText = fetched.sourceText;
-    importedSourceSha256 = fetched.importedSourceSha256;
-    registryRevision = fetched.registryRevision;
+  if (options?.sourceText) {
+    sourceText = options.sourceText;
+    registryId = DEFAULT_REGISTRY_ID;
   } else {
-    sourceText = `---\ndescription: "Describe what this command does"\n---\n\n# ${commandId}\n\nDescribe the task here. Use $ARGUMENTS to reference arguments passed to this command.\n`;
+    const registry = resolveEntityRegistrySelection(manifest, options?.registry);
+    registryId = registry.id;
+
+    if (registry.definition.type === "git") {
+      const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "command", commandId);
+      if (fetched.type !== "command") {
+        throw new Error(`REGISTRY_FETCH_FAILED: expected command '${commandId}' from registry '${registry.id}'`);
+      }
+      sourceText = fetched.sourceText;
+      importedSourceSha256 = fetched.importedSourceSha256;
+      registryRevision = fetched.registryRevision;
+    } else {
+      sourceText = `---\ndescription: "Describe what this command does"\n---\n\n# ${commandId}\n\nDescribe the task here. Use $ARGUMENTS to reference arguments passed to this command.\n`;
+    }
   }
 
   await ensureParentDir(sourceAbs);
@@ -706,7 +791,7 @@ export async function addCommandEntity(cwd: string, commandId: string, options?:
   manifest.entities.push({
     id: commandId,
     type: "command",
-    registry: registry.id,
+    registry: registryId,
     sourcePath,
     overrides,
     enabled: true,
@@ -718,7 +803,7 @@ export async function addCommandEntity(cwd: string, commandId: string, options?:
   await upsertLockEntityRecord(paths, manifest, {
     id: commandId,
     type: "command",
-    registry: registry.id,
+    registry: registryId,
     sourceSha256: sha256(sourceText),
     overrideSha256ByProvider: overrideShaByProvider,
     importedSourceSha256,

@@ -5,6 +5,7 @@ This set documents source files under `packages/toolkit/src`.
 ## Top-level modules
 
 - `cli.ts`: [`toolkit.cli.md`](./toolkit.cli.md)
+- `delegated-init.ts`: [`toolkit.delegated-init.md`](./toolkit.delegated-init.md)
 - `engine.ts`: [`toolkit.engine.md`](./toolkit.engine.md)
 - `env.ts`: [`toolkit.env.md`](./toolkit.env.md)
 - `hooks.ts`: [`toolkit.hooks.md`](./toolkit.hooks.md)
@@ -12,6 +13,9 @@ This set documents source files under `packages/toolkit/src`.
 - `loader.ts`: [`toolkit.loader.md`](./toolkit.loader.md)
 - `paths.ts`: [`toolkit.paths.md`](./toolkit.paths.md)
 - `planner.ts`: [`toolkit.planner.md`](./toolkit.planner.md)
+- `preset-builtin.ts`: [`toolkit.presets.md`](./toolkit.presets.md)
+- `preset-packages.ts`: [`toolkit.presets.md`](./toolkit.presets.md)
+- `presets.ts`: [`toolkit.presets.md`](./toolkit.presets.md)
 - `providers.ts`: [`toolkit.providers.md`](./toolkit.providers.md)
 - `repository.ts`: [`toolkit.repository.md`](./toolkit.repository.md)
 - `types.ts`: [`toolkit.types.md`](./toolkit.types.md)

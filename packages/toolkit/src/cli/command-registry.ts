@@ -16,6 +16,7 @@ import {
 import { handleInit } from "./handlers/init.js";
 import { handleMigrate } from "./handlers/migrate.js";
 import { handlePlan } from "./handlers/plan.js";
+import { handlePresetApply, handlePresetDescribe, handlePresetList } from "./handlers/preset.js";
 import { handleProviderDisable, handleProviderEnable } from "./handlers/provider.js";
 import {
   handleRegistryAdd,
@@ -142,16 +143,103 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         takesValue: false,
         defaultValue: false,
       },
+      {
+        name: "preset",
+        description: "apply a bundled or local preset after initialization",
+        takesValue: true,
+      },
+      {
+        name: "delegate",
+        description: `launch delegated prompt authoring with a provider CLI (${providerIdSchema.options.join(", ")})`,
+        takesValue: true,
+      },
     ],
     mutatesWorkspace: true,
     interactiveLabel: "Initialize workspace",
-    run: (input, context) => handleInit({ force: readBooleanOption(input, "force") }, context),
+    run: (input, context) =>
+      handleInit(
+        {
+          force: readBooleanOption(input, "force"),
+          preset: readStringOption(input, "preset"),
+          delegate: readStringOption(input, "delegate"),
+          json: readBooleanOption(input, "json"),
+        },
+        context,
+      ),
+  },
+  {
+    id: "preset.list",
+    path: ["preset", "list"],
+    description: "List available presets",
+    args: [],
+    options: [
+      {
+        name: "registry",
+        description: "list presets from a configured registry",
+        takesValue: true,
+      },
+    ],
+    mutatesWorkspace: false,
+    interactiveLabel: "List presets",
+    run: (input, context) => handlePresetList({ registry: readStringOption(input, "registry") }, context),
+  },
+  {
+    id: "preset.describe",
+    path: ["preset", "describe"],
+    description: "Describe a preset",
+    args: [{ name: "presetId", required: true, description: "preset id" }],
+    options: [
+      {
+        name: "registry",
+        description: "load the preset from a configured registry",
+        takesValue: true,
+      },
+    ],
+    mutatesWorkspace: false,
+    interactiveLabel: "Describe preset",
+    run: (input, context) =>
+      handlePresetDescribe(
+        {
+          presetId: readStringArg(input, "presetId") ?? "",
+          registry: readStringOption(input, "registry"),
+        },
+        context,
+      ),
+  },
+  {
+    id: "preset.apply",
+    path: ["preset", "apply"],
+    description: "Apply a preset to the current workspace",
+    args: [{ name: "presetId", required: true, description: "preset id" }],
+    options: [
+      {
+        name: "registry",
+        description: "load the preset from a configured registry",
+        takesValue: true,
+      },
+    ],
+    mutatesWorkspace: true,
+    interactiveLabel: "Apply preset",
+    run: (input, context) =>
+      handlePresetApply(
+        {
+          presetId: readStringArg(input, "presetId") ?? "",
+          registry: readStringOption(input, "registry"),
+        },
+        context,
+      ),
   },
   {
     id: "provider.enable",
     path: ["provider", "enable"],
     description: "Enable a provider",
-    args: [{ name: "provider", required: true, description: `provider id (${providerIdSchema.options.join(", ")})` }],
+    args: [
+      {
+        name: "provider",
+        required: true,
+        description: `provider id (${providerIdSchema.options.join(", ")})`,
+      },
+    ],
     options: [],
     mutatesWorkspace: true,
     interactiveLabel: "Enable provider",
@@ -161,7 +249,13 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
     id: "provider.disable",
     path: ["provider", "disable"],
     description: "Disable a provider",
-    args: [{ name: "provider", required: true, description: `provider id (${providerIdSchema.options.join(", ")})` }],
+    args: [
+      {
+        name: "provider",
+        required: true,
+        description: `provider id (${providerIdSchema.options.join(", ")})`,
+      },
+    ],
     options: [],
     mutatesWorkspace: true,
     interactiveLabel: "Disable provider",
@@ -432,7 +526,13 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
     id: "add.settings",
     path: ["add", "settings"],
     description: "Create a provider settings entity",
-    args: [{ name: "provider", required: true, description: `provider id (${providerIdSchema.options.join(", ")})` }],
+    args: [
+      {
+        name: "provider",
+        required: true,
+        description: `provider id (${providerIdSchema.options.join(", ")})`,
+      },
+    ],
     options: [
       {
         name: "registry",

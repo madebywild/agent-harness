@@ -5,6 +5,8 @@ import type {
   EntityType,
   ManagedIndex,
   ManifestLock,
+  PresetDefinition,
+  PresetOperation,
   ProviderId,
   ProviderOverride,
   RegistryDefinition,
@@ -19,6 +21,8 @@ export type {
   EntityType,
   ManagedIndex,
   ManifestLock,
+  PresetDefinition,
+  PresetOperation,
   ProviderId,
   ProviderOverride,
   RegistryDefinition,
@@ -254,6 +258,47 @@ export interface RegistryValidationOptions {
 export interface RegistryValidationResult {
   valid: boolean;
   diagnostics: Diagnostic[];
+}
+
+export type PresetSourceKind = "builtin" | "local" | "registry";
+
+export interface PresetSummary {
+  id: string;
+  name: string;
+  description: string;
+  recommended: boolean;
+  source: PresetSourceKind;
+  registry?: RegistryId;
+}
+
+export interface ResolvedPresetSource {
+  registry?: RegistryId;
+  prompt?: string;
+  skills?: Record<string, Array<{ path: string; content: string }>>;
+  mcp?: Record<string, Record<string, unknown>>;
+  subagents?: Record<string, string>;
+  hooks?: Record<string, Record<string, unknown>>;
+  settings?: Partial<Record<ProviderId, Record<string, unknown>>>;
+  commands?: Record<string, string>;
+}
+
+export interface ResolvedPreset {
+  definition: PresetDefinition;
+  source: PresetSourceKind;
+  registry?: RegistryId;
+  content: ResolvedPresetSource;
+}
+
+export interface PresetOperationResult {
+  type: PresetOperation["type"];
+  target: string;
+  outcome: "applied" | "skipped";
+  message: string;
+}
+
+export interface PresetApplyResult {
+  preset: PresetSummary;
+  results: PresetOperationResult[];
 }
 
 export interface LoadedPrompt {

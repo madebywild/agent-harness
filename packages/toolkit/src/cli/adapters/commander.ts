@@ -77,7 +77,16 @@ export async function runCommanderAdapter(
     const cwd = resolveInvocationCwd(program, baseContext);
     const json = resolveInvocationJson(program, options);
     const commandContext = withInvocationContext(baseContext, cwd);
-    const commandExitCode = await executeWithRendering(input, commandContext, json, api);
+    const commandInput = json
+      ? {
+          ...input,
+          options: {
+            ...input.options,
+            json: true,
+          },
+        }
+      : input;
+    const commandExitCode = await executeWithRendering(commandInput, commandContext, json, api);
     if (commandExitCode !== 0) {
       exitCode = commandExitCode;
     }
@@ -97,12 +106,84 @@ export async function runCommanderAdapter(
       .command("init")
       .description("Initialize .harness structure and state files")
       .option("--force", "overwrite an existing .harness workspace", false)
-      .action(async (options: { force: boolean; json?: boolean }) => {
+      .option("--preset <id>", "apply a bundled or local preset after initialization")
+      .option(
+        "--delegate <provider>",
+        `launch delegated prompt authoring with a provider CLI (${providerIdSchema.options.join(", ")})`,
+      )
+      .action(async (options: { force: boolean; preset?: string; delegate?: string; json?: boolean }) => {
         await runCommand(
           {
             command: "init",
             options: {
               force: options.force,
+              preset: options.preset,
+              delegate: options.delegate,
+              json: options.json,
+            },
+          },
+          options,
+        );
+      }),
+  );
+
+  const presetCommand = program.command("preset").description("List, inspect, and apply presets");
+
+  addJsonOption(
+    presetCommand
+      .command("list")
+      .description("List available presets")
+      .option("--registry <registry>", "list presets from a configured registry")
+      .action(async (options: { registry?: string; json?: boolean }) => {
+        await runCommand(
+          {
+            command: "preset.list",
+            options: {
+              registry: options.registry,
+            },
+          },
+          options,
+        );
+      }),
+  );
+
+  addJsonOption(
+    presetCommand
+      .command("describe")
+      .description("Describe a preset")
+      .argument("<preset-id>", "preset id")
+      .option("--registry <registry>", "load the preset from a configured registry")
+      .action(async (presetId: string, options: { registry?: string; json?: boolean }) => {
+        await runCommand(
+          {
+            command: "preset.describe",
+            args: {
+              presetId,
+            },
+            options: {
+              registry: options.registry,
+            },
+          },
+          options,
+        );
+      }),
+  );
+
+  addJsonOption(
+    presetCommand
+      .command("apply")
+      .description("Apply a preset to the current workspace")
+      .argument("<preset-id>", "preset id")
+      .option("--registry <registry>", "load the preset from a configured registry")
+      .action(async (presetId: string, options: { registry?: string; json?: boolean }) => {
+        await runCommand(
+          {
+            command: "preset.apply",
+            args: {
+              presetId,
+            },
+            options: {
+              registry: options.registry,
             },
           },
           options,

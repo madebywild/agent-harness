@@ -25,12 +25,17 @@ Implements the layered CLI runtime with shared command execution for both non-in
   - non-TTY or CI: default `plan`.
 - Explicit subcommands run through Commander mode.
 - `harness ui` is the explicit interactive entrypoint.
+- Interactive `init` now offers bundled preset selection with a skip option.
+- Interactive `init` can also launch delegated prompt authoring when the `delegate` preset is selected.
 
 ## Notable command surface
 
 - `add prompt|skill|mcp|subagent|hook`
 - `remove <entity-type> <id>` (entity-type includes `hook`)
 - registry commands support optional entity-type filters including `hook`
+- preset commands: `preset list|describe|apply`
+- `init --preset <id>` chains workspace initialization with preset application
+- `init --delegate <provider>` auto-applies the bundled `delegate` preset and launches `claude`, `codex`, or `copilot` to finish prompt authoring
 
 ## JSON output contract
 
@@ -47,3 +52,14 @@ Implements the layered CLI runtime with shared command execution for both non-in
 
 - `runCliCommand(input, context?)`
 - `runCliArgv(argv, context?)`
+
+## Preset behavior
+
+- `preset list` returns bundled presets by default and includes local presets when the workspace exists.
+- `preset list --registry <name>` lists presets exposed by a configured git registry.
+- `preset describe <id>` resolves a preset and returns its metadata plus ordered operations.
+- `preset apply <id>` materializes normal harness state into the workspace; the preset itself is not persisted in `manifest.json`.
+- Bundled presets: `delegate` (bootstrap prompt for delegated authoring), `starter` (prompt + reviewer skill + fix-issue command), `researcher` (prompt + research subagent), `yolo` (prompt + permissive settings for all providers). All four enable `claude`, `codex`, and `copilot`.
+- `init --delegate <provider>` is the intended first-run path when the user wants `claude`, `codex`, or `copilot` to author the real project-specific prompt and any related harness entities from the current repository context.
+- Delegated init is interactive-only and should not be combined with `--json`, because the selected provider CLI takes over the terminal session.
+- Provider CLIs are invoked non-interactively: `claude -p <task>`, `codex exec <task>`, `copilot -p <task>`. See [`toolkit.delegated-init.md`](./toolkit.delegated-init.md) for details.

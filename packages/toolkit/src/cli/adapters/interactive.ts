@@ -1,6 +1,7 @@
 import { cancel, confirm, intro, isCancel, outro, select, text } from "@clack/prompts";
 import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import ora from "ora";
+import { listBuiltinPresets, summarizePreset } from "../../presets.js";
 import { CLI_ENTITY_TYPES } from "../../types.js";
 import { getCommandDefinition } from "../command-registry.js";
 import type { CliResolvedContext, CommandId, CommandInput, CommandOutput } from "../contracts.js";
@@ -24,6 +25,9 @@ const INTERACTIVE_COMMAND_IDS: readonly CommandId[] = [
   "registry.add",
   "registry.remove",
   "registry.pull",
+  "preset.list",
+  "preset.describe",
+  "preset.apply",
   "add.prompt",
   "add.skill",
   "add.mcp",
@@ -96,10 +100,44 @@ async function promptCommandInput(command: CommandId): Promise<CommandInput | nu
         return null;
       }
 
+      const presets = (await listBuiltinPresets()).map((preset) => summarizePreset(preset));
+      const preset = await select({
+        message: "Select a preset to apply during init",
+        options: [
+          { value: "", label: "Skip preset" },
+          ...presets.map((entry) => ({
+            value: entry.id,
+            label: `${entry.name} (${entry.id})`,
+          })),
+        ],
+      });
+      const resolvedPreset = getSelectedValue(preset);
+      if (resolvedPreset === null) {
+        return null;
+      }
+
+      let delegate: string | undefined;
+      if (String(resolvedPreset) === "delegate") {
+        const delegateProvider = await select({
+          message: "Select the provider CLI to delegate prompt authoring to",
+          options: providerIdSchema.options.map((entry) => ({
+            value: entry,
+            label: entry,
+          })),
+        });
+        const resolvedDelegateProvider = getSelectedValue(delegateProvider);
+        if (resolvedDelegateProvider === null) {
+          return null;
+        }
+        delegate = String(resolvedDelegateProvider);
+      }
+
       return {
         command,
         options: {
           force: Boolean(resolvedForce),
+          preset: String(resolvedPreset) || undefined,
+          delegate,
         },
       };
     }
@@ -221,6 +259,41 @@ async function promptCommandInput(command: CommandId): Promise<CommandInput | nu
         },
       };
     }
+    case "preset.list": {
+      const registry = await promptOptionalText("Registry id");
+      if (registry === null) {
+        return null;
+      }
+
+      return {
+        command,
+        options: {
+          registry,
+        },
+      };
+    }
+    case "preset.describe":
+    case "preset.apply": {
+      const presetId = await promptRequiredText("Preset id");
+      if (presetId === null) {
+        return null;
+      }
+
+      const registry = await promptOptionalText("Registry id");
+      if (registry === null) {
+        return null;
+      }
+
+      return {
+        command,
+        args: {
+          presetId,
+        },
+        options: {
+          registry,
+        },
+      };
+    }
     case "add.prompt": {
       const registry = await promptOptionalText("Registry id");
       if (registry === null) {
@@ -321,7 +394,10 @@ async function promptCommandInput(command: CommandId): Promise<CommandInput | nu
     case "add.settings": {
       const provider = await select({
         message: "Provider",
-        options: providerIdSchema.options.map((entry) => ({ value: entry, label: entry })),
+        options: providerIdSchema.options.map((entry) => ({
+          value: entry,
+          label: entry,
+        })),
       });
       const resolvedProvider = getSelectedValue(provider);
       if (resolvedProvider === null) {
@@ -367,7 +443,10 @@ async function promptCommandInput(command: CommandId): Promise<CommandInput | nu
     case "remove": {
       const entityType = await select({
         message: "Entity type",
-        options: CLI_ENTITY_TYPES.map((entry) => ({ value: entry, label: entry })),
+        options: CLI_ENTITY_TYPES.map((entry) => ({
+          value: entry,
+          label: entry,
+        })),
       });
       const resolvedEntityType = getSelectedValue(entityType);
       if (resolvedEntityType === null) {
@@ -434,18 +513,23 @@ export async function runInteractiveAdapter(
   let exitCode = 0;
 
   while (true) {
-    const command = await select({
+    const commandOptions = [
+      ...INTERACTIVE_COMMAND_IDS.map((id) => ({
+        value: id as CommandId | "exit",
+        label: getCommandDefinition(id).interactiveLabel ?? getCommandDefinition(id).description,
+      })),
+      {
+        value: "exit" as const,
+        label: "Exit",
+      },
+    ];
+
+    // @clack/prompts distributes the generic over the union, requiring a type assertion here
+    const command = await (
+      select as (opts: { message: string; options: typeof commandOptions }) => Promise<CommandId | "exit" | symbol>
+    )({
       message: "Select a command",
-      options: [
-        ...INTERACTIVE_COMMAND_IDS.map((id) => ({
-          value: id,
-          label: getCommandDefinition(id).interactiveLabel ?? getCommandDefinition(id).description,
-        })),
-        {
-          value: "exit",
-          label: "Exit",
-        },
-      ],
+      options: commandOptions,
     });
 
     const resolvedCommand = getSelectedValue(command);

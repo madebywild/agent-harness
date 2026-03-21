@@ -61,6 +61,15 @@ test("init scaffolds commands source directory", async () => {
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/commands")));
 });
 
+test("init scaffolds presets directory", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/presets")));
+});
+
 test("init --force recreates .harness workspace", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);

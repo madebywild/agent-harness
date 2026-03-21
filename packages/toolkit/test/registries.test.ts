@@ -31,10 +31,9 @@ test("init seeds local registry and add writes lock provenance immediately", asy
   assert.ok(skillEntity);
   assert.equal(skillEntity?.registry, "local");
 
-  const lock = await readJson<{ entities: Array<{ id: string; type: string; registry: string }> }>(
-    cwd,
-    ".harness/manifest.lock.json",
-  );
+  const lock = await readJson<{
+    entities: Array<{ id: string; type: string; registry: string }>;
+  }>(cwd, ".harness/manifest.lock.json");
   const skillLock = lock.entities.find((entity) => entity.type === "skill" && entity.id === "local-skill");
   assert.ok(skillLock);
   assert.equal(skillLock?.registry, "local");
@@ -88,10 +87,9 @@ test("add from git registry imports sources and records registry provenance", as
   const localSkill = await fs.readFile(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md"), "utf8");
   assert.match(localSkill, /Remote content/u);
 
-  const manifest = await readJson<{ entities: Array<{ id: string; type: string; registry: string }> }>(
-    cwd,
-    ".harness/manifest.json",
-  );
+  const manifest = await readJson<{
+    entities: Array<{ id: string; type: string; registry: string }>;
+  }>(cwd, ".harness/manifest.json");
   const entity = manifest.entities.find((entry) => entry.type === "skill" && entry.id === "reviewer");
   assert.equal(entity?.registry, "corp");
 
@@ -181,10 +179,10 @@ test("add from git registry imports hook and records provenance", async () => {
 
   await engine.addHook("guard", { registry: "corp" });
 
-  const localHook = await readJson<{ mode: string; events: Record<string, unknown> }>(
-    cwd,
-    ".harness/src/hooks/guard.json",
-  );
+  const localHook = await readJson<{
+    mode: string;
+    events: Record<string, unknown>;
+  }>(cwd, ".harness/src/hooks/guard.json");
   assert.equal(localHook.mode, "strict");
   assert.ok(localHook.events.turn_complete);
 
@@ -246,7 +244,11 @@ test("registry pull blocks local drift unless --force", async () => {
     /REGISTRY_PULL_CONFLICT/u,
   );
 
-  const forced = await engine.pullRegistry({ entityType: "skill", id: "reviewer", force: true });
+  const forced = await engine.pullRegistry({
+    entityType: "skill",
+    id: "reviewer",
+    force: true,
+  });
   assert.deepEqual(forced.updatedEntities, [{ type: "skill", id: "reviewer" }]);
 
   const refreshed = await fs.readFile(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md"), "utf8");
@@ -285,7 +287,11 @@ test("registry pull supports subagent entities", async () => {
     /REGISTRY_PULL_CONFLICT/u,
   );
 
-  const forced = await engine.pullRegistry({ entityType: "subagent", id: "researcher", force: true });
+  const forced = await engine.pullRegistry({
+    entityType: "subagent",
+    id: "researcher",
+    force: true,
+  });
   assert.deepEqual(forced.updatedEntities, [{ type: "subagent", id: "researcher" }]);
 
   const refreshed = await fs.readFile(path.join(cwd, ".harness/src/subagents/researcher.md"), "utf8");
@@ -362,7 +368,11 @@ test("registry pull supports hook entities", async () => {
 
   await assert.rejects(async () => engine.pullRegistry({ entityType: "hook", id: "guard" }), /REGISTRY_PULL_CONFLICT/u);
 
-  const forced = await engine.pullRegistry({ entityType: "hook", id: "guard", force: true });
+  const forced = await engine.pullRegistry({
+    entityType: "hook",
+    id: "guard",
+    force: true,
+  });
   assert.deepEqual(forced.updatedEntities, [{ type: "hook", id: "guard" }]);
 
   const refreshed = await readJson<{
@@ -390,11 +400,53 @@ test("registry pull does not conflict when imported skill includes OVERRIDES sid
   await fs.writeFile(path.join(registryRepo, "skills/reviewer/SKILL.md"), "# reviewer\n\nVersion 2\n", "utf8");
   await gitCommit(registryRepo, "update skill");
 
-  const result = await engine.pullRegistry({ entityType: "skill", id: "reviewer" });
+  const result = await engine.pullRegistry({
+    entityType: "skill",
+    id: "reviewer",
+  });
   assert.deepEqual(result.updatedEntities, [{ type: "skill", id: "reviewer" }]);
 
   const refreshed = await fs.readFile(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md"), "utf8");
   assert.match(refreshed, /Version 2/u);
+});
+
+test("registry validation accepts preset packages and registry presets can be listed and applied", async () => {
+  const cwd = await mkTmpRepo();
+  const registryRepo = await mkTmpGitRegistry({
+    files: {
+      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
+      "presets/corp-starter/preset.json": JSON.stringify(
+        {
+          id: "corp-starter",
+          name: "Corp Starter",
+          description: "Enable Claude and add a corp prompt.",
+          operations: [{ type: "enable_provider", provider: "claude" }, { type: "add_prompt" }],
+        },
+        null,
+        2,
+      ),
+      "presets/corp-starter/prompt.md": "# System Prompt\n\nUse the corporate coding conventions.\n",
+    },
+  });
+
+  const validation = await validateRegistryRepo({ repoPath: registryRepo });
+  assert.equal(validation.valid, true);
+
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+  await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
+
+  const presets = await engine.listPresets({ registry: "corp" });
+  assert.ok(presets.some((preset) => preset.id === "corp-starter" && preset.source === "registry"));
+
+  const applied = await engine.applyPreset("corp-starter", {
+    registry: "corp",
+  });
+  assert.equal(applied.preset.id, "corp-starter");
+  assert.ok(applied.results.some((entry) => entry.target === "prompt:system" && entry.outcome === "applied"));
+
+  const prompt = await fs.readFile(path.join(cwd, ".harness/src/prompts/system.md"), "utf8");
+  assert.match(prompt, /corporate coding conventions/u);
 });
 
 test("registry pull preflight avoids partial updates when later entity conflicts", async () => {
@@ -590,7 +642,11 @@ node "%~dp0\\fake-git.js" %*
 test("validateRegistryRepo passes for valid registry layout and metadata", async () => {
   const registryRepo = await mkTmpRegistry({
     "harness-registry.json": JSON.stringify(
-      { version: 1, title: "Corp Registry", description: "Internal registry resources" },
+      {
+        version: 1,
+        title: "Corp Registry",
+        description: "Internal registry resources",
+      },
       null,
       2,
     ),
@@ -965,7 +1021,10 @@ test("registry validate CLI emits json and failure exit code", async () => {
     schemaVersion: string;
     ok: boolean;
     command: string;
-    data: { operation: string; result: { valid: boolean; diagnostics: unknown[] } };
+    data: {
+      operation: string;
+      result: { valid: boolean; diagnostics: unknown[] };
+    };
     diagnostics: unknown[];
   };
   assert.equal(validPayload.schemaVersion, "1");
@@ -1001,7 +1060,9 @@ async function mkTmpGitRegistry(input: { files: Record<string, string> }): Promi
   await execFileAsync("git", ["checkout", "-b", "main"], { cwd: repo }).catch(() => {
     // no-op when default branch is already main
   });
-  await execFileAsync("git", ["config", "user.name", "Harness Test"], { cwd: repo });
+  await execFileAsync("git", ["config", "user.name", "Harness Test"], {
+    cwd: repo,
+  });
   await execFileAsync("git", ["config", "user.email", "harness-test@example.com"], { cwd: repo });
   await gitCommit(repo, "initial commit");
 

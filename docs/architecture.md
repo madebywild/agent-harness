@@ -24,6 +24,12 @@ Canonical entity types:
 - `mcp_config`
 - `subagent`
 - `hook`
+- `settings` (per-provider; id is the provider name)
+- `command`
+
+Bootstrap primitive:
+
+- `preset` is intentionally not a canonical manifest entity. It is a bootstrap macro that materializes normal harness state such as registries, enabled providers, and source entities.
 
 Default source locations:
 
@@ -32,6 +38,8 @@ Default source locations:
 - MCP: `.harness/src/mcp/<id>.json`
 - Subagents: `.harness/src/subagents/<id>.md`
 - Hooks: `.harness/src/hooks/<id>.json`
+- Settings: `.harness/src/settings/<provider>.json` (codex uses `.toml`)
+- Commands: `.harness/src/commands/<id>.md`
 
 Provider override sidecars are YAML files with schema `version: 1` and optional `enabled`, `targetPath`, `options`.
 
@@ -129,6 +137,8 @@ Manifest registries:
 
 `add` can materialize from git registries (not only local scaffolding), including hook entities (`hooks/<id>.json` in registry layout).
 
+Registries may also expose preset packages under `presets/<id>/`.
+
 CLI registry commands:
 
 - `harness registry list|validate|add|remove`
@@ -168,12 +178,28 @@ Core commands:
 - `add prompt|skill|mcp|subagent|hook`
 - `remove <entity-type> <id>`
 - `registry ...` (management + pull)
+- `preset list|describe|apply`
 - `validate`
 - `doctor`
 - `migrate`
 - `plan`
 - `apply`
 - `watch`
+
+## Preset package layout
+
+Preset packages are self-contained directories used by bundled, local, and registry presets:
+
+- `preset.json` — preset metadata and ordered operations
+- `prompt.md` — optional embedded prompt source
+- `skills/<id>/**` — optional embedded skill content
+- `mcp/<id>.json` — optional embedded MCP config content
+- `subagents/<id>.md` — optional embedded subagent content
+- `hooks/<id>.json` — optional embedded hook content
+- `settings/<provider>.json|toml` — optional embedded settings content
+- `commands/<id>.md` — optional embedded command content
+
+Preset application is intentionally outside the planner/provider-render pipeline. The preset layer runs first, writes normal harness-managed source files and manifest state, and then the existing `validate` / `plan` / `apply` flow operates unchanged.
 
 ## Watch behavior
 
