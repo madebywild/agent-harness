@@ -397,6 +397,43 @@ test("registry pull does not conflict when imported skill includes OVERRIDES sid
   assert.match(refreshed, /Version 2/u);
 });
 
+test("registry validation accepts preset packages and registry presets can be listed and applied", async () => {
+  const cwd = await mkTmpRepo();
+  const registryRepo = await mkTmpGitRegistry({
+    files: {
+      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
+      "presets/corp-starter/preset.json": JSON.stringify(
+        {
+          id: "corp-starter",
+          name: "Corp Starter",
+          description: "Enable Claude and add a corp prompt.",
+          operations: [{ type: "enable_provider", provider: "claude" }, { type: "add_prompt" }],
+        },
+        null,
+        2,
+      ),
+      "presets/corp-starter/prompt.md": "# System Prompt\n\nUse the corporate coding conventions.\n",
+    },
+  });
+
+  const validation = await validateRegistryRepo({ repoPath: registryRepo });
+  assert.equal(validation.valid, true);
+
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+  await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
+
+  const presets = await engine.listPresets({ registry: "corp" });
+  assert.ok(presets.some((preset) => preset.id === "corp-starter" && preset.source === "registry"));
+
+  const applied = await engine.applyPreset("corp-starter", { registry: "corp" });
+  assert.equal(applied.preset.id, "corp-starter");
+  assert.ok(applied.results.some((entry) => entry.target === "prompt:system" && entry.outcome === "applied"));
+
+  const prompt = await fs.readFile(path.join(cwd, ".harness/src/prompts/system.md"), "utf8");
+  assert.match(prompt, /corporate coding conventions/u);
+});
+
 test("registry pull preflight avoids partial updates when later entity conflicts", async () => {
   const cwd = await mkTmpRepo();
   const registryRepo = await mkTmpGitRegistry({

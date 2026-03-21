@@ -1,6 +1,7 @@
 import { cancel, confirm, intro, isCancel, outro, select, text } from "@clack/prompts";
 import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import ora from "ora";
+import { HarnessEngine } from "../../engine.js";
 import { CLI_ENTITY_TYPES } from "../../types.js";
 import { getCommandDefinition } from "../command-registry.js";
 import type { CliResolvedContext, CommandId, CommandInput, CommandOutput } from "../contracts.js";
@@ -24,6 +25,9 @@ const INTERACTIVE_COMMAND_IDS: readonly CommandId[] = [
   "registry.add",
   "registry.remove",
   "registry.pull",
+  "preset.list",
+  "preset.describe",
+  "preset.apply",
   "add.prompt",
   "add.skill",
   "add.mcp",
@@ -84,7 +88,7 @@ async function promptRequiredText(message: string): Promise<string | null> {
   return String(resolved);
 }
 
-async function promptCommandInput(command: CommandId): Promise<CommandInput | null> {
+async function promptCommandInput(command: CommandId, context: CliResolvedContext): Promise<CommandInput | null> {
   switch (command) {
     case "init": {
       const force = await confirm({
@@ -96,10 +100,26 @@ async function promptCommandInput(command: CommandId): Promise<CommandInput | nu
         return null;
       }
 
+      const presets = (await new HarnessEngine(context.cwd).listPresets()).filter(
+        (preset) => preset.source === "builtin",
+      );
+      const preset = await select({
+        message: "Select a preset to apply during init",
+        options: [
+          { value: "", label: "Skip preset" },
+          ...presets.map((entry) => ({ value: entry.id, label: `${entry.name} (${entry.id})` })),
+        ],
+      });
+      const resolvedPreset = getSelectedValue(preset);
+      if (resolvedPreset === null) {
+        return null;
+      }
+
       return {
         command,
         options: {
           force: Boolean(resolvedForce),
+          preset: String(resolvedPreset) || undefined,
         },
       };
     }
@@ -218,6 +238,41 @@ async function promptCommandInput(command: CommandId): Promise<CommandInput | nu
         options: {
           registry,
           force: Boolean(resolvedForce),
+        },
+      };
+    }
+    case "preset.list": {
+      const registry = await promptOptionalText("Registry id");
+      if (registry === null) {
+        return null;
+      }
+
+      return {
+        command,
+        options: {
+          registry,
+        },
+      };
+    }
+    case "preset.describe":
+    case "preset.apply": {
+      const presetId = await promptRequiredText("Preset id");
+      if (presetId === null) {
+        return null;
+      }
+
+      const registry = await promptOptionalText("Registry id");
+      if (registry === null) {
+        return null;
+      }
+
+      return {
+        command,
+        args: {
+          presetId,
+        },
+        options: {
+          registry,
         },
       };
     }
@@ -434,18 +489,20 @@ export async function runInteractiveAdapter(
   let exitCode = 0;
 
   while (true) {
-    const command = await select({
+    const commandOptions = [
+      ...INTERACTIVE_COMMAND_IDS.map((id) => ({
+        value: id,
+        label: getCommandDefinition(id).interactiveLabel ?? getCommandDefinition(id).description,
+      })),
+      {
+        value: "exit",
+        label: "Exit",
+      },
+    ] as Array<{ value: CommandId | "exit"; label: string }>;
+
+    const command = await select<CommandId | "exit">({
       message: "Select a command",
-      options: [
-        ...INTERACTIVE_COMMAND_IDS.map((id) => ({
-          value: id,
-          label: getCommandDefinition(id).interactiveLabel ?? getCommandDefinition(id).description,
-        })),
-        {
-          value: "exit",
-          label: "Exit",
-        },
-      ],
+      options: commandOptions as never,
     });
 
     const resolvedCommand = getSelectedValue(command);
@@ -454,7 +511,7 @@ export async function runInteractiveAdapter(
     }
 
     const parsedCommand = String(resolvedCommand) as CommandId;
-    const input = await promptCommandInput(parsedCommand);
+    const input = await promptCommandInput(parsedCommand, context);
     if (input === null) {
       cancel("Cancelled command input.");
       continue;

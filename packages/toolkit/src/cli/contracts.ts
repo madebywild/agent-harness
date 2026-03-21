@@ -5,11 +5,14 @@ import type {
   DoctorResult,
   MigrationResult,
   PlanResult,
+  PresetApplyResult,
+  PresetSummary,
   ProviderId,
   RegistryListEntry,
   RegistryPullResult,
   RegistryValidationResult,
   RemoveResult,
+  ResolvedPreset,
   ValidationResult,
 } from "../types.js";
 
@@ -24,6 +27,9 @@ export type CommandId =
   | "registry.default.show"
   | "registry.default.set"
   | "registry.pull"
+  | "preset.list"
+  | "preset.describe"
+  | "preset.apply"
   | "add.prompt"
   | "add.skill"
   | "add.mcp"
@@ -83,9 +89,26 @@ export interface InitOutput
     "init",
     {
       force: boolean;
+      preset?: string;
       message: string;
     }
   > {}
+
+export type PresetOutputData =
+  | {
+      operation: "list";
+      presets: PresetSummary[];
+    }
+  | {
+      operation: "describe";
+      preset: ResolvedPreset;
+    }
+  | {
+      operation: "apply";
+      result: PresetApplyResult;
+    };
+
+export interface PresetOutput extends CommandOutputBase<"preset", PresetOutputData> {}
 
 export interface ProviderOutput
   extends CommandOutputBase<
@@ -197,6 +220,7 @@ export interface WatchOutput
 export type CommandOutput =
   | InitOutput
   | ProviderOutput
+  | PresetOutput
   | RegistryOutput
   | EntityMutationOutput
   | ValidationOutput

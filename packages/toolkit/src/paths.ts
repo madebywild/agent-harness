@@ -5,6 +5,7 @@ export interface HarnessPaths {
   root: string;
   agentsDir: string;
   srcDir: string;
+  presetsDir: string;
   manifestFile: string;
   lockFile: string;
   managedIndexFile: string;
@@ -26,6 +27,7 @@ export function resolveHarnessPaths(rootDir: string): HarnessPaths {
     root: rootDir,
     agentsDir: harnessDir,
     srcDir,
+    presetsDir: path.join(harnessDir, "presets"),
     manifestFile: path.join(harnessDir, "manifest.json"),
     lockFile: path.join(harnessDir, "manifest.lock.json"),
     managedIndexFile: path.join(harnessDir, "managed-index.json"),

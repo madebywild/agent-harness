@@ -25,12 +25,15 @@ Implements the layered CLI runtime with shared command execution for both non-in
   - non-TTY or CI: default `plan`.
 - Explicit subcommands run through Commander mode.
 - `harness ui` is the explicit interactive entrypoint.
+- Interactive `init` now offers bundled preset selection with a skip option.
 
 ## Notable command surface
 
 - `add prompt|skill|mcp|subagent|hook`
 - `remove <entity-type> <id>` (entity-type includes `hook`)
 - registry commands support optional entity-type filters including `hook`
+- preset commands: `preset list|describe|apply`
+- `init --preset <id>` chains workspace initialization with preset application
 
 ## JSON output contract
 
@@ -47,3 +50,10 @@ Implements the layered CLI runtime with shared command execution for both non-in
 
 - `runCliCommand(input, context?)`
 - `runCliArgv(argv, context?)`
+
+## Preset behavior
+
+- `preset list` returns bundled presets by default and includes local presets when the workspace exists.
+- `preset list --registry <name>` lists presets exposed by a configured git registry.
+- `preset describe <id>` resolves a preset and returns its metadata plus ordered operations.
+- `preset apply <id>` materializes normal harness state into the workspace; the preset itself is not persisted in `manifest.json`.

@@ -14,6 +14,7 @@ import {
   pullRegistryEntities,
   removeEntity,
 } from "./engine/entities.js";
+import { applyResolvedPreset } from "./engine/presets.js";
 import { readManifestOrThrow } from "./engine/state.js";
 import {
   isMissingWorkspaceCode,
@@ -25,6 +26,13 @@ import {
 import { loadCanonicalState } from "./loader.js";
 import { resolveHarnessPaths } from "./paths.js";
 import { buildPlan } from "./planner.js";
+import {
+  listBuiltinPresets,
+  listLocalPresets,
+  listRegistryPresets,
+  resolvePreset,
+  summarizePreset,
+} from "./presets.js";
 import {
   emptyManagedIndex,
   loadLock,
@@ -46,6 +54,8 @@ import type {
   ManifestLock,
   MigrationResult,
   PlanResult,
+  PresetApplyResult,
+  PresetSummary,
   RegistryListEntry,
   RegistryPullResult,
   RemoveResult,
@@ -93,6 +103,7 @@ export class HarnessEngine {
     await fs.mkdir(paths.hookDir, { recursive: true });
     await fs.mkdir(paths.settingsDir, { recursive: true });
     await fs.mkdir(paths.commandDir, { recursive: true });
+    await fs.mkdir(paths.presetsDir, { recursive: true });
 
     const manifest: AgentsManifest = {
       version: LATEST_VERSION_BY_KIND.manifest as AgentsManifest["version"],
@@ -221,6 +232,46 @@ export class HarnessEngine {
     await this.assertWorkspaceVersionCurrent();
     const manifest = await readManifestOrThrow(resolveHarnessPaths(this.cwd));
     return manifest.registries.default;
+  }
+
+  async listPresets(options?: { registry?: string }): Promise<PresetSummary[]> {
+    if (options?.registry) {
+      await this.assertWorkspaceVersionCurrent();
+      const manifest = await readManifestOrThrow(resolveHarnessPaths(this.cwd));
+      const presets = await listRegistryPresets(manifest, options.registry);
+      return presets.map((preset) => summarizePreset(preset));
+    }
+
+    const summaries = (await listBuiltinPresets()).map((preset) => summarizePreset(preset));
+    const paths = resolveHarnessPaths(this.cwd);
+    if (!(await exists(paths.agentsDir))) {
+      return summaries;
+    }
+
+    const local = await listLocalPresets(this.cwd);
+    return [...summaries, ...local.map((preset) => summarizePreset(preset))].sort((left, right) =>
+      left.id.localeCompare(right.id),
+    );
+  }
+
+  async describePreset(presetId: string, options?: { registry?: string }) {
+    const manifest = options?.registry ? await readManifestOrThrow(resolveHarnessPaths(this.cwd)) : undefined;
+    return resolvePreset(this.cwd, {
+      presetId,
+      manifest,
+      registry: options?.registry,
+    });
+  }
+
+  async applyPreset(presetId: string, options?: { registry?: string }): Promise<PresetApplyResult> {
+    await this.assertWorkspaceVersionCurrent();
+    const manifest = await readManifestOrThrow(resolveHarnessPaths(this.cwd));
+    const preset = await resolvePreset(this.cwd, {
+      presetId,
+      manifest,
+      registry: options?.registry,
+    });
+    return applyResolvedPreset(this.cwd, preset);
   }
 
   async addPrompt(options?: { registry?: string }): Promise<void> {

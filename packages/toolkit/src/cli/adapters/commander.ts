@@ -97,12 +97,78 @@ export async function runCommanderAdapter(
       .command("init")
       .description("Initialize .harness structure and state files")
       .option("--force", "overwrite an existing .harness workspace", false)
-      .action(async (options: { force: boolean; json?: boolean }) => {
+      .option("--preset <id>", "apply a bundled or local preset after initialization")
+      .action(async (options: { force: boolean; preset?: string; json?: boolean }) => {
         await runCommand(
           {
             command: "init",
             options: {
               force: options.force,
+              preset: options.preset,
+            },
+          },
+          options,
+        );
+      }),
+  );
+
+  const presetCommand = program.command("preset").description("List, inspect, and apply presets");
+
+  addJsonOption(
+    presetCommand
+      .command("list")
+      .description("List available presets")
+      .option("--registry <registry>", "list presets from a configured registry")
+      .action(async (options: { registry?: string; json?: boolean }) => {
+        await runCommand(
+          {
+            command: "preset.list",
+            options: {
+              registry: options.registry,
+            },
+          },
+          options,
+        );
+      }),
+  );
+
+  addJsonOption(
+    presetCommand
+      .command("describe")
+      .description("Describe a preset")
+      .argument("<preset-id>", "preset id")
+      .option("--registry <registry>", "load the preset from a configured registry")
+      .action(async (presetId: string, options: { registry?: string; json?: boolean }) => {
+        await runCommand(
+          {
+            command: "preset.describe",
+            args: {
+              presetId,
+            },
+            options: {
+              registry: options.registry,
+            },
+          },
+          options,
+        );
+      }),
+  );
+
+  addJsonOption(
+    presetCommand
+      .command("apply")
+      .description("Apply a preset to the current workspace")
+      .argument("<preset-id>", "preset id")
+      .option("--registry <registry>", "load the preset from a configured registry")
+      .action(async (presetId: string, options: { registry?: string; json?: boolean }) => {
+        await runCommand(
+          {
+            command: "preset.apply",
+            args: {
+              presetId,
+            },
+            options: {
+              registry: options.registry,
             },
           },
           options,

@@ -181,12 +181,317 @@ function parseSettingsPayloadFromText(provider: ProviderId, text: string, source
   }
 }
 
-function serializeSettingsPayload(provider: ProviderId, payload: Record<string, unknown>): string {
+export function serializeSettingsPayload(provider: ProviderId, payload: Record<string, unknown>): string {
   if (provider === "codex") {
     return withSingleTrailingNewline(TOML.stringify(payload as unknown as TOML.JsonMap));
   }
 
   return stableStringify(payload);
+}
+
+export async function addPromptEntityFromText(cwd: string, sourceText: string): Promise<void> {
+  const paths = resolveHarnessPaths(cwd);
+  const manifest = await readManifestOrThrow(paths);
+
+  const existingPrompt = manifest.entities.find((entity) => entity.type === "prompt");
+  if (existingPrompt) {
+    throw new Error("Prompt entity already exists (v1 supports exactly one prompt)");
+  }
+
+  const sourcePath = DEFAULT_PROMPT_SOURCE_PATH;
+  const sourceAbs = path.join(cwd, sourcePath);
+  if (await exists(sourceAbs)) {
+    throw new Error(`Cannot add prompt because '${sourcePath}' already exists`);
+  }
+
+  await ensureParentDir(sourceAbs);
+  await fs.writeFile(sourceAbs, sourceText, "utf8");
+
+  const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "prompt", "system");
+  manifest.entities.push({
+    id: "system",
+    type: "prompt",
+    registry: DEFAULT_REGISTRY_ID,
+    sourcePath,
+    overrides,
+    enabled: true,
+  });
+  manifest.entities = sortEntities(manifest.entities);
+
+  await writeManifest(paths, manifest);
+  await writeManagedSourceIndex(paths, manifest);
+  await upsertLockEntityRecord(paths, manifest, {
+    id: "system",
+    type: "prompt",
+    registry: DEFAULT_REGISTRY_ID,
+    sourceSha256: sha256(sourceText),
+    overrideSha256ByProvider: overrideShaByProvider,
+  });
+}
+
+export async function addSkillEntityFromFiles(
+  cwd: string,
+  skillId: string,
+  files: Array<{ path: string; content: string }>,
+): Promise<void> {
+  validateEntityId(skillId, "skill");
+  const paths = resolveHarnessPaths(cwd);
+  const manifest = await readManifestOrThrow(paths);
+
+  if (manifest.entities.some((entity) => entity.type === "skill" && entity.id === skillId)) {
+    throw new Error(`Skill '${skillId}' already exists`);
+  }
+
+  const sourcePath = defaultSkillSourcePath(skillId);
+  const skillRootRel = `.harness/src/skills/${skillId}`;
+  const skillRootAbs = path.join(cwd, skillRootRel);
+  if (await exists(skillRootAbs)) {
+    throw new Error(`Cannot add skill because '${skillRootRel}' already exists`);
+  }
+
+  for (const file of files) {
+    const absolute = path.join(skillRootAbs, normalizeRelativePath(file.path));
+    await ensureParentDir(absolute);
+    await fs.writeFile(absolute, file.content, "utf8");
+  }
+
+  const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "skill", skillId);
+  manifest.entities.push({
+    id: skillId,
+    type: "skill",
+    registry: DEFAULT_REGISTRY_ID,
+    sourcePath,
+    overrides,
+    enabled: true,
+  });
+  manifest.entities = sortEntities(manifest.entities);
+
+  const sourceSha256 = computeSkillSourceSha(
+    files
+      .map((file) => ({ path: normalizeRelativePath(file.path), sha256: sha256(file.content) }))
+      .sort((left, right) => left.path.localeCompare(right.path)),
+  );
+
+  await writeManifest(paths, manifest);
+  await writeManagedSourceIndex(paths, manifest);
+  await upsertLockEntityRecord(paths, manifest, {
+    id: skillId,
+    type: "skill",
+    registry: DEFAULT_REGISTRY_ID,
+    sourceSha256,
+    overrideSha256ByProvider: overrideShaByProvider,
+  });
+}
+
+export async function addMcpEntityFromJson(
+  cwd: string,
+  configId: string,
+  sourceJson: Record<string, unknown>,
+): Promise<void> {
+  validateEntityId(configId, "mcp_config");
+  const paths = resolveHarnessPaths(cwd);
+  const manifest = await readManifestOrThrow(paths);
+
+  if (manifest.entities.some((entity) => entity.type === "mcp_config" && entity.id === configId)) {
+    throw new Error(`MCP config '${configId}' already exists`);
+  }
+
+  const sourcePath = defaultMcpSourcePath(configId);
+  const sourceAbs = path.join(cwd, sourcePath);
+  if (await exists(sourceAbs)) {
+    throw new Error(`Cannot add MCP config because '${sourcePath}' already exists`);
+  }
+
+  await ensureParentDir(sourceAbs);
+  await fs.writeFile(sourceAbs, stableStringify(sourceJson), "utf8");
+
+  const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "mcp_config", configId);
+  manifest.entities.push({
+    id: configId,
+    type: "mcp_config",
+    registry: DEFAULT_REGISTRY_ID,
+    sourcePath,
+    overrides,
+    enabled: true,
+  });
+  manifest.entities = sortEntities(manifest.entities);
+
+  await writeManifest(paths, manifest);
+  await writeManagedSourceIndex(paths, manifest);
+  await upsertLockEntityRecord(paths, manifest, {
+    id: configId,
+    type: "mcp_config",
+    registry: DEFAULT_REGISTRY_ID,
+    sourceSha256: sha256(stableStringify(sourceJson)),
+    overrideSha256ByProvider: overrideShaByProvider,
+  });
+}
+
+export async function addSubagentEntityFromText(cwd: string, subagentId: string, sourceText: string): Promise<void> {
+  validateEntityId(subagentId, "subagent");
+  const paths = resolveHarnessPaths(cwd);
+  const manifest = await readManifestOrThrow(paths);
+
+  if (manifest.entities.some((entity) => entity.type === "subagent" && entity.id === subagentId)) {
+    throw new Error(`Subagent '${subagentId}' already exists`);
+  }
+
+  const sourcePath = defaultSubagentSourcePath(subagentId);
+  const sourceAbs = path.join(cwd, sourcePath);
+  if (await exists(sourceAbs)) {
+    throw new Error(`Cannot add subagent because '${sourcePath}' already exists`);
+  }
+
+  await ensureParentDir(sourceAbs);
+  await fs.writeFile(sourceAbs, sourceText, "utf8");
+
+  const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "subagent", subagentId);
+  manifest.entities.push({
+    id: subagentId,
+    type: "subagent",
+    registry: DEFAULT_REGISTRY_ID,
+    sourcePath,
+    overrides,
+    enabled: true,
+  });
+  manifest.entities = sortEntities(manifest.entities);
+
+  await writeManifest(paths, manifest);
+  await writeManagedSourceIndex(paths, manifest);
+  await upsertLockEntityRecord(paths, manifest, {
+    id: subagentId,
+    type: "subagent",
+    registry: DEFAULT_REGISTRY_ID,
+    sourceSha256: sha256(sourceText),
+    overrideSha256ByProvider: overrideShaByProvider,
+  });
+}
+
+export async function addHookEntityFromJson(
+  cwd: string,
+  hookId: string,
+  sourceJson: Record<string, unknown>,
+): Promise<void> {
+  validateEntityId(hookId, "hook");
+  const paths = resolveHarnessPaths(cwd);
+  const manifest = await readManifestOrThrow(paths);
+
+  if (manifest.entities.some((entity) => entity.type === "hook" && entity.id === hookId)) {
+    throw new Error(`Hook '${hookId}' already exists`);
+  }
+
+  const sourcePath = defaultHookSourcePath(hookId);
+  const sourceAbs = path.join(cwd, sourcePath);
+  if (await exists(sourceAbs)) {
+    throw new Error(`Cannot add hook because '${sourcePath}' already exists`);
+  }
+
+  await ensureParentDir(sourceAbs);
+  await fs.writeFile(sourceAbs, stableStringify(sourceJson), "utf8");
+
+  const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "hook", hookId);
+  manifest.entities.push({
+    id: hookId,
+    type: "hook",
+    registry: DEFAULT_REGISTRY_ID,
+    sourcePath,
+    overrides,
+    enabled: true,
+  });
+  manifest.entities = sortEntities(manifest.entities);
+
+  await writeManifest(paths, manifest);
+  await writeManagedSourceIndex(paths, manifest);
+  await upsertLockEntityRecord(paths, manifest, {
+    id: hookId,
+    type: "hook",
+    registry: DEFAULT_REGISTRY_ID,
+    sourceSha256: sha256(stableStringify(sourceJson)),
+    overrideSha256ByProvider: overrideShaByProvider,
+  });
+}
+
+export async function addSettingsEntityFromPayload(
+  cwd: string,
+  provider: ProviderId,
+  sourcePayload: Record<string, unknown>,
+): Promise<void> {
+  const settingsProvider = providerIdSchema.parse(provider);
+  const paths = resolveHarnessPaths(cwd);
+  const manifest = await readManifestOrThrow(paths);
+
+  if (manifest.entities.some((entity) => entity.type === "settings" && entity.id === settingsProvider)) {
+    throw new Error(`Settings '${settingsProvider}' already exists`);
+  }
+
+  const sourcePath = defaultSettingsSourcePath(settingsProvider);
+  const sourceAbs = path.join(cwd, sourcePath);
+  if (await exists(sourceAbs)) {
+    throw new Error(`Cannot add settings because '${sourcePath}' already exists`);
+  }
+
+  const sourceContent = serializeSettingsPayload(settingsProvider, sourcePayload);
+  await ensureParentDir(sourceAbs);
+  await fs.writeFile(sourceAbs, sourceContent, "utf8");
+
+  manifest.entities.push({
+    id: settingsProvider,
+    type: "settings",
+    registry: DEFAULT_REGISTRY_ID,
+    sourcePath,
+    enabled: true,
+  });
+  manifest.entities = sortEntities(manifest.entities);
+
+  await writeManifest(paths, manifest);
+  await writeManagedSourceIndex(paths, manifest);
+  await upsertLockEntityRecord(paths, manifest, {
+    id: settingsProvider,
+    type: "settings",
+    registry: DEFAULT_REGISTRY_ID,
+    sourceSha256: sha256(sourceContent),
+    overrideSha256ByProvider: {},
+  });
+}
+
+export async function addCommandEntityFromText(cwd: string, commandId: string, sourceText: string): Promise<void> {
+  validateEntityId(commandId, "command");
+  const paths = resolveHarnessPaths(cwd);
+  const manifest = await readManifestOrThrow(paths);
+
+  if (manifest.entities.some((entity) => entity.type === "command" && entity.id === commandId)) {
+    throw new Error(`Command '${commandId}' already exists`);
+  }
+
+  const sourcePath = defaultCommandSourcePath(commandId);
+  const sourceAbs = path.join(cwd, sourcePath);
+  if (await exists(sourceAbs)) {
+    throw new Error(`Cannot add command because '${sourcePath}' already exists`);
+  }
+
+  await ensureParentDir(sourceAbs);
+  await fs.writeFile(sourceAbs, sourceText, "utf8");
+
+  const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "command", commandId);
+  manifest.entities.push({
+    id: commandId,
+    type: "command",
+    registry: DEFAULT_REGISTRY_ID,
+    sourcePath,
+    overrides,
+    enabled: true,
+  });
+  manifest.entities = sortEntities(manifest.entities);
+
+  await writeManifest(paths, manifest);
+  await writeManagedSourceIndex(paths, manifest);
+  await upsertLockEntityRecord(paths, manifest, {
+    id: commandId,
+    type: "command",
+    registry: DEFAULT_REGISTRY_ID,
+    sourceSha256: sha256(sourceText),
+    overrideSha256ByProvider: overrideShaByProvider,
+  });
 }
 
 export async function materializeFetchedEntity(

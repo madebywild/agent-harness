@@ -4,6 +4,7 @@ import path from "node:path";
 import * as TOML from "@iarna/toml";
 import { parseRegistryManifest } from "@madebywild/agent-harness-manifest";
 import matter from "gray-matter";
+import { readPresetPackageFromDir } from "./preset-packages.js";
 import { listFilesRecursively } from "./repository.js";
 import type { Diagnostic, RegistryValidationOptions, RegistryValidationResult } from "./types.js";
 import {
@@ -315,6 +316,55 @@ export async function validateRegistryRepo(options: RegistryValidationOptions = 
   } catch (err) {
     if (!isNotFoundError(err)) {
       throw err;
+    }
+  }
+
+  const presetsDir = path.join(rootAbs, "presets");
+  let presetEntries: Dirent[] | null = null;
+  try {
+    presetEntries = await fs.readdir(presetsDir, { withFileTypes: true });
+  } catch (err) {
+    if (!isNotFoundError(err)) {
+      throw err;
+    }
+  }
+
+  if (presetEntries) {
+    for (const entry of presetEntries) {
+      const presetPath = path.join(presetsDir, entry.name);
+      const presetPathRel = toPosixRelative(presetPath, repoPath);
+
+      if (!entry.isDirectory()) {
+        diagnostics.push(
+          error("REGISTRY_PRESET_INVALID", "presets/ may only contain preset directories", presetPathRel),
+        );
+        continue;
+      }
+
+      if (!isValidEntityId(entry.name)) {
+        diagnostics.push(error("REGISTRY_PRESET_INVALID", `Invalid preset id '${entry.name}'`, presetPathRel));
+      }
+
+      try {
+        const loaded = await readPresetPackageFromDir(presetPath);
+        if (loaded.definition.id !== entry.name) {
+          diagnostics.push(
+            error(
+              "REGISTRY_PRESET_INVALID",
+              `Preset directory '${entry.name}' must match preset id '${loaded.definition.id}'`,
+              presetPathRel,
+            ),
+          );
+        }
+      } catch (errorValue) {
+        diagnostics.push(
+          error(
+            "REGISTRY_PRESET_INVALID",
+            `Preset '${entry.name}' is invalid: ${errorValue instanceof Error ? errorValue.message : "unknown error"}`,
+            presetPathRel,
+          ),
+        );
+      }
     }
   }
 

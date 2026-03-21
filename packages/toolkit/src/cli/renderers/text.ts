@@ -5,6 +5,7 @@ import type {
   DoctorOutput,
   MigrateOutput,
   PlanOutput,
+  PresetOutput,
   RegistryOutput,
   ValidationOutput,
 } from "../contracts.js";
@@ -76,6 +77,58 @@ function renderRegistryOutput(output: RegistryOutput, writeLine: (line: string) 
 
       for (const updated of output.data.result.updatedEntities) {
         writeLine(`Pulled ${updated.type} '${updated.id}'.`);
+      }
+      return;
+    }
+  }
+}
+
+function renderPresetOutput(output: PresetOutput, writeLine: (line: string) => void): void {
+  switch (output.data.operation) {
+    case "list": {
+      for (const preset of output.data.presets) {
+        const source = preset.registry ? `${preset.source}:${preset.registry}` : preset.source;
+        const recommended = preset.recommended ? " (recommended)" : "";
+        writeLine(`${preset.id}${recommended} - ${preset.name} [${source}]`);
+      }
+      return;
+    }
+    case "describe": {
+      const preset = output.data.preset;
+      const source = preset.registry ? `${preset.source}:${preset.registry}` : preset.source;
+      writeLine(`${preset.definition.id} - ${preset.definition.name} [${source}]`);
+      writeLine(preset.definition.description);
+      writeLine("");
+      writeLine("Operations:");
+      for (const operation of preset.definition.operations) {
+        let target = "";
+        switch (operation.type) {
+          case "register_registry":
+            target = operation.registry;
+            break;
+          case "enable_provider":
+          case "add_settings":
+            target = operation.provider;
+            break;
+          case "add_prompt":
+            target = "system";
+            break;
+          case "add_skill":
+          case "add_mcp":
+          case "add_subagent":
+          case "add_hook":
+          case "add_command":
+            target = operation.id;
+            break;
+        }
+        writeLine(`- ${operation.type}${target ? ` ${target}` : ""}`);
+      }
+      return;
+    }
+    case "apply": {
+      writeLine(`Applied preset '${output.data.result.preset.id}'.`);
+      for (const result of output.data.result.results) {
+        writeLine(`${result.outcome.toUpperCase()} ${result.target} - ${result.message}`);
       }
       return;
     }
@@ -158,6 +211,10 @@ export function renderTextOutput(output: CommandOutput, writeLine: (line: string
     }
     case "registry": {
       renderRegistryOutput(output, writeLine);
+      return;
+    }
+    case "preset": {
+      renderPresetOutput(output, writeLine);
       return;
     }
     case "validation": {

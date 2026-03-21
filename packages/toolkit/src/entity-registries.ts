@@ -11,8 +11,9 @@ import {
   type RegistryManifest,
   type RegistryRevision,
 } from "@madebywild/agent-harness-manifest";
+import { readPresetPackageFromDir } from "./preset-packages.js";
 import { listFilesRecursively } from "./repository.js";
-import type { EntityType, RegistryId } from "./types.js";
+import type { EntityType, RegistryId, ResolvedPresetSource } from "./types.js";
 import { normalizeRelativePath, parseJsonAsRecord, parseTomlAsRecord, sha256, stableStringify } from "./utils.js";
 
 const execFileAsync = promisify(execFile);
@@ -92,6 +93,15 @@ export type FetchedRegistryEntity =
   | FetchedHookEntity
   | FetchedSettingsEntity
   | FetchedCommandEntity;
+
+export interface FetchedPreset {
+  readonly id: string;
+  readonly registry: RegistryId;
+  readonly registryManifest: RegistryManifest;
+  readonly registryRevision: RegistryRevision;
+  readonly definition: Awaited<ReturnType<typeof readPresetPackageFromDir>>["definition"];
+  readonly content: ResolvedPresetSource;
+}
 
 export async function fetchEntityFromRegistry(
   registryId: RegistryId,
@@ -367,6 +377,132 @@ export async function fetchEntityFromRegistry(
     );
   } finally {
     await cleanupTempDir(tempRoot);
+  }
+}
+
+export async function listPresetsFromRegistry(
+  registryId: RegistryId,
+  definition: RegistryDefinition,
+): Promise<FetchedPreset[]> {
+  const { checkoutDir, registryManifest, registryRevision, tempRoot, rootPath } = await checkoutRegistry(
+    registryId,
+    definition,
+  );
+
+  try {
+    const presetsRoot = path.join(checkoutDir, rootPath, "presets");
+    let entries: Array<import("node:fs").Dirent>;
+    try {
+      entries = await fs.readdir(presetsRoot, { withFileTypes: true });
+    } catch (error) {
+      if (isNotFound(error)) {
+        return [];
+      }
+      throw error;
+    }
+
+    const presets: FetchedPreset[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+
+      const loaded = await readPresetPackageFromDir(path.join(presetsRoot, entry.name));
+      presets.push({
+        id: loaded.definition.id,
+        registry: registryId,
+        registryManifest,
+        registryRevision,
+        definition: loaded.definition,
+        content: loaded.content,
+      });
+    }
+
+    presets.sort((left, right) => left.id.localeCompare(right.id));
+    return presets;
+  } finally {
+    await cleanupTempDir(tempRoot);
+  }
+}
+
+export async function fetchPresetFromRegistry(
+  registryId: RegistryId,
+  definition: RegistryDefinition,
+  presetId: string,
+): Promise<FetchedPreset> {
+  const presets = await listPresetsFromRegistry(registryId, definition);
+  const preset = presets.find((entry) => entry.id === presetId);
+  if (!preset) {
+    throw new RegistryError(
+      "REGISTRY_ENTITY_NOT_FOUND",
+      registryId,
+      `Preset '${presetId}' not found in registry '${registryId}'`,
+    );
+  }
+  return preset;
+}
+
+interface CheckedOutRegistry {
+  checkoutDir: string;
+  registryManifest: RegistryManifest;
+  registryRevision: RegistryRevision;
+  tempRoot: string;
+  rootPath: string;
+}
+
+async function checkoutRegistry(registryId: RegistryId, definition: RegistryDefinition): Promise<CheckedOutRegistry> {
+  if (definition.type === "local") {
+    throw new RegistryError("REGISTRY_FETCH_FAILED", registryId, "Local registry does not support remote fetch");
+  }
+
+  const authToken = definition.tokenEnvVar ? process.env[definition.tokenEnvVar] : undefined;
+  if (definition.tokenEnvVar && !authToken) {
+    throw new RegistryError(
+      "REGISTRY_AUTH_MISSING",
+      registryId,
+      `Missing required token environment variable '${definition.tokenEnvVar}' for registry '${registryId}'`,
+    );
+  }
+
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-harness-registry-"));
+  const checkoutDir = path.join(tempRoot, "repo");
+
+  try {
+    const cloneCommand = buildGitCloneCommand(definition, authToken, checkoutDir);
+    await execFileAsync("git", cloneCommand.args, {
+      env: {
+        ...process.env,
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_ASKPASS: "",
+      },
+    });
+  } catch (error) {
+    await cleanupTempDir(tempRoot);
+    throw new RegistryError(
+      "REGISTRY_FETCH_FAILED",
+      registryId,
+      `Failed to fetch git registry '${registryId}': ${cloneErrorMessage(error, authToken)}`,
+    );
+  }
+
+  try {
+    const commit = await resolveCommit(checkoutDir, registryId);
+    const registryManifest = await readRegistryManifest(checkoutDir, registryId);
+    const rootPath = definition.rootPath ? normalizeRelativePath(definition.rootPath) : ".";
+    return {
+      checkoutDir,
+      registryManifest,
+      registryRevision: {
+        kind: "git",
+        ref: definition.ref,
+        commit,
+      },
+      tempRoot,
+      rootPath,
+    };
+  } catch (error) {
+    await cleanupTempDir(tempRoot);
+    throw error;
   }
 }
 

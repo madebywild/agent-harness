@@ -214,6 +214,130 @@ export const registryManifestSchema = z
   })
   .strict();
 
+const presetRegistryTargetSchema = z
+  .object({
+    registry: registryIdSchema,
+    default: z.boolean().optional(),
+  })
+  .strict();
+
+const presetEntitySourceSchema = z
+  .object({
+    registry: registryIdSchema.optional(),
+  })
+  .strict();
+
+const presetSettingsSourceSchema = presetEntitySourceSchema.extend({
+  payload: z.record(z.string(), z.unknown()).optional(),
+});
+
+const presetOperationBaseSchema = z
+  .object({
+    label: z.string().min(1).optional(),
+  })
+  .strict();
+
+export const presetRegisterRegistryOperationSchema = presetOperationBaseSchema.extend({
+  type: z.literal("register_registry"),
+  registry: registryIdSchema,
+  definition: registryDefinitionSchema,
+});
+
+export const presetEnableProviderOperationSchema = presetOperationBaseSchema.extend({
+  type: z.literal("enable_provider"),
+  provider: providerIdSchema,
+});
+
+export const presetAddPromptOperationSchema = presetOperationBaseSchema.extend({
+  type: z.literal("add_prompt"),
+  source: presetEntitySourceSchema.optional(),
+});
+
+export const presetAddSkillOperationSchema = presetOperationBaseSchema.extend({
+  type: z.literal("add_skill"),
+  id: z
+    .string()
+    .min(1)
+    .regex(/^[a-zA-Z0-9._-]+$/),
+  source: presetEntitySourceSchema.optional(),
+});
+
+export const presetAddMcpOperationSchema = presetOperationBaseSchema.extend({
+  type: z.literal("add_mcp"),
+  id: z
+    .string()
+    .min(1)
+    .regex(/^[a-zA-Z0-9._-]+$/),
+  source: presetEntitySourceSchema.optional(),
+});
+
+export const presetAddSubagentOperationSchema = presetOperationBaseSchema.extend({
+  type: z.literal("add_subagent"),
+  id: z
+    .string()
+    .min(1)
+    .regex(/^[a-zA-Z0-9._-]+$/),
+  source: presetEntitySourceSchema.optional(),
+});
+
+export const presetAddHookOperationSchema = presetOperationBaseSchema.extend({
+  type: z.literal("add_hook"),
+  id: z
+    .string()
+    .min(1)
+    .regex(/^[a-zA-Z0-9._-]+$/),
+  source: presetEntitySourceSchema.optional(),
+});
+
+export const presetAddSettingsOperationSchema = presetOperationBaseSchema.extend({
+  type: z.literal("add_settings"),
+  provider: providerIdSchema,
+  source: presetSettingsSourceSchema.optional(),
+});
+
+export const presetAddCommandOperationSchema = presetOperationBaseSchema.extend({
+  type: z.literal("add_command"),
+  id: z
+    .string()
+    .min(1)
+    .regex(/^[a-zA-Z0-9._-]+$/),
+  source: presetEntitySourceSchema.optional(),
+});
+
+export const presetOperationSchema = z.discriminatedUnion("type", [
+  presetRegisterRegistryOperationSchema,
+  presetEnableProviderOperationSchema,
+  presetAddPromptOperationSchema,
+  presetAddSkillOperationSchema,
+  presetAddMcpOperationSchema,
+  presetAddSubagentOperationSchema,
+  presetAddHookOperationSchema,
+  presetAddSettingsOperationSchema,
+  presetAddCommandOperationSchema,
+]);
+
+export const presetDefinitionSchema = z
+  .object({
+    id: z
+      .string()
+      .min(1)
+      .regex(/^[a-zA-Z0-9._-]+$/),
+    name: z.string().min(1),
+    description: z.string().min(1),
+    recommended: z.boolean().optional(),
+    registries: z.array(presetRegistryTargetSchema).optional(),
+    operations: z.array(presetOperationSchema).min(1),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict();
+
+export const presetCatalogSchema = z
+  .object({
+    version: z.literal(1),
+    presets: z.array(presetDefinitionSchema).default([]),
+  })
+  .strict();
+
 export const agentsManifestSchema = agentsManifestV1Schema;
 export const manifestLockSchema = manifestLockV1Schema;
 export const managedIndexSchema = managedIndexV1Schema;
@@ -225,6 +349,9 @@ export const schemas = {
   managedIndexV1Schema,
   providerOverrideV1Schema,
   registryManifestSchema,
+  presetDefinitionSchema,
+  presetCatalogSchema,
+  presetOperationSchema,
   localRegistryDefinitionSchema,
   gitRegistryDefinitionSchema,
   registryDefinitionSchema,
@@ -255,6 +382,9 @@ export type AgentsManifest = z.infer<typeof agentsManifestV1Schema>;
 export type ManifestLock = z.infer<typeof manifestLockV1Schema>;
 export type ManagedIndex = z.infer<typeof managedIndexV1Schema>;
 export type RegistryManifest = z.infer<typeof registryManifestSchema>;
+export type PresetDefinition = z.infer<typeof presetDefinitionSchema>;
+export type PresetCatalog = z.infer<typeof presetCatalogSchema>;
+export type PresetOperation = z.infer<typeof presetOperationSchema>;
 
 export function toJsonSchemas(): Record<string, object> {
   return {
@@ -284,6 +414,14 @@ export function parseProviderOverride(input: unknown): ProviderOverride {
 
 export function parseRegistryManifest(input: unknown): RegistryManifest {
   return registryManifestSchema.parse(input);
+}
+
+export function parsePresetDefinition(input: unknown): PresetDefinition {
+  return presetDefinitionSchema.parse(input);
+}
+
+export function parsePresetCatalog(input: unknown): PresetCatalog {
+  return presetCatalogSchema.parse(input);
 }
 
 function parseVersionedDocument<TSchema extends z.ZodTypeAny>(

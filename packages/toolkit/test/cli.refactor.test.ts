@@ -99,6 +99,39 @@ test("runCliArgv applies --json envelope to explicit commands", async () => {
   assert.equal(Array.isArray(planPayload.data.result.operations), true);
 });
 
+test("runCliArgv init --preset applies bundled preset and returns preset metadata in json envelope", async () => {
+  const cwd = await mkTmpRepo();
+  const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
+
+  const initResult = await runCliArgv(["init", "--preset", "starter", "--json"], capture.context);
+  assert.equal(initResult.exitCode, 0);
+
+  const payload = JSON.parse(capture.stdout[0]) as {
+    command: string;
+    ok: boolean;
+    data: { preset?: string; message: string };
+  };
+  assert.equal(payload.command, "init");
+  assert.equal(payload.ok, true);
+  assert.equal(payload.data.preset, "starter");
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md")));
+});
+
+test("runCliArgv preset list emits bundled presets in json mode", async () => {
+  const cwd = await mkTmpRepo();
+  const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
+
+  const result = await runCliArgv(["preset", "list", "--json"], capture.context);
+  assert.equal(result.exitCode, 0);
+
+  const payload = JSON.parse(capture.stdout[0]) as {
+    command: string;
+    data: { presets: Array<{ id: string }> };
+  };
+  assert.equal(payload.command, "preset.list");
+  assert.ok(payload.data.presets.some((preset) => preset.id === "starter"));
+});
+
 test("runCliArgv watch --json surfaces startup failures", async () => {
   const cwd = await mkTmpRepo();
   const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
