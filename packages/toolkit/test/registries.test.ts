@@ -738,6 +738,19 @@ test("validateRegistryRepo reports structural and metadata failures", async () =
       expectedPath: "mcp/readme.md",
     },
     {
+      name: "subagent missing frontmatter block",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "subagents/researcher.md": "Instructions without frontmatter.\n",
+      },
+      expectedCode: "REGISTRY_SUBAGENT_INVALID",
+      expectedPath: "subagents/researcher.md",
+    },
+    {
       name: "subagent missing required description",
       files: {
         "harness-registry.json": JSON.stringify(
@@ -797,7 +810,7 @@ test("validateRegistryRepo reports structural and metadata failures", async () =
           null,
           2,
         ),
-        "commands/review.md": "---\n---\n\nReview changes.\n",
+        "commands/review.md": "---\nargument-hint: '[path]'\n---\n\nReview changes.\n",
       },
       expectedCode: "REGISTRY_COMMAND_MISSING_DESCRIPTION",
       expectedPath: "commands/review.md",
@@ -865,6 +878,19 @@ test("validateRegistryRepo reports structural and metadata failures", async () =
         "commands/review.md": "---\n---\n\nReview changes.\n",
       },
       expectedCode: "REGISTRY_COMMAND_MISSING_DESCRIPTION",
+      expectedPath: "commands/review.md",
+    },
+    {
+      name: "command empty body",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "commands/review.md": "---\ndescription: Review changes\n---\n\n   \n",
+      },
+      expectedCode: "REGISTRY_COMMAND_EMPTY",
       expectedPath: "commands/review.md",
     },
     {

@@ -207,6 +207,17 @@ export async function validateRegistryRepo(options: RegistryValidationOptions = 
         continue;
       }
 
+      if (!hasDelimitedFrontmatterBlock(text)) {
+        diagnostics.push(
+          error(
+            "REGISTRY_SUBAGENT_INVALID",
+            `Subagent '${id}' frontmatter must include a YAML block delimited by ---`,
+            subagentPathRel,
+          ),
+        );
+        continue;
+      }
+
       try {
         const parsed = matter(text);
         const body = parsed.content.trim();
@@ -359,6 +370,11 @@ export async function validateRegistryRepo(options: RegistryValidationOptions = 
               commandPathRel,
             ),
           );
+        }
+
+        const body = parsed.content.trim();
+        if (!body) {
+          diagnostics.push(error("REGISTRY_COMMAND_EMPTY", `Command '${id}' body must be non-empty`, commandPathRel));
         }
       } catch (err) {
         diagnostics.push(
