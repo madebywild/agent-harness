@@ -56,7 +56,9 @@ test("applyPreset loads local preset packages from .harness/presets", async () =
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await fs.mkdir(path.join(cwd, ".harness/presets/local-docs"), { recursive: true });
+  await fs.mkdir(path.join(cwd, ".harness/presets/local-docs"), {
+    recursive: true,
+  });
   await fs.writeFile(
     path.join(cwd, ".harness/presets/local-docs/preset.json"),
     JSON.stringify(
@@ -76,7 +78,9 @@ test("applyPreset loads local preset packages from .harness/presets", async () =
     "# System Prompt\n\nOptimize for documentation maintenance.\n",
     "utf8",
   );
-  await fs.mkdir(path.join(cwd, ".harness/presets/local-docs/commands"), { recursive: true });
+  await fs.mkdir(path.join(cwd, ".harness/presets/local-docs/commands"), {
+    recursive: true,
+  });
   await fs.writeFile(
     path.join(cwd, ".harness/presets/local-docs/commands/update-docs.md"),
     '---\ndescription: "Update relevant docs"\n---\n\n# update-docs\n\nRefresh any docs affected by the change.\n',

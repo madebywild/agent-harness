@@ -107,7 +107,10 @@ async function promptCommandInput(command: CommandId, context: CliResolvedContex
         message: "Select a preset to apply during init",
         options: [
           { value: "", label: "Skip preset" },
-          ...presets.map((entry) => ({ value: entry.id, label: `${entry.name} (${entry.id})` })),
+          ...presets.map((entry) => ({
+            value: entry.id,
+            label: `${entry.name} (${entry.id})`,
+          })),
         ],
       });
       const resolvedPreset = getSelectedValue(preset);
@@ -376,7 +379,10 @@ async function promptCommandInput(command: CommandId, context: CliResolvedContex
     case "add.settings": {
       const provider = await select({
         message: "Provider",
-        options: providerIdSchema.options.map((entry) => ({ value: entry, label: entry })),
+        options: providerIdSchema.options.map((entry) => ({
+          value: entry,
+          label: entry,
+        })),
       });
       const resolvedProvider = getSelectedValue(provider);
       if (resolvedProvider === null) {
@@ -422,7 +428,10 @@ async function promptCommandInput(command: CommandId, context: CliResolvedContex
     case "remove": {
       const entityType = await select({
         message: "Entity type",
-        options: CLI_ENTITY_TYPES.map((entry) => ({ value: entry, label: entry })),
+        options: CLI_ENTITY_TYPES.map((entry) => ({
+          value: entry,
+          label: entry,
+        })),
       });
       const resolvedEntityType = getSelectedValue(entityType);
       if (resolvedEntityType === null) {

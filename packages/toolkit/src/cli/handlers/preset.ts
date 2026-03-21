@@ -26,7 +26,9 @@ export async function handlePresetDescribe(
   context: CliResolvedContext,
 ): Promise<PresetOutput> {
   const engine = new HarnessEngine(context.cwd);
-  const preset = await engine.describePreset(input.presetId, { registry: input.registry });
+  const preset = await engine.describePreset(input.presetId, {
+    registry: input.registry,
+  });
 
   return {
     family: "preset",
@@ -46,7 +48,9 @@ export async function handlePresetApply(
   context: CliResolvedContext,
 ): Promise<PresetOutput> {
   const engine = new HarnessEngine(context.cwd);
-  const result = await engine.applyPreset(input.presetId, { registry: input.registry });
+  const result = await engine.applyPreset(input.presetId, {
+    registry: input.registry,
+  });
 
   return {
     family: "preset",

@@ -268,7 +268,10 @@ export async function addSkillEntityFromFiles(
 
   const sourceSha256 = computeSkillSourceSha(
     files
-      .map((file) => ({ path: normalizeRelativePath(file.path), sha256: sha256(file.content) }))
+      .map((file) => ({
+        path: normalizeRelativePath(file.path),
+        sha256: sha256(file.content),
+      }))
       .sort((left, right) => left.path.localeCompare(right.path)),
   );
 

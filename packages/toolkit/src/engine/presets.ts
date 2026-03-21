@@ -125,7 +125,9 @@ export async function applyResolvedPreset(cwd: string, preset: ResolvedPreset): 
         }
 
         if (desiredRegistry !== DEFAULT_REGISTRY_ID) {
-          await addSkillEntity(cwd, operation.id, { registry: desiredRegistry });
+          await addSkillEntity(cwd, operation.id, {
+            registry: desiredRegistry,
+          });
         } else {
           await addSkillEntityFromFiles(cwd, operation.id, requireEmbeddedSkill(preset, operation.id));
         }
@@ -181,7 +183,9 @@ export async function applyResolvedPreset(cwd: string, preset: ResolvedPreset): 
         }
 
         if (desiredRegistry !== DEFAULT_REGISTRY_ID) {
-          await addSubagentEntity(cwd, operation.id, { registry: desiredRegistry });
+          await addSubagentEntity(cwd, operation.id, {
+            registry: desiredRegistry,
+          });
         } else {
           await addSubagentEntityFromText(cwd, operation.id, requireEmbeddedSubagent(preset, operation.id));
         }
@@ -245,7 +249,9 @@ export async function applyResolvedPreset(cwd: string, preset: ResolvedPreset): 
         }
 
         if (desiredRegistry !== DEFAULT_REGISTRY_ID) {
-          await addSettingsEntity(cwd, operation.provider, { registry: desiredRegistry });
+          await addSettingsEntity(cwd, operation.provider, {
+            registry: desiredRegistry,
+          });
         } else {
           await addSettingsEntityFromPayload(
             cwd,
@@ -282,7 +288,9 @@ export async function applyResolvedPreset(cwd: string, preset: ResolvedPreset): 
         }
 
         if (desiredRegistry !== DEFAULT_REGISTRY_ID) {
-          await addCommandEntity(cwd, operation.id, { registry: desiredRegistry });
+          await addCommandEntity(cwd, operation.id, {
+            registry: desiredRegistry,
+          });
         } else {
           await addCommandEntityFromText(cwd, operation.id, requireEmbeddedCommand(preset, operation.id));
         }

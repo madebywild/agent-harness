@@ -226,7 +226,13 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
     id: "provider.enable",
     path: ["provider", "enable"],
     description: "Enable a provider",
-    args: [{ name: "provider", required: true, description: `provider id (${providerIdSchema.options.join(", ")})` }],
+    args: [
+      {
+        name: "provider",
+        required: true,
+        description: `provider id (${providerIdSchema.options.join(", ")})`,
+      },
+    ],
     options: [],
     mutatesWorkspace: true,
     interactiveLabel: "Enable provider",
@@ -236,7 +242,13 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
     id: "provider.disable",
     path: ["provider", "disable"],
     description: "Disable a provider",
-    args: [{ name: "provider", required: true, description: `provider id (${providerIdSchema.options.join(", ")})` }],
+    args: [
+      {
+        name: "provider",
+        required: true,
+        description: `provider id (${providerIdSchema.options.join(", ")})`,
+      },
+    ],
     options: [],
     mutatesWorkspace: true,
     interactiveLabel: "Disable provider",
@@ -507,7 +519,13 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
     id: "add.settings",
     path: ["add", "settings"],
     description: "Create a provider settings entity",
-    args: [{ name: "provider", required: true, description: `provider id (${providerIdSchema.options.join(", ")})` }],
+    args: [
+      {
+        name: "provider",
+        required: true,
+        description: `provider id (${providerIdSchema.options.join(", ")})`,
+      },
+    ],
     options: [
       {
         name: "registry",

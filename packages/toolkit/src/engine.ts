@@ -164,7 +164,12 @@ export class HarnessEngine {
 
   async addRegistry(
     name: string,
-    options: { gitUrl: string; ref?: string; rootPath?: string; tokenEnvVar?: string },
+    options: {
+      gitUrl: string;
+      ref?: string;
+      rootPath?: string;
+      tokenEnvVar?: string;
+    },
   ): Promise<void> {
     await this.assertWorkspaceVersionCurrent();
     validateRegistryId(name);
