@@ -15,6 +15,20 @@
   "files": [
     "dist"
   ],
+  "keywords": [
+    "ai",
+    "agent",
+    "agents",
+    "llm",
+    "claude",
+    "copilot",
+    "codex",
+    "mcp",
+    "harness",
+    "schema",
+    "manifest",
+    "zod"
+  ],
   "publishConfig": {
     "access": "public"
   },
