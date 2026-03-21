@@ -16,9 +16,9 @@ Environment variable placeholders solve both: source files contain `{{PLACEHOLDE
 1. Initialize and add an entity:
 
 ```bash
-harness init
-harness add mcp my-server
-harness provider enable claude
+npx harness init
+npx harness add mcp my-server
+npx harness provider enable claude
 ```
 
 2. Reference a secret in the entity source:
@@ -44,7 +44,7 @@ API_KEY=sk-secret-12345
 4. Apply:
 
 ```bash
-harness apply
+npx harness apply
 ```
 
 The generated `.mcp.json` will contain the resolved value `sk-secret-12345`, not the raw placeholder.
@@ -276,7 +276,7 @@ This design keeps the lock stable and diff-friendly in version control while sti
 
 ## Watch mode
 
-`harness watch` monitors env files for changes alongside entity sources:
+`npx harness watch` monitors env files for changes alongside entity sources:
 
 - `.harness/.env`
 - `.env.harness` (project root)

@@ -136,9 +136,9 @@ const PROVIDER_DEFAULTS = {
 ## Provider enablement
 
 ```bash
-harness provider enable codex
-harness provider enable claude
-harness provider enable copilot
+npx harness provider enable codex
+npx harness provider enable claude
+npx harness provider enable copilot
 ```
 
 Only enabled providers generate artifacts.

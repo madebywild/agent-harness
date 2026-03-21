@@ -7,22 +7,22 @@ This guide shows how to author canonical lifecycle hooks in `.harness/src/hooks/
 1. Create a hook entity:
 
 ```bash
-harness add hook guard
+npx harness add hook guard
 ```
 
 2. Edit `.harness/src/hooks/guard.json`.
 3. Enable providers as needed:
 
 ```bash
-harness provider enable claude
-harness provider enable copilot
-harness provider enable codex
+npx harness provider enable claude
+npx harness provider enable copilot
+npx harness provider enable codex
 ```
 
 4. Apply:
 
 ```bash
-harness apply
+npx harness apply
 ```
 
 ## Canonical hook document shape

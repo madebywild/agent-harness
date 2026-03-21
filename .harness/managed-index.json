@@ -1,0 +1,10 @@
+{
+  "managedOutputPaths": [".github/copilot-instructions.md", "AGENTS.md", "CLAUDE.md"],
+  "managedSourcePaths": [
+    ".harness/src/prompts/system.md",
+    ".harness/src/prompts/system.overrides.claude.yaml",
+    ".harness/src/prompts/system.overrides.codex.yaml",
+    ".harness/src/prompts/system.overrides.copilot.yaml"
+  ],
+  "version": 1
+}

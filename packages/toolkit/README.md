@@ -15,23 +15,23 @@ pnpm add @madebywild/agent-harness-framework
 ## Quick start
 
 ```bash
-harness init
-harness add prompt
-harness add skill reviewer
-harness add mcp playwright
-harness provider enable claude
-harness apply
+npx harness init
+npx harness add prompt
+npx harness add skill reviewer
+npx harness add mcp playwright
+npx harness provider enable claude
+npx harness apply
 ```
 
-Or simply run `harness` with no arguments to launch the interactive TUI.
+Or simply run `npx harness` with no arguments to launch the interactive TUI.
 
 ## Interactive mode (TUI)
 
-The primary way to use Agent Harness is through its interactive terminal UI. Run `harness` with no arguments (or with `--interactive`) and you'll get a menu-driven interface that walks you through every operation — initializing workspaces, adding entities, enabling providers, and applying changes — with prompts, validation, and confirmation at each step.
+The primary way to use Agent Harness is through its interactive terminal UI. Run `npx harness` with no arguments (or with `--interactive`) and you'll get a menu-driven interface that walks you through every operation — initializing workspaces, adding entities, enabling providers, and applying changes — with prompts, validation, and confirmation at each step.
 
 ```bash
-harness              # launch interactive mode
-harness --interactive # force interactive mode (e.g. in scripts)
+npx harness              # launch interactive mode
+npx harness --interactive # force interactive mode (e.g. in scripts)
 ```
 
 Interactive mode is activated automatically in TTY environments and disabled in CI. Use `--no-interactive` to suppress it.
@@ -52,11 +52,11 @@ All operations are also available as direct CLI commands, useful for CI pipeline
 ### Workspace lifecycle
 
 ```bash
-harness init [--force]       # Initialize .harness/ workspace
-harness plan                 # Preview planned file operations (default command)
-harness apply                # Generate provider outputs and update lock
-harness validate             # Validate manifest, ownership, and constraints
-harness watch [--debounceMs] # Watch .harness/src/ and auto-apply on changes
+npx harness init [--force]       # Initialize .harness/ workspace
+npx harness plan                 # Preview planned file operations (default command)
+npx harness apply                # Generate provider outputs and update lock
+npx harness validate             # Validate manifest, ownership, and constraints
+npx harness watch [--debounceMs] # Watch .harness/src/ and auto-apply on changes
 ```
 
 ### Entity management
@@ -74,19 +74,19 @@ Five entity types are supported:
 All entity source files and override sidecars support `{{PLACEHOLDER}}` syntax for injecting secrets and context-dependent values at apply time. See the [Environment Variables Guide](../../docs/environment-variables.md) for details.
 
 ```bash
-harness add prompt                     # Add the system prompt
-harness add skill <id>                 # Add a skill
-harness add mcp <id>                   # Add an MCP server config
-harness add subagent <id>              # Add a subagent
-harness add hook <id>                  # Add a lifecycle hook
-harness remove <entityType> <id>       # Remove an entity (deletes source by default)
+npx harness add prompt                     # Add the system prompt
+npx harness add skill <id>                 # Add a skill
+npx harness add mcp <id>                   # Add an MCP server config
+npx harness add subagent <id>              # Add a subagent
+npx harness add hook <id>                  # Add a lifecycle hook
+npx harness remove <entityType> <id>       # Remove an entity (deletes source by default)
 ```
 
 ### Provider management
 
 ```bash
-harness provider enable <provider>     # Enable a provider (claude, copilot, codex)
-harness provider disable <provider>    # Disable a provider
+npx harness provider enable <provider>     # Enable a provider (claude, copilot, codex)
+npx harness provider disable <provider>    # Disable a provider
 ```
 
 ### Registry management
@@ -94,20 +94,20 @@ harness provider disable <provider>    # Disable a provider
 Registries are shared collections of entities that can be imported into any workspace via git.
 
 ```bash
-harness registry list                                   # List configured registries
-harness registry add <name> --gitUrl <url> [--ref main] # Add a git registry
-harness registry remove <name>                          # Remove a registry
-harness registry default show                           # Show the default registry
-harness registry default set <name>                     # Set the default registry
-harness registry pull [entityType] [id] [--force]       # Pull entities from a registry
-harness registry validate [--path <path>]               # Validate a registry's structure
+npx harness registry list                                   # List configured registries
+npx harness registry add <name> --gitUrl <url> [--ref main] # Add a git registry
+npx harness registry remove <name>                          # Remove a registry
+npx harness registry default show                           # Show the default registry
+npx harness registry default set <name>                     # Set the default registry
+npx harness registry pull [entityType] [id] [--force]       # Pull entities from a registry
+npx harness registry validate [--path <path>]               # Validate a registry's structure
 ```
 
 ### Health and migration
 
 ```bash
-harness doctor               # Inspect workspace schema version health
-harness migrate [--dryRun]   # Migrate workspace to latest schema version
+npx harness doctor               # Inspect workspace schema version health
+npx harness migrate [--dryRun]   # Migrate workspace to latest schema version
 ```
 
 ## Provider outputs

@@ -11,6 +11,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.4.8
         version: 2.4.8
+      '@madebywild/agent-harness-framework':
+        specifier: ^1.2.0
+        version: 1.2.0
       lefthook:
         specifier: ^2.1.4
         version: 2.1.4
@@ -320,6 +323,13 @@ packages:
 
   '@kwsites/file-exists@1.1.1':
     resolution: {integrity: sha512-m9/5YGR18lIwxSFDwfE3oA7bWuq9kdau6ugN4H2rJeyhFQZcG9AgSHkQtSD15a8WvTgfz9aikZMrKPHvbpqFiw==}
+
+  '@madebywild/agent-harness-framework@1.2.0':
+    resolution: {integrity: sha512-+Eim5tZPScpw11W0uirxF1PDWbNonQ+TJhyPTUmSexirur6AGGg5+ReFlnhp0WDH8Lox72nZEN/6q+9mg0a5Qw==}
+    hasBin: true
+
+  '@madebywild/agent-harness-manifest@1.2.0':
+    resolution: {integrity: sha512-f/DWJuGyg6ArHKWFZNa4xygKVQf81aY5Qzy1W0OKNuL1Tmrwr9D4xr6du2tuvmkDsTzd4iuG9QmfrDkHi3vx2w==}
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -1262,6 +1272,21 @@ snapshots:
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
+
+  '@madebywild/agent-harness-framework@1.2.0':
+    dependencies:
+      '@clack/prompts': 1.1.0
+      '@iarna/toml': 2.2.5
+      '@madebywild/agent-harness-manifest': 1.2.0
+      chokidar: 5.0.0
+      commander: 14.0.3
+      gray-matter: 4.0.3
+      ora: 9.3.0
+      yaml: 2.8.2
+
+  '@madebywild/agent-harness-manifest@1.2.0':
+    dependencies:
+      zod: 4.3.6
 
   '@pkgjs/parseargs@0.11.0':
     optional: true

@@ -37,37 +37,37 @@ Then configure your workspace:
 
 ```bash
 # Launch interactive TUI (default when TTY)
-harness
+npx harness
 
 # Enable providers
-harness provider enable codex
-harness provider enable claude
-harness provider enable copilot
+npx harness provider enable codex
+npx harness provider enable claude
+npx harness provider enable copilot
 
 # Configure a git registry and set it as default
-harness registry add corp --gitUrl git@github.com:acme/harness-registry.git --ref main
-harness registry default set corp
+npx harness registry add corp --gitUrl git@github.com:acme/harness-registry.git --ref main
+npx harness registry default set corp
 
 # Add a system prompt
-harness add prompt
+npx harness add prompt
 
 # Add a skill
-harness add skill my-skill
+npx harness add skill my-skill
 
 # Add MCP config
-harness add mcp my-mcp
+npx harness add mcp my-mcp
 
 # Add subagent
-harness add subagent researcher
+npx harness add subagent researcher
 
 # Add lifecycle hook
-harness add hook my-hook
+npx harness add hook my-hook
 
 # Generate outputs
-harness apply
+npx harness apply
 
 # Watch for changes
-harness watch
+npx harness watch
 ```
 
 ## Installation from source
@@ -87,30 +87,30 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 
 | Command                         | Description                                         |
 | ------------------------------- | --------------------------------------------------- |
-| `harness init [--force]`        | Initialize `.harness/` structure                    |
-| `harness`                       | Interactive TUI on TTY, `plan` on non-TTY/CI        |
-| `harness --interactive`         | Force interactive mode                              |
-| `harness --version`             | Print CLI version                                   |
-| `harness doctor`                | Report schema version health and migration blockers |
-| `harness migrate [--dryRun]`    | Upgrade schema files to latest supported version    |
-| `harness provider enable <id>`  | Enable a provider (codex/claude/copilot)            |
-| `harness provider disable <id>` | Disable a provider                                  |
-| `harness registry list`         | List configured registries                          |
-| `harness registry add <name> --gitUrl <url> [--ref <branch>]` | Add a Git registry entry   |
-| `harness registry remove <name>` | Remove a configured registry                       |
-| `harness registry default show/set <name>` | Show or set default registry              |
-| `harness registry pull [<type> <id>] [--registry <name>] [--force]` | Refresh imported entities |
-| `harness registry validate [--path <path>]` | Validate a registry's structure            |
-| `harness add prompt [--registry <name>]` | Add system prompt entity                     |
-| `harness add skill <id> [--registry <name>]` | Add a skill entity                     |
-| `harness add mcp <id> [--registry <name>]` | Add an MCP config entity                 |
-| `harness add subagent <id> [--registry <name>]` | Add a subagent entity               |
-| `harness add hook <id> [--registry <name>]` | Add a lifecycle hook entity              |
-| `harness remove <type> <id> [--no-delete-source]` | Remove an entity (deletes source by default) |
-| `harness validate`              | Validate manifest and files                         |
-| `harness plan`                  | Preview changes (dry-run)                           |
-| `harness apply`                 | Generate provider outputs                           |
-| `harness watch [--debounceMs]`  | Watch mode with auto-apply                          |
+| `npx harness init [--force]`        | Initialize `.harness/` structure                    |
+| `npx harness`                       | Interactive TUI on TTY, `plan` on non-TTY/CI        |
+| `npx harness --interactive`         | Force interactive mode                              |
+| `npx harness --version`             | Print CLI version                                   |
+| `npx harness doctor`                | Report schema version health and migration blockers |
+| `npx harness migrate [--dryRun]`    | Upgrade schema files to latest supported version    |
+| `npx harness provider enable <id>`  | Enable a provider (codex/claude/copilot)            |
+| `npx harness provider disable <id>` | Disable a provider                                  |
+| `npx harness registry list`         | List configured registries                          |
+| `npx harness registry add <name> --gitUrl <url> [--ref <branch>]` | Add a Git registry entry   |
+| `npx harness registry remove <name>` | Remove a configured registry                       |
+| `npx harness registry default show/set <name>` | Show or set default registry              |
+| `npx harness registry pull [<type> <id>] [--registry <name>] [--force]` | Refresh imported entities |
+| `npx harness registry validate [--path <path>]` | Validate a registry's structure            |
+| `npx harness add prompt [--registry <name>]` | Add system prompt entity                     |
+| `npx harness add skill <id> [--registry <name>]` | Add a skill entity                     |
+| `npx harness add mcp <id> [--registry <name>]` | Add an MCP config entity                 |
+| `npx harness add subagent <id> [--registry <name>]` | Add a subagent entity               |
+| `npx harness add hook <id> [--registry <name>]` | Add a lifecycle hook entity              |
+| `npx harness remove <type> <id> [--no-delete-source]` | Remove an entity (deletes source by default) |
+| `npx harness validate`              | Validate manifest and files                         |
+| `npx harness plan`                  | Preview changes (dry-run)                           |
+| `npx harness apply`                 | Generate provider outputs                           |
+| `npx harness watch [--debounceMs]`  | Watch mode with auto-apply                          |
 
 Global flags:
 - `--cwd <path>`: run against a specific workspace root.
@@ -122,11 +122,11 @@ Global flags:
 
 - Normal runtime commands (`plan`, `apply`, `validate`, `watch`, `add/remove`, `provider enable/disable`) require current schema versions.
 - If any schema is outdated, run:
-  1. `harness doctor`
-  2. `harness migrate`
-  3. `harness apply`
+  1. `npx harness doctor`
+  2. `npx harness migrate`
+  3. `npx harness apply`
 - If a workspace schema is newer than the installed CLI, commands fail safely with `*_VERSION_NEWER_THAN_CLI`; upgrade the CLI before proceeding.
-- `harness migrate` creates a backup snapshot under `.harness/.backup/<timestamp>/` and writes files atomically.
+- `npx harness migrate` creates a backup snapshot under `.harness/.backup/<timestamp>/` and writes files atomically.
 
 ## Project Structure
 

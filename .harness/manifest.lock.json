@@ -1,0 +1,38 @@
+{
+  "entities": [
+    {
+      "id": "system",
+      "overrideSha256ByProvider": {
+        "claude": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847",
+        "codex": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847",
+        "copilot": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847"
+      },
+      "registry": "local",
+      "sourceSha256": "14993bda75b563d629358906b4cf280b736bda16c45004daf740ea71c536690c",
+      "type": "prompt"
+    }
+  ],
+  "generatedAt": "2026-03-21T11:23:34.769Z",
+  "manifestFingerprint": "9b5b552d9faaf87d0ce1b324b5584745cc8a779bdc723c7e60dd00bcfaf78cb6",
+  "outputs": [
+    {
+      "contentSha256": "14993bda75b563d629358906b4cf280b736bda16c45004daf740ea71c536690c",
+      "ownerEntityIds": ["system"],
+      "path": ".github/copilot-instructions.md",
+      "provider": "copilot"
+    },
+    {
+      "contentSha256": "14993bda75b563d629358906b4cf280b736bda16c45004daf740ea71c536690c",
+      "ownerEntityIds": ["system"],
+      "path": "AGENTS.md",
+      "provider": "codex"
+    },
+    {
+      "contentSha256": "14993bda75b563d629358906b4cf280b736bda16c45004daf740ea71c536690c",
+      "ownerEntityIds": ["system"],
+      "path": "CLAUDE.md",
+      "provider": "claude"
+    }
+  ],
+  "version": 1
+}

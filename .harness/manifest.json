@@ -1,0 +1,28 @@
+{
+  "entities": [
+    {
+      "enabled": true,
+      "id": "system",
+      "overrides": {
+        "claude": ".harness/src/prompts/system.overrides.claude.yaml",
+        "codex": ".harness/src/prompts/system.overrides.codex.yaml",
+        "copilot": ".harness/src/prompts/system.overrides.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/prompts/system.md",
+      "type": "prompt"
+    }
+  ],
+  "providers": {
+    "enabled": ["claude", "codex", "copilot"]
+  },
+  "registries": {
+    "default": "local",
+    "entries": {
+      "local": {
+        "type": "local"
+      }
+    }
+  },
+  "version": 1
+}

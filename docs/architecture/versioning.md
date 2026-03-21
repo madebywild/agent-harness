@@ -157,13 +157,13 @@ The versioning system supports non-interactive usage:
 
 ```bash
 # Apply any needed migrations first (no-op when already current)
-harness migrate --json || exit 1
+npx harness migrate --json || exit 1
 
 # Optionally assert healthy post-migration state
-harness doctor --json || exit 1
+npx harness doctor --json || exit 1
 
 # Normal operation
-harness apply
+npx harness apply
 ```
 
 ## Industry Comparison
