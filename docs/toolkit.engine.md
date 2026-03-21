@@ -13,6 +13,7 @@ Supporting logic is split across submodules in `engine/`:
     - `addMcpEntity`
     - `addSubagentEntity`
     - `addHookEntity`
+    - `addSettingsEntity`
   - registry pull/remove helpers:
     - `pullRegistryEntities`
     - `removeEntity`
@@ -48,6 +49,7 @@ Supporting logic is split across submodules in `engine/`:
   - `addMcp`
   - `addSubagent`
   - `addHook`
+  - `addSettings`
 - registry methods:
   - `listRegistries`
   - `addRegistry`
@@ -67,3 +69,12 @@ Supporting logic is split across submodules in `engine/`:
 - Version preflight runs before normal runtime/mutating commands.
 - Apply short-circuits when any `error` diagnostic exists.
 - Lock/index are updated only when semantic payload changed.
+
+## Settings pull hash policy
+
+When pulling `settings` entities from a registry, lock records intentionally keep two hashes:
+
+- `importedSourceSha256`: canonical payload hash from the registry fetch (used for pull conflict checks).
+- `sourceSha256`: hash of the provider-serialized source file that was materialized locally (used for lock parity with loader/planner).
+
+This split prevents no-op `apply` lock churn for `codex` settings, where canonical payload hashing and TOML file hashing are not byte-identical.

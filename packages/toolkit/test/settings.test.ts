@@ -459,6 +459,16 @@ test("registry import/pull and validation support settings entities", async () =
   await assert.rejects(() => engine.pullRegistry({ entityType: "settings", id: "codex" }), /REGISTRY_PULL_CONFLICT/u);
   const pulled = await engine.pullRegistry({ entityType: "settings", id: "codex", force: true });
   assert.deepEqual(pulled.updatedEntities, [{ type: "settings", id: "codex" }]);
+  const lockAfterPull = await fs.readFile(path.join(cwd, ".harness/manifest.lock.json"), "utf8");
+
+  const postPullApply = await engine.apply();
+  assert.equal(
+    postPullApply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+    JSON.stringify(postPullApply.diagnostics),
+  );
+  const lockAfterApply = await fs.readFile(path.join(cwd, ".harness/manifest.lock.json"), "utf8");
+  assert.equal(lockAfterApply, lockAfterPull);
 
   const refreshed = await fs.readFile(path.join(cwd, ".harness/src/settings/codex.toml"), "utf8");
   assert.match(refreshed, /gpt-5\.4/u);

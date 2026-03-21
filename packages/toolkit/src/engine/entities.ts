@@ -816,11 +816,16 @@ export async function pullRegistryEntities(
       manifestMutated = true;
     }
 
+    const sourceSha256ForLock =
+      entity.type === "settings" && fetched.type === "settings"
+        ? sha256(serializeSettingsPayload(fetched.provider, fetched.sourcePayload))
+        : fetched.importedSourceSha256;
+
     setLockEntityRecord(lock, {
       id: entity.id,
       type: entity.type,
       registry: entity.registry,
-      sourceSha256: fetched.importedSourceSha256,
+      sourceSha256: sourceSha256ForLock,
       overrideSha256ByProvider: overrideShaByProvider,
       importedSourceSha256: fetched.importedSourceSha256,
       registryRevision: fetched.registryRevision,
