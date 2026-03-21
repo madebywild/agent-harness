@@ -118,11 +118,28 @@ async function promptCommandInput(command: CommandId, context: CliResolvedContex
         return null;
       }
 
+      let delegate: string | undefined;
+      if (String(resolvedPreset) === "delegate") {
+        const delegateProvider = await select({
+          message: "Select the provider CLI to delegate prompt authoring to",
+          options: providerIdSchema.options.map((entry) => ({
+            value: entry,
+            label: entry,
+          })),
+        });
+        const resolvedDelegateProvider = getSelectedValue(delegateProvider);
+        if (resolvedDelegateProvider === null) {
+          return null;
+        }
+        delegate = String(resolvedDelegateProvider);
+      }
+
       return {
         command,
         options: {
           force: Boolean(resolvedForce),
           preset: String(resolvedPreset) || undefined,
+          delegate,
         },
       };
     }

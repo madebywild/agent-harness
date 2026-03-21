@@ -40,6 +40,16 @@ Or start from a bundled preset:
 npx harness init --preset starter
 ```
 
+For first-run onboarding, you can ask harness to launch a specific agent CLI to author the shared prompt:
+
+```bash
+npx harness init --delegate claude
+npx harness init --delegate codex
+npx harness init --delegate copilot
+```
+
+This path auto-applies the bundled `delegate` preset, seeds `.harness/src/prompts/system.md` with one shared bootstrap prompt for all providers, and then launches the selected agent CLI so it can inspect the repository and finish setup through non-interactive `pnpm harness` or `npx harness` commands.
+
 Then configure your workspace:
 
 ```bash
@@ -101,35 +111,35 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 
 ## CLI Commands
 
-| Command                                                                 | Description                                                    |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `npx harness init [--force] [--preset <id>]`                            | Initialize `.harness/` structure and optionally apply a preset |
-| `npx harness`                                                           | Interactive TUI on TTY, `plan` on non-TTY/CI                   |
-| `npx harness --interactive`                                             | Force interactive mode                                         |
-| `npx harness --version`                                                 | Print CLI version                                              |
-| `npx harness doctor`                                                    | Report schema version health and migration blockers            |
-| `npx harness migrate [--dryRun]`                                        | Upgrade schema files to latest supported version               |
-| `npx harness provider enable <id>`                                      | Enable a provider (codex/claude/copilot)                       |
-| `npx harness provider disable <id>`                                     | Disable a provider                                             |
-| `npx harness registry list`                                             | List configured registries                                     |
-| `npx harness registry add <name> --gitUrl <url> [--ref <branch>]`       | Add a Git registry entry                                       |
-| `npx harness registry remove <name>`                                    | Remove a configured registry                                   |
-| `npx harness registry default show/set <name>`                          | Show or set default registry                                   |
-| `npx harness registry pull [<type> <id>] [--registry <name>] [--force]` | Refresh imported entities                                      |
-| `npx harness registry validate [--path <path>]`                         | Validate a registry's structure                                |
-| `npx harness preset list [--registry <name>]`                           | List bundled, local, or registry presets                       |
-| `npx harness preset describe <id> [--registry <name>]`                  | Describe a preset                                              |
-| `npx harness preset apply <id> [--registry <name>]`                     | Materialize a preset into normal harness state                 |
-| `npx harness add prompt [--registry <name>]`                            | Add system prompt entity                                       |
-| `npx harness add skill <id> [--registry <name>]`                        | Add a skill entity                                             |
-| `npx harness add mcp <id> [--registry <name>]`                          | Add an MCP config entity                                       |
-| `npx harness add subagent <id> [--registry <name>]`                     | Add a subagent entity                                          |
-| `npx harness add hook <id> [--registry <name>]`                         | Add a lifecycle hook entity                                    |
-| `npx harness remove <type> <id> [--no-delete-source]`                   | Remove an entity (deletes source by default)                   |
-| `npx harness validate`                                                  | Validate manifest and files                                    |
-| `npx harness plan`                                                      | Preview changes (dry-run)                                      |
-| `npx harness apply`                                                     | Generate provider outputs                                      |
-| `npx harness watch [--debounceMs]`                                      | Watch mode with auto-apply                                     |
+| Command                                                                 | Description                                                                                                   |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `npx harness init [--force] [--preset <id>] [--delegate <provider>]`    | Initialize `.harness/` structure, optionally apply a preset, and optionally launch delegated prompt authoring |
+| `npx harness`                                                           | Interactive TUI on TTY, `plan` on non-TTY/CI                                                                  |
+| `npx harness --interactive`                                             | Force interactive mode                                                                                        |
+| `npx harness --version`                                                 | Print CLI version                                                                                             |
+| `npx harness doctor`                                                    | Report schema version health and migration blockers                                                           |
+| `npx harness migrate [--dryRun]`                                        | Upgrade schema files to latest supported version                                                              |
+| `npx harness provider enable <id>`                                      | Enable a provider (codex/claude/copilot)                                                                      |
+| `npx harness provider disable <id>`                                     | Disable a provider                                                                                            |
+| `npx harness registry list`                                             | List configured registries                                                                                    |
+| `npx harness registry add <name> --gitUrl <url> [--ref <branch>]`       | Add a Git registry entry                                                                                      |
+| `npx harness registry remove <name>`                                    | Remove a configured registry                                                                                  |
+| `npx harness registry default show/set <name>`                          | Show or set default registry                                                                                  |
+| `npx harness registry pull [<type> <id>] [--registry <name>] [--force]` | Refresh imported entities                                                                                     |
+| `npx harness registry validate [--path <path>]`                         | Validate a registry's structure                                                                               |
+| `npx harness preset list [--registry <name>]`                           | List bundled, local, or registry presets                                                                      |
+| `npx harness preset describe <id> [--registry <name>]`                  | Describe a preset                                                                                             |
+| `npx harness preset apply <id> [--registry <name>]`                     | Materialize a preset into normal harness state                                                                |
+| `npx harness add prompt [--registry <name>]`                            | Add system prompt entity                                                                                      |
+| `npx harness add skill <id> [--registry <name>]`                        | Add a skill entity                                                                                            |
+| `npx harness add mcp <id> [--registry <name>]`                          | Add an MCP config entity                                                                                      |
+| `npx harness add subagent <id> [--registry <name>]`                     | Add a subagent entity                                                                                         |
+| `npx harness add hook <id> [--registry <name>]`                         | Add a lifecycle hook entity                                                                                   |
+| `npx harness remove <type> <id> [--no-delete-source]`                   | Remove an entity (deletes source by default)                                                                  |
+| `npx harness validate`                                                  | Validate manifest and files                                                                                   |
+| `npx harness plan`                                                      | Preview changes (dry-run)                                                                                     |
+| `npx harness apply`                                                     | Generate provider outputs                                                                                     |
+| `npx harness watch [--debounceMs]`                                      | Watch mode with auto-apply                                                                                    |
 
 Global flags:
 
@@ -193,6 +203,8 @@ Presets are bootstrap macros, not manifest entities.
 - Bundled presets ship with the toolkit package.
 - Local presets live under `.harness/presets/<id>/`.
 - Registry presets live under `presets/<id>/` in a git registry.
+
+The bundled `delegate` preset seeds one shared bootstrap prompt for Claude, Codex, and Copilot and enables all three providers. `init --delegate <provider>` uses that preset and then launches the selected agent CLI to replace the bootstrap content with the real project-specific prompt.
 
 Applying a preset materializes normal harness state such as enabled providers, prompt/skill/subagent sources, settings, and commands. After that, the usual `validate`, `plan`, and `apply` workflow remains unchanged.
 

@@ -148,6 +148,11 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         description: "apply a bundled or local preset after initialization",
         takesValue: true,
       },
+      {
+        name: "delegate",
+        description: `launch delegated prompt authoring with a provider CLI (${providerIdSchema.options.join(", ")})`,
+        takesValue: true,
+      },
     ],
     mutatesWorkspace: true,
     interactiveLabel: "Initialize workspace",
@@ -156,6 +161,8 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         {
           force: readBooleanOption(input, "force"),
           preset: readStringOption(input, "preset"),
+          delegate: readStringOption(input, "delegate"),
+          json: readBooleanOption(input, "json"),
         },
         context,
       ),

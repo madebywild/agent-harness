@@ -90,6 +90,7 @@ export interface InitOutput
     {
       force: boolean;
       preset?: string;
+      delegateProvider?: ProviderId;
       message: string;
     }
   > {}

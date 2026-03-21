@@ -1,6 +1,25 @@
+import { buildDelegatedBootstrapPrompt, DELEGATED_INIT_PRESET_ID } from "./delegated-init.js";
 import type { ResolvedPreset } from "./types.js";
 
 export const BUILTIN_PRESETS: readonly ResolvedPreset[] = [
+  {
+    source: "builtin",
+    definition: {
+      id: DELEGATED_INIT_PRESET_ID,
+      name: "Delegated Prompt Init",
+      description:
+        "Seed one shared bootstrap prompt for all providers before handing prompt authoring to a chosen agent CLI.",
+      operations: [
+        { type: "enable_provider", provider: "claude" },
+        { type: "enable_provider", provider: "codex" },
+        { type: "enable_provider", provider: "copilot" },
+        { type: "add_prompt" },
+      ],
+    },
+    content: {
+      prompt: buildDelegatedBootstrapPrompt(),
+    },
+  },
   {
     source: "builtin",
     definition: {

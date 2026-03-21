@@ -77,7 +77,16 @@ export async function runCommanderAdapter(
     const cwd = resolveInvocationCwd(program, baseContext);
     const json = resolveInvocationJson(program, options);
     const commandContext = withInvocationContext(baseContext, cwd);
-    const commandExitCode = await executeWithRendering(input, commandContext, json, api);
+    const commandInput = json
+      ? {
+          ...input,
+          options: {
+            ...input.options,
+            json: true,
+          },
+        }
+      : input;
+    const commandExitCode = await executeWithRendering(commandInput, commandContext, json, api);
     if (commandExitCode !== 0) {
       exitCode = commandExitCode;
     }
@@ -98,13 +107,19 @@ export async function runCommanderAdapter(
       .description("Initialize .harness structure and state files")
       .option("--force", "overwrite an existing .harness workspace", false)
       .option("--preset <id>", "apply a bundled or local preset after initialization")
-      .action(async (options: { force: boolean; preset?: string; json?: boolean }) => {
+      .option(
+        "--delegate <provider>",
+        `launch delegated prompt authoring with a provider CLI (${providerIdSchema.options.join(", ")})`,
+      )
+      .action(async (options: { force: boolean; preset?: string; delegate?: string; json?: boolean }) => {
         await runCommand(
           {
             command: "init",
             options: {
               force: options.force,
               preset: options.preset,
+              delegate: options.delegate,
+              json: options.json,
             },
           },
           options,

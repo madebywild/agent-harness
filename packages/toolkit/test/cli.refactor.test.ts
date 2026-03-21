@@ -117,6 +117,31 @@ test("runCliArgv init --preset applies bundled preset and returns preset metadat
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md")));
 });
 
+test("runCliArgv init --preset applies the shared delegate preset", async () => {
+  const cwd = await mkTmpRepo();
+  const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
+
+  const initResult = await runCliArgv(["init", "--preset", "delegate", "--json"], capture.context);
+  assert.equal(initResult.exitCode, 0);
+
+  const payload = JSON.parse(capture.stdout[0]) as {
+    command: string;
+    ok: boolean;
+    data: { preset?: string; message: string };
+  };
+  assert.equal(payload.command, "init");
+  assert.equal(payload.ok, true);
+  assert.equal(payload.data.preset, "delegate");
+
+  const manifest = JSON.parse(await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8")) as {
+    providers: { enabled: string[] };
+  };
+  assert.deepEqual(manifest.providers.enabled, ["claude", "codex", "copilot"]);
+
+  const prompt = await fs.readFile(path.join(cwd, ".harness/src/prompts/system.md"), "utf8");
+  assert.match(prompt, /temporary bootstrap prompt for agent-harness/u);
+});
+
 test("runCliArgv preset list emits bundled presets in json mode", async () => {
   const cwd = await mkTmpRepo();
   const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
@@ -129,7 +154,18 @@ test("runCliArgv preset list emits bundled presets in json mode", async () => {
     data: { presets: Array<{ id: string }> };
   };
   assert.equal(payload.command, "preset.list");
+  assert.ok(payload.data.presets.some((preset) => preset.id === "delegate"));
   assert.ok(payload.data.presets.some((preset) => preset.id === "starter"));
+});
+
+test("runCliArgv init --delegate rejects json mode before launching the provider cli", async () => {
+  const cwd = await mkTmpRepo();
+  const capture = createCapturedContext(cwd, { isTty: true, isCi: false });
+
+  const result = await runCliArgv(["init", "--delegate", "claude", "--json"], capture.context);
+
+  assert.equal(result.exitCode, 1);
+  assert.match(capture.stderr.join("\n"), /INIT_DELEGATE_JSON_UNSUPPORTED/u);
 });
 
 test("runCliArgv watch --json surfaces startup failures", async () => {

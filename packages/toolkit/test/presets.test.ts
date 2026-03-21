@@ -11,9 +11,41 @@ test("listPresets returns bundled presets before workspace initialization", asyn
   const engine = new HarnessEngine(cwd);
 
   const presets = await engine.listPresets();
+  assert.ok(presets.some((preset) => preset.id === "delegate" && preset.source === "builtin"));
   assert.ok(presets.some((preset) => preset.id === "starter" && preset.source === "builtin"));
   assert.ok(presets.some((preset) => preset.id === "researcher" && preset.source === "builtin"));
   assert.ok(presets.some((preset) => preset.id === "yolo" && preset.source === "builtin"));
+});
+
+test("applyPreset materializes delegated init preset with a shared bootstrap prompt", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  const result = await engine.applyPreset("delegate");
+
+  assert.equal(result.preset.id, "delegate");
+  assert.ok(result.results.some((entry) => entry.type === "enable_provider" && entry.target === "claude"));
+  assert.ok(result.results.some((entry) => entry.type === "enable_provider" && entry.target === "codex"));
+  assert.ok(result.results.some((entry) => entry.type === "enable_provider" && entry.target === "copilot"));
+  assert.ok(result.results.some((entry) => entry.type === "add_prompt" && entry.outcome === "applied"));
+
+  const manifest = JSON.parse(await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8")) as {
+    providers: { enabled: string[] };
+    entities: Array<{ type: string; id: string }>;
+  };
+
+  assert.deepEqual(manifest.providers.enabled, ["claude", "codex", "copilot"]);
+  assert.ok(manifest.entities.some((entity) => entity.type === "prompt" && entity.id === "system"));
+
+  const prompt = await fs.readFile(path.join(cwd, ".harness/src/prompts/system.md"), "utf8");
+  assert.match(prompt, /This is a temporary bootstrap prompt for agent-harness\./u);
+  assert.match(prompt, /pnpm harness <command>/u);
+  assert.match(prompt, /npx harness <command>/u);
+  assert.match(
+    prompt,
+    /Do not edit generated files like `CLAUDE\.md`, `AGENTS\.md`, or `\.github\/copilot-instructions\.md` directly\./u,
+  );
 });
 
 test("applyPreset materializes bundled preset content and enables providers", async () => {
@@ -93,6 +125,17 @@ test("applyPreset skips when bundled preset content is already present", async (
   await engine.init();
   await engine.applyPreset("starter");
   const second = await engine.applyPreset("starter");
+
+  assert.ok(second.results.every((entry) => entry.outcome === "skipped"));
+});
+
+test("applyPreset skips when delegated preset content is already present", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.applyPreset("delegate");
+  const second = await engine.applyPreset("delegate");
 
   assert.ok(second.results.every((entry) => entry.outcome === "skipped"));
 });
