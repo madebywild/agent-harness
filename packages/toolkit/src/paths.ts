@@ -13,6 +13,7 @@ export interface HarnessPaths {
   mcpDir: string;
   subagentDir: string;
   hookDir: string;
+  settingsDir: string;
   commandDir: string;
   envFile: string;
   rootEnvFile: string;
@@ -33,6 +34,7 @@ export function resolveHarnessPaths(rootDir: string): HarnessPaths {
     mcpDir: path.join(srcDir, "mcp"),
     subagentDir: path.join(srcDir, "subagents"),
     hookDir: path.join(srcDir, "hooks"),
+    settingsDir: path.join(srcDir, "settings"),
     commandDir: path.join(srcDir, "commands"),
     envFile: path.join(harnessDir, ".env"),
     rootEnvFile: path.join(rootDir, ".env.harness"),
@@ -83,4 +85,12 @@ export function defaultCommandSourcePath(id: string): string {
 
 export function defaultCommandOverridePath(id: string, provider: ProviderId): string {
   return `.harness/src/commands/${id}.overrides.${provider}.yaml`;
+}
+
+export function defaultSettingsSourcePath(provider: ProviderId): string {
+  if (provider === "codex") {
+    return ".harness/src/settings/codex.toml";
+  }
+
+  return `.harness/src/settings/${provider}.json`;
 }

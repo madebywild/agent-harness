@@ -1,6 +1,7 @@
 import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import * as TOML from "@iarna/toml";
 import { parseRegistryManifest } from "@madebywild/agent-harness-manifest";
 import matter from "gray-matter";
 import { listFilesRecursively } from "./repository.js";
@@ -289,6 +290,59 @@ export async function validateRegistryRepo(options: RegistryValidationOptions = 
     }
   }
 
+  const settingsDir = path.join(rootAbs, "settings");
+  let settingsEntries: Dirent[] | null = null;
+  try {
+    settingsEntries = await fs.readdir(settingsDir, { withFileTypes: true });
+  } catch (err) {
+    if (!isNotFoundError(err)) {
+      throw err;
+    }
+  }
+
+  if (settingsEntries) {
+    for (const entry of settingsEntries) {
+      const settingsPath = path.join(settingsDir, entry.name);
+      const settingsPathRel = toPosixRelative(settingsPath, repoPath);
+
+      if (!entry.isFile()) {
+        diagnostics.push(error("REGISTRY_SETTINGS_INVALID", "settings/ may only contain files", settingsPathRel));
+        continue;
+      }
+
+      if (entry.name === "codex.toml") {
+        await readTomlObject(
+          settingsPath,
+          "REGISTRY_SETTINGS_INVALID",
+          "Settings 'codex' is invalid",
+          diagnostics,
+          repoPath,
+        );
+        continue;
+      }
+
+      if (entry.name === "claude.json" || entry.name === "copilot.json") {
+        const id = entry.name.replace(".json", "");
+        await readJsonObject(
+          settingsPath,
+          "REGISTRY_SETTINGS_INVALID",
+          `Settings '${id}' is invalid`,
+          diagnostics,
+          repoPath,
+        );
+        continue;
+      }
+
+      diagnostics.push(
+        error(
+          "REGISTRY_SETTINGS_INVALID",
+          "settings/ may only contain codex.toml, claude.json, and copilot.json",
+          settingsPathRel,
+        ),
+      );
+    }
+  }
+
   diagnostics.sort((left, right) => {
     const pathCompare = (left.path ?? "").localeCompare(right.path ?? "");
     if (pathCompare !== 0) {
@@ -346,4 +400,36 @@ async function readJsonObject(
 
 function isValidEntityId(value: string): boolean {
   return ENTITY_ID_PATTERN.test(value);
+}
+
+async function readTomlObject(
+  absPath: string,
+  code: string,
+  messagePrefix: string,
+  diagnostics: Diagnostic[],
+  repoPath: string,
+): Promise<Record<string, unknown> | undefined> {
+  const text = await readTextIfExists(absPath);
+  if (text === null) {
+    diagnostics.push(error(code, `${messagePrefix}: file is missing`, toPosixRelative(absPath, repoPath)));
+    return undefined;
+  }
+
+  try {
+    const parsed = TOML.parse(text) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      diagnostics.push(error(code, `${messagePrefix}: expected a TOML table`, toPosixRelative(absPath, repoPath)));
+      return undefined;
+    }
+    return parsed as Record<string, unknown>;
+  } catch (err) {
+    diagnostics.push(
+      error(
+        code,
+        `${messagePrefix}: ${err instanceof Error ? err.message : "invalid TOML"}`,
+        toPosixRelative(absPath, repoPath),
+      ),
+    );
+    return undefined;
+  }
 }

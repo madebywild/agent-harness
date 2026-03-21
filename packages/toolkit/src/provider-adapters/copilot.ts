@@ -1,5 +1,5 @@
 import type { CanonicalCommand, ProviderAdapter } from "../types.js";
-import { normalizeRelativePath, uniqSorted, withSingleTrailingNewline } from "../utils.js";
+import { normalizeRelativePath, stableStringify, uniqSorted, withSingleTrailingNewline } from "../utils.js";
 import { PROVIDER_DEFAULTS } from "./constants.js";
 import { createProviderAdapter } from "./create-adapter.js";
 import { renderCopilotHookConfig, resolveHookTargetPath } from "./hooks.js";
@@ -75,6 +75,21 @@ export function buildCopilotAdapter(skillFilesByEntityId: SkillFileIndex): Provi
           ownerEntityId: input.id,
           provider: "copilot",
           format: "markdown",
+        },
+      ];
+    },
+    async renderSettings(input) {
+      if (input.provider !== "copilot") {
+        return [];
+      }
+
+      return [
+        {
+          path: ".vscode/settings.json",
+          content: stableStringify(input.payload),
+          ownerEntityId: input.id,
+          provider: "copilot",
+          format: "json",
         },
       ];
     },

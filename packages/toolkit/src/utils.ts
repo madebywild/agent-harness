@@ -125,6 +125,39 @@ export function deepEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(sortJsonValue(left)) === JSON.stringify(sortJsonValue(right));
 }
 
+export function deepMergeObjects(
+  base: Record<string, unknown>,
+  overlay: Record<string, unknown>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  const keys = uniqSorted([...Object.keys(base), ...Object.keys(overlay)]);
+
+  for (const key of keys) {
+    const hasBase = Object.hasOwn(base, key);
+    const hasOverlay = Object.hasOwn(overlay, key);
+    const baseValue = base[key];
+    const overlayValue = overlay[key];
+
+    if (hasBase && hasOverlay) {
+      if (isPlainRecord(baseValue) && isPlainRecord(overlayValue)) {
+        result[key] = deepMergeObjects(baseValue, overlayValue);
+      } else {
+        result[key] = cloneMergeValue(overlayValue);
+      }
+      continue;
+    }
+
+    if (hasOverlay) {
+      result[key] = cloneMergeValue(overlayValue);
+      continue;
+    }
+
+    result[key] = cloneMergeValue(baseValue);
+  }
+
+  return result;
+}
+
 export function uniqSorted(values: Iterable<string>): string[] {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
@@ -139,4 +172,20 @@ export function stripTrailingNewlines(value: string): string {
 
 export function withSingleTrailingNewline(value: string): string {
   return `${stripTrailingNewlines(value)}\n`;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function cloneMergeValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => cloneMergeValue(entry));
+  }
+
+  if (isPlainRecord(value)) {
+    return deepMergeObjects({}, value);
+  }
+
+  return value;
 }

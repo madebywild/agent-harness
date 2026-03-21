@@ -110,6 +110,31 @@ test("parseManifest accepts hook entities", () => {
   );
 });
 
+test("parseManifest accepts settings entities", () => {
+  assert.doesNotThrow(() =>
+    parseManifest({
+      version: 1,
+      providers: {
+        enabled: [],
+      },
+      registries: {
+        default: "local",
+        entries: {
+          local: { type: "local" },
+        },
+      },
+      entities: [
+        {
+          id: "codex",
+          type: "settings",
+          registry: "local",
+          sourcePath: ".harness/src/settings/codex.toml",
+        },
+      ],
+    }),
+  );
+});
+
 test("parseProviderOverride throws VersionError for missing version", () => {
   assert.throws(
     () => parseProviderOverride({ enabled: true }),

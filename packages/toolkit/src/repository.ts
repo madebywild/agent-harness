@@ -317,6 +317,11 @@ export async function collectSourceCandidates(paths: HarnessPaths): Promise<stri
       continue;
     }
 
+    if (/^\.harness\/src\/settings\/[^/]+\.(json|toml)$/u.test(relative)) {
+      candidates.push(relative);
+      continue;
+    }
+
     if (/^\.harness\/src\/commands\/[^/]+\.md$/u.test(relative)) {
       candidates.push(relative);
       continue;

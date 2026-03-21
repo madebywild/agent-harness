@@ -31,6 +31,7 @@ export async function buildPlan(
 
   for (const provider of enabledProviders) {
     const adapter = adapters[provider];
+    const providerSettings = loaded.settings.find((entry) => entry.canonical.provider === provider);
 
     if (loaded.prompt && adapter.renderPrompt) {
       try {
@@ -85,6 +86,7 @@ export async function buildPlan(
             subagentOverrideByEntity,
             hooks: loaded.hooks.map((hook) => hook.canonical),
             hookOverrideByEntity,
+            settings: providerSettings?.canonical,
           })),
         );
       } catch (error) {
@@ -113,6 +115,20 @@ export async function buildPlan(
           code: "MCP_RENDER_FAILED",
           severity: "error",
           message: error instanceof Error ? error.message : "MCP render failed",
+          provider,
+        });
+      }
+    }
+
+    if (providerSettings && adapter.renderSettings) {
+      try {
+        artifacts.push(...(await adapter.renderSettings(providerSettings.canonical)));
+      } catch (error) {
+        diagnostics.push({
+          code: "SETTINGS_RENDER_FAILED",
+          severity: "error",
+          message: error instanceof Error ? error.message : "Settings render failed",
+          entityId: providerSettings.entity.id,
           provider,
         });
       }
@@ -352,6 +368,17 @@ export async function buildPlan(
       ...resolvePriorRegistryProvenance(
         previousEntityByKey.get(`${hook.entity.type}:${hook.entity.id}`),
         hook.entity.registry,
+      ),
+    })),
+    ...loaded.settings.map((settings) => ({
+      id: settings.entity.id,
+      type: settings.entity.type,
+      registry: settings.entity.registry,
+      sourceSha256: settings.sourceSha256,
+      overrideSha256ByProvider: settings.overrideShaByProvider,
+      ...resolvePriorRegistryProvenance(
+        previousEntityByKey.get(`${settings.entity.type}:${settings.entity.id}`),
+        settings.entity.registry,
       ),
     })),
     ...loaded.commands.map((command) => ({

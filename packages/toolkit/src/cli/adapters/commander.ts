@@ -407,6 +407,28 @@ export async function runCommanderAdapter(
 
   addJsonOption(
     addCommand
+      .command("settings")
+      .description("Create a provider settings entity")
+      .argument("<provider>", `provider id (${providerIdSchema.options.join(", ")})`)
+      .option("--registry <registry>", "registry id (defaults to configured default/local)")
+      .action(async (provider: string, options: { registry?: string; json?: boolean }) => {
+        await runCommand(
+          {
+            command: "add.settings",
+            args: {
+              provider,
+            },
+            options: {
+              registry: options.registry,
+            },
+          },
+          options,
+        );
+      }),
+  );
+
+  addJsonOption(
+    addCommand
       .command("command")
       .description("Create a command entity")
       .argument("<command-id>", "command id")

@@ -8,6 +8,7 @@ import {
   handleAddHook,
   handleAddMcp,
   handleAddPrompt,
+  handleAddSettings,
   handleAddSkill,
   handleAddSubagent,
   handleRemoveEntity,
@@ -422,6 +423,29 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
       handleAddHook(
         {
           hookId: readStringArg(input, "hookId") ?? "",
+          registry: readStringOption(input, "registry"),
+        },
+        context,
+      ),
+  },
+  {
+    id: "add.settings",
+    path: ["add", "settings"],
+    description: "Create a provider settings entity",
+    args: [{ name: "provider", required: true, description: `provider id (${providerIdSchema.options.join(", ")})` }],
+    options: [
+      {
+        name: "registry",
+        description: "registry id (defaults to configured default/local)",
+        takesValue: true,
+      },
+    ],
+    mutatesWorkspace: true,
+    interactiveLabel: "Add settings",
+    run: (input, context) =>
+      handleAddSettings(
+        {
+          provider: readStringArg(input, "provider") ?? "",
           registry: readStringOption(input, "registry"),
         },
         context,

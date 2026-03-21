@@ -1,8 +1,15 @@
 import type { CanonicalCommand, ProviderAdapter } from "../types.js";
-import { normalizeRelativePath, uniqSorted, withSingleTrailingNewline } from "../utils.js";
+import {
+  deepMergeObjects,
+  normalizeRelativePath,
+  stableStringify,
+  uniqSorted,
+  withSingleTrailingNewline,
+} from "../utils.js";
 import { PROVIDER_DEFAULTS } from "./constants.js";
 import { createProviderAdapter } from "./create-adapter.js";
 import { renderClaudeHookSettings, resolveHookTargetPath } from "./hooks.js";
+import { mergeMcpServers, resolveMcpTargetPath } from "./mcp.js";
 import { createJsonMcpRenderer } from "./renderers.js";
 import { parseClaudeSubagentOptions, renderSubagentMarkdown } from "./subagents.js";
 import type { ProviderDefinition, SkillFileIndex } from "./types.js";
@@ -17,28 +24,68 @@ export function buildClaudeAdapter(skillFilesByEntityId: SkillFileIndex): Provid
   const base = createProviderAdapter(CLAUDE_DEFINITION, skillFilesByEntityId);
   return {
     ...base,
-    async renderHooks(input, overrideByEntity) {
-      const enabledHooks = input.filter((entry) => overrideByEntity?.get(entry.id)?.enabled !== false);
-      if (enabledHooks.length === 0) {
+    async renderProviderState(input) {
+      const artifacts: Awaited<ReturnType<NonNullable<ProviderAdapter["renderProviderState"]>>> = [];
+      const enabledMcps = input.mcps.filter((entry) => input.mcpOverrideByEntity?.get(entry.id)?.enabled !== false);
+      const enabledHooks = input.hooks.filter((entry) => input.hookOverrideByEntity?.get(entry.id)?.enabled !== false);
+      const settingsPayload = input.settings?.payload;
+      if (enabledMcps.length === 0 && enabledHooks.length === 0 && !settingsPayload) {
         return [];
       }
 
-      const targetPath = resolveHookTargetPath(
-        "claude",
-        PROVIDER_DEFAULTS.claude.hookTarget,
-        enabledHooks.map((entry) => entry.id),
-        overrideByEntity,
-      );
-
-      return [
-        {
-          path: targetPath,
-          content: renderClaudeHookSettings(enabledHooks),
-          ownerEntityId: uniqSorted(enabledHooks.map((entry) => entry.id)).join(","),
+      if (enabledMcps.length > 0) {
+        const mcpTargetPath = resolveMcpTargetPath(
+          "claude",
+          PROVIDER_DEFAULTS.claude.mcpTarget,
+          enabledMcps,
+          input.mcpOverrideByEntity,
+        );
+        artifacts.push({
+          path: mcpTargetPath,
+          content: CLAUDE_DEFINITION.mcpRenderer.render(mergeMcpServers(enabledMcps)),
+          ownerEntityId: enabledMcps
+            .map((entry) => entry.id)
+            .sort()
+            .join(","),
           provider: "claude",
-          format: "json",
-        },
-      ];
+          format: CLAUDE_DEFINITION.mcpRenderer.format,
+        });
+      }
+
+      if (enabledHooks.length > 0 || settingsPayload) {
+        const settingsTargetPath =
+          enabledHooks.length === 0
+            ? normalizeRelativePath(PROVIDER_DEFAULTS.claude.hookTarget)
+            : resolveHookTargetPath(
+                "claude",
+                PROVIDER_DEFAULTS.claude.hookTarget,
+                enabledHooks.map((entry) => entry.id),
+                input.hookOverrideByEntity,
+              );
+
+        const hookPayload =
+          enabledHooks.length === 0
+            ? {}
+            : (JSON.parse(renderClaudeHookSettings(enabledHooks)) as Record<string, unknown>);
+        const mergedPayload = settingsPayload
+          ? deepMergeObjects(hookPayload, settingsPayload as Record<string, unknown>)
+          : hookPayload;
+
+        if (Object.keys(mergedPayload).length > 0) {
+          artifacts.push({
+            path: settingsTargetPath,
+            content: stableStringify(mergedPayload),
+            ownerEntityId: uniqSorted([
+              ...enabledHooks.map((entry) => entry.id),
+              ...(input.settings ? [input.settings.id] : []),
+            ]).join(","),
+            provider: "claude",
+            format: "json",
+          });
+        }
+      }
+
+      return artifacts;
     },
     async renderSubagent(input, override) {
       if (override?.enabled === false) {
