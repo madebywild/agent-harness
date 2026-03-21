@@ -10,11 +10,24 @@
       "registry": "local",
       "sourceSha256": "14993bda75b563d629358906b4cf280b736bda16c45004daf740ea71c536690c",
       "type": "prompt"
+    },
+    {
+      "id": "claude",
+      "overrideSha256ByProvider": {},
+      "registry": "local",
+      "sourceSha256": "dd0f39d2e3f139e178d9a5f27cd6f810fcd516799777d78f44d2102cfbfea8db",
+      "type": "settings"
     }
   ],
-  "generatedAt": "2026-03-21T11:23:34.769Z",
-  "manifestFingerprint": "9b5b552d9faaf87d0ce1b324b5584745cc8a779bdc723c7e60dd00bcfaf78cb6",
+  "generatedAt": "2026-03-21T14:35:13.254Z",
+  "manifestFingerprint": "cc6a00d18fed044da64c40e1ec1a0f360366bdbe38cee6b0a12fbe8a07b1b940",
   "outputs": [
+    {
+      "contentSha256": "dd0f39d2e3f139e178d9a5f27cd6f810fcd516799777d78f44d2102cfbfea8db",
+      "ownerEntityIds": ["claude"],
+      "path": ".claude/settings.json",
+      "provider": "claude"
+    },
     {
       "contentSha256": "14993bda75b563d629358906b4cf280b736bda16c45004daf740ea71c536690c",
       "ownerEntityIds": ["system"],

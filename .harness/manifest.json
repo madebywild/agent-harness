@@ -11,6 +11,13 @@
       "registry": "local",
       "sourcePath": ".harness/src/prompts/system.md",
       "type": "prompt"
+    },
+    {
+      "enabled": true,
+      "id": "claude",
+      "registry": "local",
+      "sourcePath": ".harness/src/settings/claude.json",
+      "type": "settings"
     }
   ],
   "providers": {
