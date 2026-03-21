@@ -349,6 +349,8 @@ export async function collectSourceCandidates(paths: HarnessPaths): Promise<stri
 
     if (/^\.harness\/src\/commands\/[^/]+\.overrides\.[^./]+\.ya?ml$/u.test(relative)) {
       candidates.push(relative);
+      // biome-ignore lint/complexity/noUselessContinue: defensive consistency with surrounding patterns
+      continue;
     }
   }
 
