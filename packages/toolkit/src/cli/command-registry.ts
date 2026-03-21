@@ -4,6 +4,7 @@ import type { CliResolvedContext, CommandId, CommandInput, CommandOutput } from 
 import { handleApply } from "./handlers/apply.js";
 import { handleDoctor } from "./handlers/doctor.js";
 import {
+  handleAddCommand,
   handleAddHook,
   handleAddMcp,
   handleAddPrompt,
@@ -421,6 +422,29 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
       handleAddHook(
         {
           hookId: readStringArg(input, "hookId") ?? "",
+          registry: readStringOption(input, "registry"),
+        },
+        context,
+      ),
+  },
+  {
+    id: "add.command",
+    path: ["add", "command"],
+    description: "Create a command entity",
+    args: [{ name: "commandId", required: true, description: "command id" }],
+    options: [
+      {
+        name: "registry",
+        description: "registry id (defaults to configured default/local)",
+        takesValue: true,
+      },
+    ],
+    mutatesWorkspace: true,
+    interactiveLabel: "Add command",
+    run: (input, context) =>
+      handleAddCommand(
+        {
+          commandId: readStringArg(input, "commandId") ?? "",
           registry: readStringOption(input, "registry"),
         },
         context,

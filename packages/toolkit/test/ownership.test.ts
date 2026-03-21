@@ -37,3 +37,42 @@ test("validate fails when unmanaged override sidecar exists", async () => {
     ),
   );
 });
+
+test("validate fails when unmanaged command source candidate exists", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addPrompt();
+
+  await fs.writeFile(path.join(cwd, ".harness/src/commands/manual.md"), "---\ndescription: x\n---\n\nBody\n", "utf8");
+
+  const validation = await engine.validate();
+  assert.equal(validation.valid, false);
+  assert.ok(
+    validation.diagnostics.some(
+      (diagnostic) =>
+        diagnostic.code === "SOURCE_UNREGISTERED" && diagnostic.path === ".harness/src/commands/manual.md",
+    ),
+  );
+});
+
+test("validate fails when unmanaged command override sidecar exists", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addPrompt();
+
+  await fs.writeFile(path.join(cwd, ".harness/src/commands/manual.overrides.codex.yaml"), "version: 1\n", "utf8");
+
+  const validation = await engine.validate();
+  assert.equal(validation.valid, false);
+  assert.ok(
+    validation.diagnostics.some(
+      (diagnostic) =>
+        diagnostic.code === "SOURCE_UNREGISTERED" &&
+        diagnostic.path === ".harness/src/commands/manual.overrides.codex.yaml",
+    ),
+  );
+});

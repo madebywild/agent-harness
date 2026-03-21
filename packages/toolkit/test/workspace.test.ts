@@ -15,16 +15,24 @@ test("init + add commands scaffold manifest and source files", async () => {
   await engine.addMcp("playwright");
   await engine.addSubagent("review-bot");
   await engine.addHook("guard");
+  await engine.addCommand("fix-issue");
 
   const manifestText = await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8");
   const manifest = JSON.parse(manifestText) as {
     entities: Array<{ id: string; type: string }>;
   };
 
-  assert.equal(manifest.entities.length, 5);
+  assert.equal(manifest.entities.length, 6);
   assert.deepEqual(
     manifest.entities.map((entity) => `${entity.type}:${entity.id}`),
-    ["prompt:system", "skill:reviewer", "mcp_config:playwright", "subagent:review-bot", "hook:guard"],
+    [
+      "prompt:system",
+      "skill:reviewer",
+      "mcp_config:playwright",
+      "subagent:review-bot",
+      "hook:guard",
+      "command:fix-issue",
+    ],
   );
 
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/prompts/system.md")));
@@ -32,6 +40,7 @@ test("init + add commands scaffold manifest and source files", async () => {
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/mcp/playwright.json")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/subagents/review-bot.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/hooks/guard.json")));
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/commands/fix-issue.md")));
 });
 
 test("init fails when .harness already exists without force", async () => {
@@ -41,6 +50,15 @@ test("init fails when .harness already exists without force", async () => {
   await engine.init();
 
   await assert.rejects(async () => engine.init(), /already exists/);
+});
+
+test("init scaffolds commands source directory", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/commands")));
 });
 
 test("init --force recreates .harness workspace", async () => {

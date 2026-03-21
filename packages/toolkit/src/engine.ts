@@ -4,6 +4,7 @@ import type { ProviderId } from "@madebywild/agent-harness-manifest";
 import { DEFAULT_REGISTRY_ID, LATEST_VERSION_BY_KIND } from "@madebywild/agent-harness-manifest";
 import chokidar from "chokidar";
 import {
+  addCommandEntity,
   addHookEntity,
   addMcpEntity,
   addPromptEntity,
@@ -89,6 +90,7 @@ export class HarnessEngine {
     await fs.mkdir(paths.mcpDir, { recursive: true });
     await fs.mkdir(paths.subagentDir, { recursive: true });
     await fs.mkdir(paths.hookDir, { recursive: true });
+    await fs.mkdir(paths.commandDir, { recursive: true });
 
     const manifest: AgentsManifest = {
       version: LATEST_VERSION_BY_KIND.manifest as AgentsManifest["version"],
@@ -242,6 +244,11 @@ export class HarnessEngine {
   async addHook(hookId: string, options?: { registry?: string }): Promise<void> {
     await this.assertWorkspaceVersionCurrent();
     await addHookEntity(this.cwd, hookId, options);
+  }
+
+  async addCommand(commandId: string, options?: { registry?: string }): Promise<void> {
+    await this.assertWorkspaceVersionCurrent();
+    await addCommandEntity(this.cwd, commandId, options);
   }
 
   async pullRegistry(options?: {

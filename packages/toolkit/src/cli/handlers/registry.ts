@@ -1,5 +1,6 @@
 import { HarnessEngine } from "../../engine.js";
 import { validateRegistryRepo } from "../../registry-validator.js";
+import type { CliEntityType } from "../../types.js";
 import { CLI_ENTITY_TYPES, isCliEntityType } from "../../types.js";
 import type { CliResolvedContext, RegistryOutput } from "../contracts.js";
 
@@ -127,9 +128,7 @@ export async function handleRegistryDefaultSet(
   };
 }
 
-function parseOptionalEntityType(
-  entityType: string | undefined,
-): undefined | "prompt" | "skill" | "mcp" | "subagent" | "hook" {
+function parseOptionalEntityType(entityType: string | undefined): CliEntityType | undefined {
   if (!entityType) {
     return undefined;
   }
