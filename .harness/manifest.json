@@ -14,6 +14,90 @@
     },
     {
       "enabled": true,
+      "id": "harness-command",
+      "overrides": {
+        "claude": ".harness/src/skills/harness-command/OVERRIDES.claude.yaml",
+        "codex": ".harness/src/skills/harness-command/OVERRIDES.codex.yaml",
+        "copilot": ".harness/src/skills/harness-command/OVERRIDES.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/skills/harness-command/SKILL.md",
+      "type": "skill"
+    },
+    {
+      "enabled": true,
+      "id": "harness-hook",
+      "overrides": {
+        "claude": ".harness/src/skills/harness-hook/OVERRIDES.claude.yaml",
+        "codex": ".harness/src/skills/harness-hook/OVERRIDES.codex.yaml",
+        "copilot": ".harness/src/skills/harness-hook/OVERRIDES.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/skills/harness-hook/SKILL.md",
+      "type": "skill"
+    },
+    {
+      "enabled": true,
+      "id": "harness-mcp",
+      "overrides": {
+        "claude": ".harness/src/skills/harness-mcp/OVERRIDES.claude.yaml",
+        "codex": ".harness/src/skills/harness-mcp/OVERRIDES.codex.yaml",
+        "copilot": ".harness/src/skills/harness-mcp/OVERRIDES.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/skills/harness-mcp/SKILL.md",
+      "type": "skill"
+    },
+    {
+      "enabled": true,
+      "id": "harness-prompt",
+      "overrides": {
+        "claude": ".harness/src/skills/harness-prompt/OVERRIDES.claude.yaml",
+        "codex": ".harness/src/skills/harness-prompt/OVERRIDES.codex.yaml",
+        "copilot": ".harness/src/skills/harness-prompt/OVERRIDES.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/skills/harness-prompt/SKILL.md",
+      "type": "skill"
+    },
+    {
+      "enabled": true,
+      "id": "harness-settings",
+      "overrides": {
+        "claude": ".harness/src/skills/harness-settings/OVERRIDES.claude.yaml",
+        "codex": ".harness/src/skills/harness-settings/OVERRIDES.codex.yaml",
+        "copilot": ".harness/src/skills/harness-settings/OVERRIDES.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/skills/harness-settings/SKILL.md",
+      "type": "skill"
+    },
+    {
+      "enabled": true,
+      "id": "harness-skill",
+      "overrides": {
+        "claude": ".harness/src/skills/harness-skill/OVERRIDES.claude.yaml",
+        "codex": ".harness/src/skills/harness-skill/OVERRIDES.codex.yaml",
+        "copilot": ".harness/src/skills/harness-skill/OVERRIDES.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/skills/harness-skill/SKILL.md",
+      "type": "skill"
+    },
+    {
+      "enabled": true,
+      "id": "harness-subagent",
+      "overrides": {
+        "claude": ".harness/src/skills/harness-subagent/OVERRIDES.claude.yaml",
+        "codex": ".harness/src/skills/harness-subagent/OVERRIDES.codex.yaml",
+        "copilot": ".harness/src/skills/harness-subagent/OVERRIDES.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/skills/harness-subagent/SKILL.md",
+      "type": "skill"
+    },
+    {
+      "enabled": true,
       "id": "claude",
       "registry": "local",
       "sourcePath": ".harness/src/settings/claude.json",
