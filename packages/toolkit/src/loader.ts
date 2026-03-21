@@ -16,6 +16,7 @@ import type { HarnessPaths } from "./paths.js";
 import {
   DEFAULT_PROMPT_SOURCE_PATH,
   defaultCommandOverridePath,
+  defaultCommandSourcePath,
   defaultHookOverridePath,
   defaultHookSourcePath,
   defaultMcpOverridePath,
@@ -299,7 +300,7 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
     }
 
     if (entity.type === "command") {
-      const expectedPath = `.harness/src/commands/${entity.id}.md`;
+      const expectedPath = defaultCommandSourcePath(entity.id);
       if (sourcePath !== expectedPath) {
         diagnostics.push({
           code: "COMMAND_SOURCE_INVALID",
