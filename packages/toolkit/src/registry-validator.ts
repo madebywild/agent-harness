@@ -289,6 +289,70 @@ export async function validateRegistryRepo(options: RegistryValidationOptions = 
     }
   }
 
+  const commandsDir = path.join(rootAbs, "commands");
+  let commandEntries: Dirent[] | null = null;
+  try {
+    commandEntries = await fs.readdir(commandsDir, { withFileTypes: true });
+  } catch (err) {
+    if (!isNotFoundError(err)) {
+      throw err;
+    }
+  }
+
+  if (commandEntries) {
+    for (const entry of commandEntries) {
+      const commandPath = path.join(commandsDir, entry.name);
+      const commandPathRel = toPosixRelative(commandPath, repoPath);
+
+      if (!entry.isFile() || !entry.name.endsWith(".md")) {
+        diagnostics.push(error("REGISTRY_COMMAND_INVALID", "commands/ may only contain .md files", commandPathRel));
+        continue;
+      }
+
+      const id = entry.name.slice(0, -".md".length);
+      if (!isValidEntityId(id)) {
+        diagnostics.push(error("REGISTRY_COMMAND_INVALID", `Invalid command id '${id}'`, commandPathRel));
+      }
+
+      const text = await readTextIfExists(commandPath);
+      if (text === null || text.trim().length === 0) {
+        diagnostics.push(error("REGISTRY_COMMAND_INVALID", `Command '${id}' must be non-empty`, commandPathRel));
+        continue;
+      }
+
+      try {
+        const parsed = matter(text);
+        const frontmatter = parsed.data;
+        if (!frontmatter || typeof frontmatter !== "object" || Array.isArray(frontmatter)) {
+          diagnostics.push(
+            error("REGISTRY_COMMAND_INVALID", `Command '${id}' frontmatter must be a YAML object`, commandPathRel),
+          );
+          continue;
+        }
+
+        const frontmatterMap = frontmatter as Record<string, unknown>;
+        const description = typeof frontmatterMap.description === "string" ? frontmatterMap.description.trim() : "";
+        if (!description) {
+          diagnostics.push(
+            error(
+              "REGISTRY_COMMAND_INVALID",
+              `Command '${id}' frontmatter requires non-empty 'description'`,
+              commandPathRel,
+            ),
+          );
+        }
+      } catch (err) {
+        diagnostics.push(
+          error(
+            "REGISTRY_COMMAND_INVALID",
+            `Command '${id}' frontmatter is invalid: ${err instanceof Error ? err.message : "unknown error"}`,
+            commandPathRel,
+          ),
+        );
+      }
+    }
+  }
+
   diagnostics.sort((left, right) => {
     const pathCompare = (left.path ?? "").localeCompare(right.path ?? "");
     if (pathCompare !== 0) {

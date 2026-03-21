@@ -785,6 +785,32 @@ test("validateRegistryRepo reports structural and metadata failures", async () =
       expectedCode: "REGISTRY_HOOK_INVALID",
       expectedPath: "hooks/guard.md",
     },
+    {
+      name: "command missing required description",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "commands/review.md": "---\n---\n\nReview changes.\n",
+      },
+      expectedCode: "REGISTRY_COMMAND_INVALID",
+      expectedPath: "commands/review.md",
+    },
+    {
+      name: "command rejects non-markdown files",
+      files: {
+        "harness-registry.json": JSON.stringify(
+          { version: 1, title: "Corp Registry", description: "Internal" },
+          null,
+          2,
+        ),
+        "commands/review.json": "{}\n",
+      },
+      expectedCode: "REGISTRY_COMMAND_INVALID",
+      expectedPath: "commands/review.json",
+    },
   ];
 
   for (const entry of cases) {
