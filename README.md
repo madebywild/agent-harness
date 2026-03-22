@@ -5,6 +5,7 @@
 [![Node Version](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org/)
 [![Package Manager](https://img.shields.io/badge/pnpm-10.2.0-blue)](https://pnpm.io/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/madebywild/agent-harness)
 
 Unified AI agent configuration management for Codex, Claude, and Copilot. The Shadcn for agent harnesses.
 

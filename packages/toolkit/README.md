@@ -1,5 +1,7 @@
 # @madebywild/agent-harness-framework
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/madebywild/agent-harness)
+
 CLI and engine for [Agent Harness](https://github.com/madebywild/agent-harness) — unified AI agent configuration management for Claude Code, GitHub Copilot, and OpenAI Codex. The Shadcn for agent harnesses.
 
 Agent Harness manages agent configurations (system prompts, skills, MCP servers, subagents, and lifecycle hooks) from a single source of truth in a `.harness/` directory and generates provider-specific outputs for each enabled provider. Like [shadcn/ui](https://ui.shadcn.com/) does for UI components, entities can be pulled from external git registries as full, editable source code — no opaque library imports, complete transparency and ownership.

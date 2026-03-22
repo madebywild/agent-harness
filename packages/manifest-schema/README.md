@@ -1,5 +1,7 @@
 # @madebywild/agent-harness-manifest
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/madebywild/agent-harness)
+
 Zod-based schema definitions and validation for [Agent Harness](https://github.com/madebywild/agent-harness) manifest files — unified AI agent configuration management and shareable agent harness registries for Claude Code, GitHub Copilot, and OpenAI Codex.
 
 This package provides the canonical TypeScript types and Zod schemas used by the Agent Harness framework to validate `.harness/` configuration documents (prompts, skills, MCP configs, subagents, and the manifest lock).
