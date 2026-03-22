@@ -4,6 +4,14 @@
   "version": "1.2.0",
   "license": "MIT",
   "description": "Agent Harness monorepo",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/madebywild/agent-harness.git"
+  },
+  "bugs": {
+    "url": "https://github.com/madebywild/agent-harness/issues"
+  },
+  "homepage": "https://github.com/madebywild/agent-harness#readme",
   "packageManager": "pnpm@10.2.0",
   "engines": {
     "node": ">=22"
