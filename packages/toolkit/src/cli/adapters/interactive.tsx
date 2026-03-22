@@ -1,4 +1,4 @@
-import { ConfirmInput, Select, Spinner, TextInput } from "@inkjs/ui";
+import { ConfirmInput, Spinner, TextInput } from "@inkjs/ui";
 import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { Box, render, Static, Text, useApp, useInput } from "ink";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -7,6 +7,7 @@ import { CLI_ENTITY_TYPES } from "../../types.js";
 import { getCommandDefinition } from "../command-registry.js";
 import type { CommandId, CommandInput, CommandOutput } from "../contracts.js";
 import { renderTextOutput } from "../renderers/text.js";
+import { AutocompleteSelect } from "./autocomplete-select.js";
 
 export interface InteractiveExecutionApi {
   execute: (input: CommandInput) => Promise<CommandOutput>;
@@ -342,7 +343,8 @@ function App({ api, presets, onExit }: AppProps) {
     if (step.type === "select-command") {
       return (
         <Box marginTop={1}>
-          <Select
+          <AutocompleteSelect
+            label="Command"
             options={commandOptions}
             onChange={(value) => {
               if (value === "exit") {
@@ -425,7 +427,12 @@ function App({ api, presets, onExit }: AppProps) {
       if (prompt.type === "select") {
         return (
           <Box marginTop={1}>
-            <Select options={prompt.options} onChange={(value) => advanceWith(value)} />
+            <AutocompleteSelect
+              label={prompt.message}
+              options={prompt.options}
+              onChange={(value) => advanceWith(value)}
+              onCancel={cancelPrompt}
+            />
           </Box>
         );
       }

@@ -15,6 +15,7 @@ Implements the layered CLI runtime with shared command execution for both non-in
 - `cli/renderers/json.ts`: stable JSON envelope rendering (`schemaVersion: "1"`).
 - `cli/adapters/commander.ts`: Commander parser adapter.
 - `cli/adapters/interactive.tsx`: prompt wizard adapter (Ink + `@inkjs/ui` React components).
+- `cli/adapters/autocomplete-select.tsx`: type-to-filter select component used by the interactive adapter for all selection prompts.
 - `cli/utils/runtime.ts`: TTY/CI/env mode helpers and context resolution.
 
 ## Runtime behavior
