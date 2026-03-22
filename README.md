@@ -6,11 +6,15 @@
 [![Package Manager](https://img.shields.io/badge/pnpm-10.2.0-blue)](https://pnpm.io/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Unified AI agent configuration management for Codex, Claude, and Copilot.
+Unified AI agent configuration management for Codex, Claude, and Copilot. The Shadcn for agent harnesses.
 
 Agent Harness is a TypeScript CLI tool and library that manages AI agent configurations (prompts, skills, MCP server configs, and subagents) from a single source of truth, generating provider-specific outputs for OpenAI Codex, Anthropic Claude Code, and GitHub Copilot.
 
+Like [shadcn/ui](https://ui.shadcn.com/) does for UI components, Agent Harness gives you full ownership of your agent configuration. Pull shared entities from external git registries into your project as full source code — not as opaque library imports. You can inspect, modify, and version every file. The CLI manages the plumbing; you own the content.
+
 ## Features
+
+### Unified agent config
 
 - Single source of truth for all agent configurations in the `.harness/` directory
 - Multi-provider support with simultaneous output generation for Codex, Claude, and Copilot
@@ -19,13 +23,19 @@ Agent Harness is a TypeScript CLI tool and library that manages AI agent configu
 - Centralized MCP server configuration with merged outputs
 - Subagent management with provider-specific rendering
 - Lifecycle hook management (webhooks, scripts, notifications)
-- Preset-based workspace bootstrapping with bundled, local, and registry-backed presets
-- Per-entity registry provenance with built-in `local` and Git-backed external registries
-- Explicit `registry pull` workflow for refreshing imported entities
 - Environment variable substitution via `{{PLACEHOLDER}}` syntax with `.env` file support
 - Watch mode for automatic regeneration on file changes
 - Strict file ownership with manifest-based integrity enforcement
 - Explicit schema version management with `doctor` + `migrate`
+
+### Shareable registries (the Shadcn model)
+
+- Pull entities from external git registries directly into your project as full, editable source code
+- No hidden abstractions — every pulled file lands in `.harness/src/` where you can inspect, modify, and commit it
+- Per-entity registry provenance tracks where each entity originated
+- Explicit `registry pull` workflow for refreshing imported entities on your terms
+- Preset-based workspace bootstrapping with bundled, local, and registry-backed presets
+- Teams can maintain a shared registry of battle-tested prompts, skills, hooks, and MCP configs that any project can adopt
 
 ## Quick Start
 

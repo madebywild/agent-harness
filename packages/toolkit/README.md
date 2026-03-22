@@ -1,8 +1,8 @@
 # @madebywild/agent-harness-framework
 
-CLI and engine for [Agent Harness](https://github.com/madebywild/agent-harness) — unified AI agent configuration management for Claude Code, GitHub Copilot, and OpenAI Codex.
+CLI and engine for [Agent Harness](https://github.com/madebywild/agent-harness) — unified AI agent configuration management for Claude Code, GitHub Copilot, and OpenAI Codex. The Shadcn for agent harnesses.
 
-Agent Harness manages agent configurations (system prompts, skills, MCP servers, subagents, and lifecycle hooks) from a single source of truth in a `.harness/` directory and generates provider-specific outputs for each enabled provider.
+Agent Harness manages agent configurations (system prompts, skills, MCP servers, subagents, and lifecycle hooks) from a single source of truth in a `.harness/` directory and generates provider-specific outputs for each enabled provider. Like [shadcn/ui](https://ui.shadcn.com/) does for UI components, entities can be pulled from external git registries as full, editable source code — no opaque library imports, complete transparency and ownership.
 
 ## Installation
 
@@ -91,7 +91,7 @@ npx harness provider disable <provider>    # Disable a provider
 
 ### Registry management
 
-Registries are shared collections of entities that can be imported into any workspace via git.
+Registries are shared collections of entities that can be pulled into any workspace via git — like Shadcn, entities are copied as full source code into your project, not installed as opaque dependencies.
 
 ```bash
 npx harness registry list                                   # List configured registries
