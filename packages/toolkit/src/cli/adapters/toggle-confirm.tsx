@@ -4,21 +4,21 @@ import { useState } from "react";
 export interface ToggleConfirmProps {
   message: string;
   defaultValue?: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
+  onSubmit: (value: boolean) => void;
+  onEscape?: () => void;
 }
 
-export function ToggleConfirm({ message, defaultValue = false, onConfirm, onCancel }: ToggleConfirmProps) {
+export function ToggleConfirm({ message, defaultValue = false, onSubmit, onEscape }: ToggleConfirmProps) {
   const [value, setValue] = useState(defaultValue);
 
   useInput((_input, key) => {
     if (key.leftArrow || key.rightArrow || key.tab) {
       setValue((v) => !v);
     } else if (key.return) {
-      if (value) onConfirm();
-      else onCancel();
+      onSubmit(value);
     } else if (key.escape) {
-      onCancel();
+      if (onEscape) onEscape();
+      else onSubmit(false);
     }
   });
 

@@ -50,6 +50,14 @@ const INTERACTIVE_COMMAND_IDS: readonly CommandId[] = [
   "apply",
 ];
 
+const COMMAND_OPTIONS = [
+  ...INTERACTIVE_COMMAND_IDS.map((id) => ({
+    label: getCommandDefinition(id).interactiveLabel ?? getCommandDefinition(id).description,
+    value: id,
+  })),
+  { label: "Exit", value: "exit" },
+];
+
 // ---------------------------------------------------------------------------
 // Wizard step types — a simple state machine
 // ---------------------------------------------------------------------------
@@ -300,11 +308,13 @@ interface AppProps {
 function App({ api, presets, onExit }: AppProps) {
   const { exit } = useApp();
   const [step, setStep] = useState<WizardStep>({ type: "select-command" });
-  const [pastLines, setPastLines] = useState<string[]>(["Harness interactive mode"]);
+  const [pastLines, setPastLines] = useState([{ id: 0, text: "Harness interactive mode" }]);
+  const nextLineId = useRef(1);
   const [exitCode, setExitCode] = useState(0);
 
-  const addPastLine = useCallback((line: string) => {
-    setPastLines((prev) => [...prev, line]);
+  const addPastLine = useCallback((text: string) => {
+    const id = nextLineId.current++;
+    setPastLines((prev) => [...prev, { id, text }]);
   }, []);
 
   // FIX 2: Transition out of prompt-input when all prompts are answered via useEffect,
@@ -329,21 +339,13 @@ function App({ api, presets, onExit }: AppProps) {
     }
   }, [step, exitCode, exit, onExit]);
 
-  const commandOptions = [
-    ...INTERACTIVE_COMMAND_IDS.map((id) => ({
-      label: getCommandDefinition(id).interactiveLabel ?? getCommandDefinition(id).description,
-      value: id,
-    })),
-    { label: "Exit", value: "exit" },
-  ];
-
   const renderCurrentStep = () => {
     if (step.type === "select-command") {
       return (
         <Box marginTop={1}>
           <AutocompleteSelect
             label="Command"
-            options={commandOptions}
+            options={COMMAND_OPTIONS}
             onChange={(value) => {
               if (value === "exit") {
                 addPastLine("Interactive session ended.");
@@ -414,8 +416,8 @@ function App({ api, presets, onExit }: AppProps) {
           <ToggleConfirm
             message={prompt.message}
             defaultValue={prompt.initial}
-            onConfirm={() => advanceWith(true)}
-            onCancel={() => advanceWith(false)}
+            onSubmit={advanceWith}
+            onEscape={cancelPrompt}
           />
         );
       }
@@ -441,10 +443,13 @@ function App({ api, presets, onExit }: AppProps) {
         <ToggleConfirm
           message={`Run '${label}' now?`}
           defaultValue
-          onConfirm={() => setStep({ type: "running", commandId, input })}
-          onCancel={() => {
-            addPastLine("Cancelled command execution.");
-            setStep({ type: "select-command" });
+          onSubmit={(confirmed) => {
+            if (confirmed) {
+              setStep({ type: "running", commandId, input });
+            } else {
+              addPastLine("Cancelled command execution.");
+              setStep({ type: "select-command" });
+            }
           }}
         />
       );
@@ -490,7 +495,7 @@ function App({ api, presets, onExit }: AppProps) {
   // Step-specific content renders below it.
   return (
     <Box flexDirection="column">
-      <Static items={pastLines}>{(line, i) => <Text key={i}>{line}</Text>}</Static>
+      <Static items={pastLines}>{(line) => <Text key={line.id}>{line.text}</Text>}</Static>
       {renderCurrentStep()}
     </Box>
   );
@@ -508,22 +513,29 @@ interface TextPromptProps {
 }
 
 function TextPrompt({ message, required, onSubmit, onCancel }: TextPromptProps) {
+  const [error, setError] = useState(false);
+
   useInput((_input, key) => {
-    if (key.escape) {
-      onCancel();
-    }
+    if (key.escape) onCancel();
+    else if (error && !key.return) setError(false);
   });
 
   return (
-    <Box marginTop={1}>
-      <Text dimColor>{message}: </Text>
-      <TextInput
-        placeholder={required ? "" : "optional"}
-        onSubmit={(value) => {
-          if (required && value.trim().length === 0) return;
-          onSubmit(value);
-        }}
-      />
+    <Box flexDirection="column" marginTop={1}>
+      <Box>
+        <Text dimColor>{message}: </Text>
+        <TextInput
+          placeholder={required ? "" : "optional"}
+          onSubmit={(value) => {
+            if (required && value.trim().length === 0) {
+              setError(true);
+              return;
+            }
+            onSubmit(value);
+          }}
+        />
+      </Box>
+      {error && <Text color="red">{"  This value is required"}</Text>}
     </Box>
   );
 }
@@ -572,21 +584,19 @@ interface RunningStepProps {
 }
 
 function RunningStep({ label, input, api, onDone, onError }: RunningStepProps) {
-  const firedRef = useRef(false);
+  const callbacks = useRef({ onDone, onError });
+  callbacks.current = { onDone, onError };
 
   useEffect(() => {
-    if (firedRef.current) return;
-    firedRef.current = true;
-
     api
       .execute(input)
       .then((output) => {
-        onDone(output, output.exitCode);
+        callbacks.current.onDone(output, output.exitCode);
       })
       .catch((err: unknown) => {
-        onError(err instanceof Error ? err.message : String(err));
+        callbacks.current.onError(err instanceof Error ? err.message : String(err));
       });
-  }, [api, input, onDone, onError]);
+  }, [api, input]);
 
   return (
     <Box marginTop={1}>
