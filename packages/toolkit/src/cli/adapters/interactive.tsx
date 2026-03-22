@@ -1,15 +1,15 @@
 import { ConfirmInput, Select, Spinner, TextInput } from "@inkjs/ui";
 import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { Box, render, Static, Text, useApp, useInput } from "ink";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listBuiltinPresets, summarizePreset } from "../../presets.js";
 import { CLI_ENTITY_TYPES } from "../../types.js";
 import { getCommandDefinition } from "../command-registry.js";
-import type { CliResolvedContext, CommandId, CommandInput, CommandOutput } from "../contracts.js";
+import type { CommandId, CommandInput, CommandOutput } from "../contracts.js";
+import { renderTextOutput } from "../renderers/text.js";
 
 export interface InteractiveExecutionApi {
   execute: (input: CommandInput) => Promise<CommandOutput>;
-  renderOutput: (output: CommandOutput, durationMs: number, json: boolean) => void;
 }
 
 interface InteractiveRunResult {
@@ -289,13 +289,12 @@ function buildCommandInput(commandId: CommandId, values: CollectedValues): Comma
 // ---------------------------------------------------------------------------
 
 interface AppProps {
-  context: CliResolvedContext;
   api: InteractiveExecutionApi;
   presets: Array<{ id: string; name: string }>;
   onExit: (exitCode: number) => void;
 }
 
-function App({ context, api, presets, onExit }: AppProps) {
+function App({ api, presets, onExit }: AppProps) {
   const { exit } = useApp();
   const [step, setStep] = useState<WizardStep>({ type: "select-command" });
   const [pastLines, setPastLines] = useState<string[]>(["Harness interactive mode"]);
@@ -305,10 +304,24 @@ function App({ context, api, presets, onExit }: AppProps) {
     setPastLines((prev) => [...prev, line]);
   }, []);
 
-  const doExit = useCallback((code: number) => {
-    setExitCode(code);
-    setStep({ type: "done" });
+  const addPastLines = useCallback((lines: string[]) => {
+    setPastLines((prev) => [...prev, ...lines]);
   }, []);
+
+  // FIX 2: Transition out of prompt-input when all prompts are answered via useEffect,
+  // not during render. Renders must be pure — no state updates allowed.
+  useEffect(() => {
+    if (step.type !== "prompt-input") return;
+    const { commandId, collector } = step;
+    if (collector.prompts[collector.index]) return;
+
+    const input = buildCommandInput(commandId, collector.values);
+    setStep(
+      getCommandDefinition(commandId).mutatesWorkspace
+        ? { type: "confirm-run", commandId, input }
+        : { type: "running", commandId, input },
+    );
+  }, [step]);
 
   useEffect(() => {
     if (step.type === "done") {
@@ -325,17 +338,16 @@ function App({ context, api, presets, onExit }: AppProps) {
     { label: "Exit", value: "exit" },
   ];
 
-  if (step.type === "select-command") {
-    return (
-      <Box flexDirection="column">
-        <Static items={pastLines}>{(line, i) => <Text key={i}>{line}</Text>}</Static>
+  const renderCurrentStep = () => {
+    if (step.type === "select-command") {
+      return (
         <Box marginTop={1}>
           <Select
             options={commandOptions}
             onChange={(value) => {
               if (value === "exit") {
                 addPastLine("Interactive session ended.");
-                doExit(exitCode);
+                setStep({ type: "done" });
                 return;
               }
               const commandId = value as CommandId;
@@ -344,72 +356,61 @@ function App({ context, api, presets, onExit }: AppProps) {
             }}
           />
         </Box>
-      </Box>
-    );
-  }
-
-  if (step.type === "prompt-input") {
-    const { commandId, collector } = step;
-    const prompt = collector.prompts[collector.index];
-
-    if (!prompt) {
-      const input = buildCommandInput(commandId, collector.values);
-      if (getCommandDefinition(commandId).mutatesWorkspace) {
-        setStep({ type: "confirm-run", commandId, input });
-      } else {
-        setStep({ type: "running", commandId, input });
-      }
-      return null;
-    }
-
-    const advanceWith = (value: string | boolean) => {
-      const newValues = { ...collector.values, [prompt.id]: value };
-      let newPrompts = collector.prompts;
-
-      // Dynamically inject delegate-provider prompt when "delegate" preset is selected
-      if (commandId === "init" && prompt.id === "preset" && value === "delegate") {
-        const delegatePrompt: CollectorPrompt = {
-          id: "delegate",
-          type: "select",
-          message: "Select the provider CLI to delegate prompt authoring to",
-          options: providerIdSchema.options.map((p) => ({ label: p, value: p })),
-        };
-        newPrompts = [
-          ...collector.prompts.slice(0, collector.index + 1),
-          delegatePrompt,
-          ...collector.prompts.slice(collector.index + 1),
-        ];
-      }
-
-      setStep({
-        type: "prompt-input",
-        commandId,
-        collector: { prompts: newPrompts, values: newValues, index: collector.index + 1 },
-      });
-    };
-
-    const cancelPrompt = () => {
-      addPastLine("Cancelled command input.");
-      setStep({ type: "select-command" });
-    };
-
-    if (prompt.type === "text") {
-      return (
-        <TextPrompt
-          key={`${commandId}-${collector.index}`}
-          message={prompt.message}
-          required={prompt.required}
-          pastLines={pastLines}
-          onSubmit={advanceWith}
-          onCancel={cancelPrompt}
-        />
       );
     }
 
-    if (prompt.type === "confirm") {
-      return (
-        <Box flexDirection="column">
-          <Static items={pastLines}>{(line, i) => <Text key={i}>{line}</Text>}</Static>
+    if (step.type === "prompt-input") {
+      const { commandId, collector } = step;
+      const prompt = collector.prompts[collector.index];
+
+      // Effect above handles the transition when prompts are exhausted
+      if (!prompt) return null;
+
+      const advanceWith = (value: string | boolean) => {
+        const newValues = { ...collector.values, [prompt.id]: value };
+        let newPrompts = collector.prompts;
+
+        // Dynamically inject delegate-provider prompt when "delegate" preset is selected
+        if (commandId === "init" && prompt.id === "preset" && value === "delegate") {
+          const delegatePrompt: CollectorPrompt = {
+            id: "delegate",
+            type: "select",
+            message: "Select the provider CLI to delegate prompt authoring to",
+            options: providerIdSchema.options.map((p) => ({ label: p, value: p })),
+          };
+          newPrompts = [
+            ...collector.prompts.slice(0, collector.index + 1),
+            delegatePrompt,
+            ...collector.prompts.slice(collector.index + 1),
+          ];
+        }
+
+        setStep({
+          type: "prompt-input",
+          commandId,
+          collector: { prompts: newPrompts, values: newValues, index: collector.index + 1 },
+        });
+      };
+
+      const cancelPrompt = () => {
+        addPastLine("Cancelled command input.");
+        setStep({ type: "select-command" });
+      };
+
+      if (prompt.type === "text") {
+        return (
+          <TextPrompt
+            key={`${commandId}-${collector.index}`}
+            message={prompt.message}
+            required={prompt.required}
+            onSubmit={advanceWith}
+            onCancel={cancelPrompt}
+          />
+        );
+      }
+
+      if (prompt.type === "confirm") {
+        return (
           <Box marginTop={1}>
             <Text dimColor>{prompt.message} </Text>
             <ConfirmInput
@@ -418,28 +419,22 @@ function App({ context, api, presets, onExit }: AppProps) {
               onCancel={() => advanceWith(false)}
             />
           </Box>
-        </Box>
-      );
-    }
+        );
+      }
 
-    if (prompt.type === "select") {
-      return (
-        <Box flexDirection="column">
-          <Static items={pastLines}>{(line, i) => <Text key={i}>{line}</Text>}</Static>
+      if (prompt.type === "select") {
+        return (
           <Box marginTop={1}>
             <Select options={prompt.options} onChange={(value) => advanceWith(value)} />
           </Box>
-        </Box>
-      );
+        );
+      }
     }
-  }
 
-  if (step.type === "confirm-run") {
-    const { commandId, input } = step;
-    const label = getCommandDefinition(commandId).interactiveLabel ?? commandId;
-    return (
-      <Box flexDirection="column">
-        <Static items={pastLines}>{(line, i) => <Text key={i}>{line}</Text>}</Static>
+    if (step.type === "confirm-run") {
+      const { commandId, input } = step;
+      const label = getCommandDefinition(commandId).interactiveLabel ?? commandId;
+      return (
         <Box marginTop={1}>
           <Text dimColor>{`Run '${label}' now? `}</Text>
           <ConfirmInput
@@ -451,42 +446,45 @@ function App({ context, api, presets, onExit }: AppProps) {
             }}
           />
         </Box>
-      </Box>
-    );
-  }
+      );
+    }
 
-  if (step.type === "running") {
-    const { commandId, input } = step;
-    const label = getCommandDefinition(commandId).interactiveLabel ?? commandId;
-    return (
-      <Box flexDirection="column">
-        <Static items={pastLines}>{(line, i) => <Text key={i}>{line}</Text>}</Static>
+    if (step.type === "running") {
+      const { commandId, input } = step;
+      const label = getCommandDefinition(commandId).interactiveLabel ?? commandId;
+      return (
         <RunningStep
           label={label}
           input={input}
-          context={context}
           api={api}
-          onDone={(output, durationMs, code) => {
+          onDone={(output, code) => {
             if (code !== 0) setExitCode(code);
-            api.renderOutput(output, durationMs, false);
-            addPastLine(`Done: ${label}`);
+            // FIX 3: Render command output into pastLines through Ink's Static,
+            // not directly to stdout which would bypass Ink's terminal management.
+            const lines: string[] = [];
+            renderTextOutput(output, (line) => lines.push(line));
+            addPastLines([...lines, `Done: ${label}`]);
             setStep({ type: "select-command" });
           }}
           onError={(message) => {
-            context.stderr(`Error: ${message}`);
-            addPastLine(`Failed: ${label}`);
+            // FIX 3 (cont): Route errors through pastLines, not context.stderr.
+            addPastLines([`Error: ${message}`, `Failed: ${label}`]);
             setExitCode(1);
             setStep({ type: "select-command" });
           }}
         />
-      </Box>
-    );
-  }
+      );
+    }
 
-  // done — render past lines one last time
+    return null;
+  };
+
+  // FIX 1: A single Static at the root — never unmounts, never re-renders old items.
+  // Step-specific content renders below it.
   return (
     <Box flexDirection="column">
       <Static items={pastLines}>{(line, i) => <Text key={i}>{line}</Text>}</Static>
+      {renderCurrentStep()}
     </Box>
   );
 }
@@ -498,12 +496,11 @@ function App({ context, api, presets, onExit }: AppProps) {
 interface TextPromptProps {
   message: string;
   required: boolean;
-  pastLines: string[];
   onSubmit: (value: string) => void;
   onCancel: () => void;
 }
 
-function TextPrompt({ message, required, pastLines, onSubmit, onCancel }: TextPromptProps) {
+function TextPrompt({ message, required, onSubmit, onCancel }: TextPromptProps) {
   useInput((_input, key) => {
     if (key.escape) {
       onCancel();
@@ -511,18 +508,15 @@ function TextPrompt({ message, required, pastLines, onSubmit, onCancel }: TextPr
   });
 
   return (
-    <Box flexDirection="column">
-      <Static items={pastLines}>{(line, i) => <Text key={i}>{line}</Text>}</Static>
-      <Box marginTop={1}>
-        <Text dimColor>{message}: </Text>
-        <TextInput
-          placeholder={required ? "" : "optional"}
-          onSubmit={(value) => {
-            if (required && value.trim().length === 0) return;
-            onSubmit(value);
-          }}
-        />
-      </Box>
+    <Box marginTop={1}>
+      <Text dimColor>{message}: </Text>
+      <TextInput
+        placeholder={required ? "" : "optional"}
+        onSubmit={(value) => {
+          if (required && value.trim().length === 0) return;
+          onSubmit(value);
+        }}
+      />
     </Box>
   );
 }
@@ -534,29 +528,27 @@ function TextPrompt({ message, required, pastLines, onSubmit, onCancel }: TextPr
 interface RunningStepProps {
   label: string;
   input: CommandInput;
-  context: CliResolvedContext;
   api: InteractiveExecutionApi;
-  onDone: (output: CommandOutput, durationMs: number, exitCode: number) => void;
+  onDone: (output: CommandOutput, exitCode: number) => void;
   onError: (message: string) => void;
 }
 
-function RunningStep({ label, input, context, api, onDone, onError }: RunningStepProps) {
-  const [fired, setFired] = useState(false);
+function RunningStep({ label, input, api, onDone, onError }: RunningStepProps) {
+  const firedRef = useRef(false);
 
   useEffect(() => {
-    if (fired) return;
-    setFired(true);
+    if (firedRef.current) return;
+    firedRef.current = true;
 
-    const startedAt = context.now();
     api
       .execute(input)
       .then((output) => {
-        onDone(output, context.now() - startedAt, output.exitCode !== 0 ? output.exitCode : 0);
+        onDone(output, output.exitCode);
       })
       .catch((err: unknown) => {
         onError(err instanceof Error ? err.message : String(err));
       });
-  }, [fired, context, api, input, onDone, onError]);
+  }, [api, input, onDone, onError]);
 
   return (
     <Box marginTop={1}>
@@ -569,17 +561,13 @@ function RunningStep({ label, input, context, api, onDone, onError }: RunningSte
 // Exported entry point
 // ---------------------------------------------------------------------------
 
-export async function runInteractiveAdapter(
-  context: CliResolvedContext,
-  api: InteractiveExecutionApi,
-): Promise<InteractiveRunResult> {
+export async function runInteractiveAdapter(api: InteractiveExecutionApi): Promise<InteractiveRunResult> {
   const presets = (await listBuiltinPresets()).map((p) => summarizePreset(p));
 
   let resolvedExitCode = 0;
 
   const { waitUntilExit } = render(
     <App
-      context={context}
       api={api}
       presets={presets}
       onExit={(code) => {
