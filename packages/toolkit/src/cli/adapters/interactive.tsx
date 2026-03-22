@@ -58,6 +58,7 @@ type WizardStep =
   | { type: "prompt-input"; commandId: CommandId; collector: InputCollector }
   | { type: "confirm-run"; commandId: CommandId; input: CommandInput }
   | { type: "running"; commandId: CommandId; input: CommandInput }
+  | { type: "show-output"; label: string; lines: string[]; isError: boolean }
   | { type: "done" };
 
 // ---------------------------------------------------------------------------
@@ -305,10 +306,6 @@ function App({ api, presets, onExit }: AppProps) {
     setPastLines((prev) => [...prev, line]);
   }, []);
 
-  const addPastLines = useCallback((lines: string[]) => {
-    setPastLines((prev) => [...prev, ...lines]);
-  }, []);
-
   // FIX 2: Transition out of prompt-input when all prompts are answered via useEffect,
   // not during render. Renders must be pure — no state updates allowed.
   useEffect(() => {
@@ -456,6 +453,20 @@ function App({ api, presets, onExit }: AppProps) {
       );
     }
 
+    if (step.type === "show-output") {
+      return (
+        <OutputStep
+          label={step.label}
+          lines={step.lines}
+          isError={step.isError}
+          onDismiss={() => {
+            addPastLine(`${step.isError ? "Failed" : "Done"}: ${step.label}`);
+            setStep({ type: "select-command" });
+          }}
+        />
+      );
+    }
+
     if (step.type === "running") {
       const { commandId, input } = step;
       const label = getCommandDefinition(commandId).interactiveLabel ?? commandId;
@@ -466,18 +477,13 @@ function App({ api, presets, onExit }: AppProps) {
           api={api}
           onDone={(output, code) => {
             if (code !== 0) setExitCode(code);
-            // FIX 3: Render command output into pastLines through Ink's Static,
-            // not directly to stdout which would bypass Ink's terminal management.
             const lines: string[] = [];
             renderTextOutput(output, (line) => lines.push(line));
-            addPastLines([...lines, `Done: ${label}`]);
-            setStep({ type: "select-command" });
+            setStep({ type: "show-output", label, lines, isError: code !== 0 });
           }}
           onError={(message) => {
-            // FIX 3 (cont): Route errors through pastLines, not context.stderr.
-            addPastLines([`Error: ${message}`, `Failed: ${label}`]);
             setExitCode(1);
-            setStep({ type: "select-command" });
+            setStep({ type: "show-output", label, lines: [`Error: ${message}`], isError: true });
           }}
         />
       );
@@ -524,6 +530,37 @@ function TextPrompt({ message, required, onSubmit, onCancel }: TextPromptProps) 
           onSubmit(value);
         }}
       />
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// OutputStep — shows command output inline, dismissed with Enter
+// ---------------------------------------------------------------------------
+
+interface OutputStepProps {
+  label: string;
+  lines: string[];
+  isError: boolean;
+  onDismiss: () => void;
+}
+
+function OutputStep({ label, lines, isError, onDismiss }: OutputStepProps) {
+  useInput((_input, key) => {
+    if (key.return) onDismiss();
+  });
+
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text bold color={isError ? "red" : "green"}>
+        {isError ? `✗ ${label}` : `✓ ${label}`}
+      </Text>
+      <Box flexDirection="column" marginLeft={2} marginTop={1}>
+        <Text>{lines.join("\n")}</Text>
+      </Box>
+      <Box marginTop={1}>
+        <Text dimColor>Press Enter to continue...</Text>
+      </Box>
     </Box>
   );
 }
