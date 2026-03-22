@@ -13,17 +13,17 @@ Implements the delegated prompt authoring flow: after `harness init --delegate <
 
 ## Provider CLI invocation
 
-Each provider CLI has a different non-interactive syntax:
+Each provider CLI needs both a non-interactive flag and a permission-bypass flag. Without the permission flag, print/exec modes still enforce tool-use permissions — the agent sees what to do but cannot actually write files or run commands.
 
 | Provider | Binary | Args | Documentation |
 | --- | --- | --- | --- |
-| `claude` | `claude` | `-p <task>` | Print mode — processes prompt and exits. |
-| `codex` | `codex` | `exec <task>` | Non-interactive exec subcommand. |
-| `copilot` | `copilot` | `-p <task>` | Prompt mode — processes prompt and exits. |
+| `claude` | `claude` | `-p --dangerously-skip-permissions <task>` | Print mode with full tool access. |
+| `codex` | `codex` | `exec --full-auto <task>` | Non-interactive exec with auto-approval. |
+| `copilot` | `copilot` | `-p <task>` | Prompt mode (no known permission flag yet). |
 
 These are encoded in `DELEGATED_INIT_COMMANDS` — a record mapping `ProviderId` to `{ binary, buildArgs(task) }`.
 
-**Important**: Without these flags, `claude "task"` and `codex "task"` launch interactive TUI sessions (not non-interactive), and `copilot "task"` does not work at all (copilot requires `-p`).
+**Important**: Without `-p`/`exec`, `claude "task"` and `codex "task"` launch interactive TUI sessions, and `copilot "task"` does not work at all. Without the permission flags, the agent prints a plan but cannot execute it.
 
 ## Guard rails
 

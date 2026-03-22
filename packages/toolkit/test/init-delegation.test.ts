@@ -41,7 +41,7 @@ test("launchDelegatedInit uses the selected provider CLI with the shared bootstr
   assert.equal(calls.length, 1);
   assert.equal(calls[0]?.command, "codex");
   assert.equal(calls[0]?.cwd, "/tmp/project");
-  assert.deepEqual(calls[0]?.args, ["exec", buildDelegatedInitTask()]);
+  assert.deepEqual(calls[0]?.args, ["exec", "--full-auto", buildDelegatedInitTask()]);
 });
 
 test("handleInit auto-applies the delegate preset and launches the selected provider", async () => {

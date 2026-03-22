@@ -6,13 +6,17 @@ export const DELEGATED_INIT_PRESET_ID = "delegate";
 /**
  * Provider-specific CLI invocation details.
  *
- * - claude: `claude -p <task>` runs non-interactively (print mode).
- * - codex:  `codex exec <task>` runs non-interactively.
- * - copilot: `copilot -p <task>` runs non-interactively (prompt mode).
+ * Each provider needs both a non-interactive flag AND a permission-bypass flag,
+ * because print/exec modes still enforce tool-use permissions by default — the
+ * agent sees what to do but cannot actually write files or run commands.
+ *
+ * - claude: `claude -p --dangerously-skip-permissions <task>`
+ * - codex:  `codex exec --full-auto <task>`
+ * - copilot: `copilot -p <task>` (no known permission flag yet)
  */
 const DELEGATED_INIT_COMMANDS: Record<ProviderId, { binary: string; buildArgs: (task: string) => string[] }> = {
-  claude: { binary: "claude", buildArgs: (task) => ["-p", task] },
-  codex: { binary: "codex", buildArgs: (task) => ["exec", task] },
+  claude: { binary: "claude", buildArgs: (task) => ["-p", "--dangerously-skip-permissions", task] },
+  codex: { binary: "codex", buildArgs: (task) => ["exec", "--full-auto", task] },
   copilot: { binary: "copilot", buildArgs: (task) => ["-p", task] },
 };
 
