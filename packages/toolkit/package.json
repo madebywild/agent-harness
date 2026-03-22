@@ -36,17 +36,19 @@
     "access": "public"
   },
   "dependencies": {
-    "@clack/prompts": "^1.1.0",
     "@iarna/toml": "^2.2.5",
+    "@inkjs/ui": "^2.0.0",
     "@madebywild/agent-harness-manifest": "workspace:*",
     "chokidar": "^5.0.0",
     "commander": "^14.0.3",
     "gray-matter": "^4.0.3",
-    "ora": "^9.3.0",
+    "ink": "^6.0.0",
+    "react": "^19.0.0",
     "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
+    "@types/react": "^19.0.0",
     "testcontainers": "^11.13.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
@@ -63,6 +65,7 @@
     "check:write": "biome check --write .",
     "test": "pnpm exec tsx --test test/*.test.ts",
     "test:e2e:containers": "pnpm exec tsx --test test/e2e/**/*.e2e.test.ts",
-    "typecheck": "pnpm exec tsc -b --pretty false"
+    "typecheck": "pnpm exec tsc -b --pretty false",
+    "preview": "pnpm run build && node dist/cli.js"
   }
 }
