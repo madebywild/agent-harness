@@ -459,10 +459,7 @@ function App({ api, presets, onExit }: AppProps) {
           label={step.label}
           lines={step.lines}
           isError={step.isError}
-          onDismiss={() => {
-            addPastLine(`${step.isError ? "Failed" : "Done"}: ${step.label}`);
-            setStep({ type: "select-command" });
-          }}
+          onDismiss={() => setStep({ type: "select-command" })}
         />
       );
     }
