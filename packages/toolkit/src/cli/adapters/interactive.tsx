@@ -1,4 +1,4 @@
-import { ConfirmInput, Spinner, TextInput } from "@inkjs/ui";
+import { Spinner, TextInput } from "@inkjs/ui";
 import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { Box, render, Static, Text, useApp, useInput } from "ink";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -8,6 +8,7 @@ import { getCommandDefinition } from "../command-registry.js";
 import type { CommandId, CommandInput, CommandOutput } from "../contracts.js";
 import { renderTextOutput } from "../renderers/text.js";
 import { AutocompleteSelect } from "./autocomplete-select.js";
+import { ToggleConfirm } from "./toggle-confirm.js";
 
 export interface InteractiveExecutionApi {
   execute: (input: CommandInput) => Promise<CommandOutput>;
@@ -410,14 +411,12 @@ function App({ api, presets, onExit }: AppProps) {
 
       if (prompt.type === "confirm") {
         return (
-          <Box marginTop={1}>
-            <Text dimColor>{prompt.message} </Text>
-            <ConfirmInput
-              defaultChoice={prompt.initial ? "confirm" : "cancel"}
-              onConfirm={() => advanceWith(true)}
-              onCancel={() => advanceWith(false)}
-            />
-          </Box>
+          <ToggleConfirm
+            message={prompt.message}
+            defaultValue={prompt.initial}
+            onConfirm={() => advanceWith(true)}
+            onCancel={() => advanceWith(false)}
+          />
         );
       }
 
@@ -439,17 +438,15 @@ function App({ api, presets, onExit }: AppProps) {
       const { commandId, input } = step;
       const label = getCommandDefinition(commandId).interactiveLabel ?? commandId;
       return (
-        <Box marginTop={1}>
-          <Text dimColor>{`Run '${label}' now? `}</Text>
-          <ConfirmInput
-            defaultChoice="confirm"
-            onConfirm={() => setStep({ type: "running", commandId, input })}
-            onCancel={() => {
-              addPastLine("Cancelled command execution.");
-              setStep({ type: "select-command" });
-            }}
-          />
-        </Box>
+        <ToggleConfirm
+          message={`Run '${label}' now?`}
+          defaultValue
+          onConfirm={() => setStep({ type: "running", commandId, input })}
+          onCancel={() => {
+            addPastLine("Cancelled command execution.");
+            setStep({ type: "select-command" });
+          }}
+        />
       );
     }
 
