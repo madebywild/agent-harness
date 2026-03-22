@@ -23,6 +23,7 @@
     "release:guard": "node scripts/release/release-guard.mjs prepublish",
     "release:publish": "node scripts/release/release-guard.mjs publish",
     "release:verify-published": "node scripts/release/release-guard.mjs verify-published",
+    "preview": "pnpm run build && node packages/toolkit/dist/cli.js",
     "prepare": "lefthook install"
   },
   "devDependencies": {

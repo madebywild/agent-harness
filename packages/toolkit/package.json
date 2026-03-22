@@ -65,6 +65,7 @@
     "check:write": "biome check --write .",
     "test": "pnpm exec tsx --test test/*.test.ts",
     "test:e2e:containers": "pnpm exec tsx --test test/e2e/**/*.e2e.test.ts",
-    "typecheck": "pnpm exec tsc -b --pretty false"
+    "typecheck": "pnpm exec tsc -b --pretty false",
+    "preview": "pnpm run build && node dist/cli.js"
   }
 }
