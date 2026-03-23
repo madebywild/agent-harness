@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import type { render } from "ink-testing-library";
-import type { InteractiveExecutionApi } from "../src/cli/adapters/interactive.js";
+import type { InteractiveExecutionApi, WorkspaceStatus } from "../src/cli/adapters/interactive.js";
 import type { CommandInput, CommandOutput } from "../src/cli/contracts.js";
 
 export const KEYS = {
@@ -157,4 +157,58 @@ export async function submitAndWait(
 export async function confirmAndWait(instance: Instance, predicate: (frame: string) => boolean): Promise<string> {
   instance.stdin.write(KEYS.ENTER);
   return waitForFrame(instance, predicate);
+}
+
+// ---------------------------------------------------------------------------
+// Workspace status factories
+// ---------------------------------------------------------------------------
+
+export function makeHealthyStatus(): WorkspaceStatus {
+  return { state: "healthy" };
+}
+
+export function makeMissingStatus(): WorkspaceStatus {
+  return { state: "missing" };
+}
+
+export function makeUnhealthyStatus(
+  diagnostics = [
+    { code: "MANIFEST_VERSION_OUTDATED", severity: "error" as const, message: "Detected version 0; latest is 1" },
+  ],
+): WorkspaceStatus {
+  return { state: "unhealthy", diagnostics };
+}
+
+// ---------------------------------------------------------------------------
+// Additional output factories
+// ---------------------------------------------------------------------------
+
+export function makeProviderOutput(provider = "claude"): CommandOutput {
+  return {
+    family: "provider",
+    command: "provider.enable",
+    ok: true,
+    data: { provider, enabled: true, message: `Provider '${provider}' enabled.` },
+    diagnostics: [],
+    exitCode: 0,
+  };
+}
+
+export function makeDoctorOutput(ok = true): CommandOutput {
+  return {
+    family: "doctor",
+    command: "doctor",
+    ok,
+    data: {
+      result: {
+        healthy: ok,
+        migrationNeeded: !ok,
+        migrationPossible: true,
+        files: [],
+        diagnostics: ok ? [] : [{ code: "TEST", severity: "error", message: "Test issue" }],
+      },
+    },
+    diagnostics: [],
+    exitCode: ok ? 0 : 1,
+  };
 }

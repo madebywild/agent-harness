@@ -2,8 +2,12 @@ import { Spinner, TextInput } from "@inkjs/ui";
 import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { Box, render, Static, Text, useApp, useInput } from "ink";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { resolveHarnessPaths } from "../../paths.js";
 import { listBuiltinPresets, summarizePreset } from "../../presets.js";
+import type { Diagnostic } from "../../types.js";
 import { CLI_ENTITY_TYPES } from "../../types.js";
+import { exists } from "../../utils.js";
+import { runDoctor } from "../../versioning/doctor.js";
 import { getCommandDefinition } from "../command-registry.js";
 import type { CommandId, CommandInput, CommandOutput } from "../contracts.js";
 import { renderTextOutput } from "../renderers/text.js";
@@ -12,6 +16,27 @@ import { ToggleConfirm } from "./toggle-confirm.js";
 
 export interface InteractiveExecutionApi {
   execute: (input: CommandInput) => Promise<CommandOutput>;
+}
+
+// ---------------------------------------------------------------------------
+// Workspace status detection
+// ---------------------------------------------------------------------------
+
+export type WorkspaceStatus =
+  | { state: "missing" }
+  | { state: "unhealthy"; diagnostics: Diagnostic[] }
+  | { state: "healthy" };
+
+export async function detectWorkspaceStatus(cwd: string): Promise<WorkspaceStatus> {
+  const paths = resolveHarnessPaths(cwd);
+  if (!(await exists(paths.agentsDir))) {
+    return { state: "missing" };
+  }
+  const doctor = await runDoctor(paths);
+  if (!doctor.healthy) {
+    return { state: "unhealthy", diagnostics: doctor.diagnostics };
+  }
+  return { state: "healthy" };
 }
 
 interface InteractiveRunResult {
@@ -63,6 +88,8 @@ const COMMAND_OPTIONS = [
 // ---------------------------------------------------------------------------
 
 type WizardStep =
+  | { type: "onboarding" }
+  | { type: "workspace-warning"; diagnostics: Diagnostic[] }
   | { type: "select-command" }
   | { type: "prompt-input"; commandId: CommandId; collector: InputCollector }
   | { type: "confirm-run"; commandId: CommandId; input: CommandInput }
@@ -302,12 +329,19 @@ function buildCommandInput(commandId: CommandId, values: CollectedValues): Comma
 export interface AppProps {
   api: InteractiveExecutionApi;
   presets: Array<{ id: string; name: string }>;
+  workspaceStatus?: WorkspaceStatus;
   onExit: (exitCode: number) => void;
 }
 
-export function App({ api, presets, onExit }: AppProps) {
+function initialStepFromStatus(status: WorkspaceStatus | undefined): WizardStep {
+  if (!status || status.state === "healthy") return { type: "select-command" };
+  if (status.state === "missing") return { type: "onboarding" };
+  return { type: "workspace-warning", diagnostics: status.diagnostics };
+}
+
+export function App({ api, presets, workspaceStatus, onExit }: AppProps) {
   const { exit } = useApp();
-  const [step, setStep] = useState<WizardStep>({ type: "select-command" });
+  const [step, setStep] = useState<WizardStep>(() => initialStepFromStatus(workspaceStatus));
   const [pastLines, setPastLines] = useState([{ id: 0, text: "Harness interactive mode" }]);
   const nextLineId = useRef(1);
   const [exitCode, setExitCode] = useState(0);
@@ -340,6 +374,29 @@ export function App({ api, presets, onExit }: AppProps) {
   }, [step, exitCode, exit, onExit]);
 
   const renderCurrentStep = () => {
+    if (step.type === "onboarding") {
+      return (
+        <OnboardingWizard
+          api={api}
+          presets={presets}
+          onComplete={() => {
+            addPastLine("Onboarding complete.");
+            setStep({ type: "select-command" });
+          }}
+        />
+      );
+    }
+
+    if (step.type === "workspace-warning") {
+      return (
+        <WorkspaceWarningStep
+          diagnostics={step.diagnostics}
+          api={api}
+          onDismiss={() => setStep({ type: "select-command" })}
+        />
+      );
+    }
+
     if (step.type === "select-command") {
       return (
         <Box marginTop={1}>
@@ -608,11 +665,440 @@ function RunningStep({ label, input, api, onDone, onError }: RunningStepProps) {
 }
 
 // ---------------------------------------------------------------------------
+// OnboardingWizard — full guided setup for new workspaces
+// ---------------------------------------------------------------------------
+
+const HARNESS_LOGO = `   __ __
+  / // /__ ________  ___ ___ ___
+ / _  / _ \`/ __/ _ \\/ -_|_-<(_-<
+/_//_/\\_,_/_/ /_//_/\\__/___/___/`;
+
+const HARNESS_TAGLINE = "Configure your AI coding agents from a single source of truth.";
+
+type OnboardingSubStep =
+  | { type: "welcome" }
+  | { type: "preset" }
+  | { type: "delegate-provider" }
+  | { type: "running-init"; preset?: string; delegate?: string }
+  | { type: "init-error"; message: string }
+  | { type: "providers"; selected: string[] }
+  | { type: "running-providers"; selected: string[] }
+  | { type: "add-prompt" }
+  | { type: "running-add-prompt" }
+  | { type: "running-apply" }
+  | { type: "complete"; summary: string[] };
+
+interface OnboardingWizardProps {
+  api: InteractiveExecutionApi;
+  presets: Array<{ id: string; name: string }>;
+  onComplete: () => void;
+}
+
+function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
+  const [subStep, setSubStep] = useState<OnboardingSubStep>({ type: "welcome" });
+  const [revealIndex, setRevealIndex] = useState(0);
+  const [animationDone, setAnimationDone] = useState(false);
+  const summaryRef = useRef<string[]>([]);
+  const runningRef = useRef(false);
+
+  const fullText = `${HARNESS_LOGO}\n\n  ${HARNESS_TAGLINE}`;
+
+  // Animated typing effect for welcome screen
+  useEffect(() => {
+    if (subStep.type !== "welcome") return;
+    if (revealIndex >= fullText.length) {
+      setAnimationDone(true);
+      return;
+    }
+    const timer = setTimeout(() => setRevealIndex((i) => i + 1), revealIndex === 0 ? 100 : 8);
+    return () => clearTimeout(timer);
+  }, [subStep.type, revealIndex, fullText.length]);
+
+  useInput((_input, key) => {
+    if (subStep.type === "welcome" && key.return) {
+      if (!animationDone) {
+        setRevealIndex(fullText.length);
+        setAnimationDone(true);
+      } else {
+        setSubStep({ type: "preset" });
+      }
+    }
+  });
+
+  // Single effect for all async onboarding actions, guarded by ref
+  useEffect(() => {
+    if (runningRef.current) return;
+
+    if (subStep.type === "running-init") {
+      runningRef.current = true;
+      api
+        .execute({
+          command: "init",
+          options: { force: false, preset: subStep.preset, delegate: subStep.delegate },
+        })
+        .then((output) => {
+          if (output.exitCode !== 0) {
+            const lines: string[] = [];
+            renderTextOutput(output, (line) => lines.push(line));
+            setSubStep({ type: "init-error", message: lines.join("\n") });
+            return;
+          }
+          summaryRef.current.push("Initialized .harness/ workspace");
+          if (subStep.preset) summaryRef.current.push(`Applied preset: ${subStep.preset}`);
+          setSubStep({ type: "providers", selected: [] });
+        })
+        .catch((err: unknown) => {
+          setSubStep({ type: "init-error", message: err instanceof Error ? err.message : String(err) });
+        })
+        .finally(() => {
+          runningRef.current = false;
+        });
+    }
+
+    if (subStep.type === "running-providers") {
+      runningRef.current = true;
+      const { selected } = subStep;
+      (async () => {
+        for (const provider of selected) {
+          await api.execute({ command: "provider.enable", args: { provider } });
+        }
+        summaryRef.current.push(`Enabled provider(s): ${selected.join(", ")}`);
+        setSubStep({ type: "add-prompt" });
+      })()
+        .catch(() => setSubStep({ type: "add-prompt" }))
+        .finally(() => {
+          runningRef.current = false;
+        });
+    }
+
+    if (subStep.type === "running-add-prompt") {
+      runningRef.current = true;
+      api
+        .execute({ command: "add.prompt" })
+        .then(() => {
+          summaryRef.current.push("Added system prompt entity");
+          setSubStep({ type: "running-apply" });
+        })
+        .catch(() => setSubStep({ type: "running-apply" }))
+        .finally(() => {
+          runningRef.current = false;
+        });
+    }
+
+    if (subStep.type === "running-apply") {
+      runningRef.current = true;
+      api
+        .execute({ command: "apply" })
+        .then(() => {
+          summaryRef.current.push("Applied workspace (generated provider artifacts)");
+          setSubStep({ type: "complete", summary: summaryRef.current });
+        })
+        .catch(() => {
+          setSubStep({ type: "complete", summary: summaryRef.current });
+        })
+        .finally(() => {
+          runningRef.current = false;
+        });
+    }
+  }, [subStep, api]);
+
+  if (subStep.type === "welcome") {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text color="cyan">{fullText.slice(0, revealIndex)}</Text>
+        {animationDone && (
+          <Box marginTop={1}>
+            <Text dimColor>Press Enter to get started...</Text>
+          </Box>
+        )}
+      </Box>
+    );
+  }
+
+  if (subStep.type === "preset") {
+    const presetOptions = [
+      { value: "", label: "Skip preset" },
+      ...presets.map((p) => ({ value: p.id, label: `${p.name} (${p.id})` })),
+    ];
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Step 1/4 — Choose a preset</Text>
+        <Box marginTop={1}>
+          <AutocompleteSelect
+            key="onboarding-preset"
+            label="Preset"
+            options={presetOptions}
+            onChange={(value) => {
+              if (value === "delegate") {
+                setSubStep({ type: "delegate-provider" });
+              } else {
+                setSubStep({ type: "running-init", preset: value || undefined });
+              }
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (subStep.type === "delegate-provider") {
+    const providers = providerIdSchema.options.map((p) => ({ label: p, value: p }));
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Step 1/4 — Select delegate provider</Text>
+        <Box marginTop={1}>
+          <AutocompleteSelect
+            key="onboarding-delegate"
+            label="Provider"
+            options={providers}
+            onChange={(value) => {
+              setSubStep({ type: "running-init", preset: "delegate", delegate: value });
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (subStep.type === "running-init") {
+    return (
+      <Box marginTop={1}>
+        <Spinner label="Initializing workspace..." />
+      </Box>
+    );
+  }
+
+  if (subStep.type === "init-error") {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold color="red">
+          Initialization failed
+        </Text>
+        <Box marginLeft={2} marginTop={1}>
+          <Text>{subStep.message}</Text>
+        </Box>
+        <Box marginTop={1}>
+          <Text dimColor>Please resolve the issue and try again.</Text>
+        </Box>
+      </Box>
+    );
+  }
+
+  if (subStep.type === "providers") {
+    const remaining = providerIdSchema.options
+      .filter((p) => !subStep.selected.includes(p))
+      .map((p) => ({ label: p, value: p }));
+    const doneLabel = subStep.selected.length === 0 ? "Skip (enable later)" : `Done (${subStep.selected.join(", ")})`;
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Step 2/4 — Enable providers</Text>
+        {subStep.selected.length > 0 && <Text dimColor>Selected: {subStep.selected.join(", ")}</Text>}
+        <Box marginTop={1}>
+          <AutocompleteSelect
+            key={`onboarding-providers-${subStep.selected.length}`}
+            label="Provider"
+            options={[{ label: doneLabel, value: "" }, ...remaining]}
+            onChange={(value) => {
+              if (!value) {
+                if (subStep.selected.length === 0) {
+                  setSubStep({ type: "add-prompt" });
+                } else {
+                  setSubStep({ type: "running-providers", selected: subStep.selected });
+                }
+              } else {
+                setSubStep({ type: "providers", selected: [...subStep.selected, value] });
+              }
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (subStep.type === "running-providers") {
+    return (
+      <Box marginTop={1}>
+        <Spinner label={`Enabling provider(s): ${subStep.selected.join(", ")}...`} />
+      </Box>
+    );
+  }
+
+  if (subStep.type === "add-prompt") {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Step 3/4 — System prompt</Text>
+        <ToggleConfirm
+          message="Add a system prompt entity?"
+          defaultValue
+          onSubmit={(yes) => {
+            if (yes) {
+              setSubStep({ type: "running-add-prompt" });
+            } else {
+              setSubStep({ type: "running-apply" });
+            }
+          }}
+        />
+      </Box>
+    );
+  }
+
+  if (subStep.type === "running-add-prompt") {
+    return (
+      <Box marginTop={1}>
+        <Spinner label="Adding system prompt..." />
+      </Box>
+    );
+  }
+
+  if (subStep.type === "running-apply") {
+    return (
+      <Box marginTop={1}>
+        <Spinner label="Step 4/4 — Applying workspace..." />
+      </Box>
+    );
+  }
+
+  if (subStep.type === "complete") {
+    return <OnboardingComplete summary={subStep.summary} onDismiss={onComplete} />;
+  }
+
+  return null;
+}
+
+function OnboardingComplete({ summary, onDismiss }: { summary: string[]; onDismiss: () => void }) {
+  useInput((_input, key) => {
+    if (key.return) onDismiss();
+  });
+
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text bold color="green">
+        Setup complete!
+      </Text>
+      {summary.length > 0 && (
+        <Box flexDirection="column" marginLeft={2} marginTop={1}>
+          {summary.map((line) => (
+            <Text key={line} dimColor>
+              - {line}
+            </Text>
+          ))}
+        </Box>
+      )}
+      <Box marginTop={1}>
+        <Text dimColor>Press Enter to continue to the main menu...</Text>
+      </Box>
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// WorkspaceWarningStep — shown when doctor detects issues
+// ---------------------------------------------------------------------------
+
+interface WorkspaceWarningStepProps {
+  diagnostics: Diagnostic[];
+  api: InteractiveExecutionApi;
+  onDismiss: () => void;
+}
+
+function WorkspaceWarningStep({ diagnostics, api, onDismiss }: WorkspaceWarningStepProps) {
+  const [running, setRunning] = useState(false);
+  const [output, setOutput] = useState<{ lines: string[]; isError: boolean } | null>(null);
+  const runningRef = useRef(false);
+
+  useEffect(() => {
+    if (!running || runningRef.current) return;
+    runningRef.current = true;
+    api
+      .execute({ command: "doctor" })
+      .then((result) => {
+        const lines: string[] = [];
+        renderTextOutput(result, (line) => lines.push(line));
+        setOutput({ lines, isError: result.exitCode !== 0 });
+      })
+      .catch((err: unknown) => {
+        setOutput({ lines: [err instanceof Error ? err.message : String(err)], isError: true });
+      })
+      .finally(() => {
+        runningRef.current = false;
+        setRunning(false);
+      });
+  }, [running, api]);
+
+  useInput((_input, key) => {
+    if (output && key.return) onDismiss();
+  });
+
+  if (running) {
+    return (
+      <Box marginTop={1}>
+        <Spinner label="Running doctor..." />
+      </Box>
+    );
+  }
+
+  if (output) {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold color={output.isError ? "red" : "green"}>
+          {output.isError ? "✗ Doctor" : "✓ Doctor"}
+        </Text>
+        <Box flexDirection="column" marginLeft={2} marginTop={1}>
+          <Text>{output.lines.join("\n")}</Text>
+        </Box>
+        <Box marginTop={1}>
+          <Text dimColor>Press Enter to continue...</Text>
+        </Box>
+      </Box>
+    );
+  }
+
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text bold color="yellow">
+        Workspace issues detected
+      </Text>
+      <Box flexDirection="column" marginLeft={2} marginTop={1}>
+        {diagnostics.map((d) => (
+          <Text key={d.code}>
+            <Text color="yellow">[{d.severity}]</Text> {d.code}: {d.message}
+          </Text>
+        ))}
+      </Box>
+      <Box marginTop={1}>
+        <AutocompleteSelect
+          key="workspace-warning"
+          label="Action"
+          options={[
+            { label: "Run doctor", value: "doctor" },
+            { label: "Continue to menu", value: "continue" },
+          ]}
+          onChange={(value) => {
+            if (value === "doctor") {
+              setRunning(true);
+            } else {
+              onDismiss();
+            }
+          }}
+        />
+      </Box>
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Exported entry point
 // ---------------------------------------------------------------------------
 
-export async function runInteractiveAdapter(api: InteractiveExecutionApi): Promise<InteractiveRunResult> {
-  const presets = (await listBuiltinPresets()).map((p) => summarizePreset(p));
+export async function runInteractiveAdapter(
+  api: InteractiveExecutionApi,
+  options?: { cwd?: string },
+): Promise<InteractiveRunResult> {
+  const cwd = options?.cwd ?? process.cwd();
+  const [presets, workspaceStatus] = await Promise.all([
+    listBuiltinPresets().then((ps) => ps.map(summarizePreset)),
+    detectWorkspaceStatus(cwd),
+  ]);
 
   let resolvedExitCode = 0;
 
@@ -620,6 +1106,7 @@ export async function runInteractiveAdapter(api: InteractiveExecutionApi): Promi
     <App
       api={api}
       presets={presets}
+      workspaceStatus={workspaceStatus}
       onExit={(code) => {
         resolvedExitCode = code;
       }}

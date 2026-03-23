@@ -19,9 +19,14 @@ import {
   delay,
   KEYS,
   makeApplyOutput,
+  makeDoctorOutput,
   makeEntityMutationOutput,
+  makeHealthyStatus,
   makeInitOutput,
+  makeMissingStatus,
   makePlanOutput,
+  makeProviderOutput,
+  makeUnhealthyStatus,
   selectCommand,
   submitAndWait,
   waitForFrame,
@@ -283,6 +288,219 @@ describe("journey 8 — multi-command session", { timeout: 15_000 }, () => {
     assert.equal(calls.length, 2);
     assert.equal(calls[0]?.command, "plan");
     assert.equal(calls[1]?.command, "apply");
+    assert.equal(onExit.mock.calls[0]?.arguments[0], 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Journey 9: Onboarding full flow (no workspace)
+// ---------------------------------------------------------------------------
+describe("journey 9 — onboarding full flow", { timeout: 15_000 }, () => {
+  test("missing workspace shows onboarding, guides through init + provider + prompt + apply", async () => {
+    const onExit = mock.fn((_code: number) => {});
+    const { api, calls } = createMockApi((input) => {
+      if (input.command === "init") return makeInitOutput();
+      if (input.command === "provider.enable") return makeProviderOutput(input.args?.provider);
+      if (input.command === "add.prompt") return makeEntityMutationOutput("add.prompt", "prompt", "system");
+      if (input.command === "apply") return makeApplyOutput();
+      return makePlanOutput();
+    });
+    const instance = render(
+      <App api={api} presets={TEST_PRESETS} workspaceStatus={makeMissingStatus()} onExit={onExit} />,
+    );
+
+    // Welcome screen with animated logo
+    const welcomeFrame = await waitForFrame(instance, (f) => f.includes("get started"), 5000);
+    assertFrameContains(welcomeFrame, "Harness");
+
+    // Press Enter to proceed to preset selection
+    await confirmAndWait(instance, (f) => f.includes("Step 1/4"));
+
+    // Skip preset (first option, already focused)
+    instance.stdin.write(KEYS.ENTER);
+
+    // Wait for providers step (init runs automatically)
+    await waitForFrame(instance, (f) => f.includes("Step 2/4"), 5000);
+
+    // Select "claude" provider → returns to provider list with "Done" option
+    await submitAndWait(instance, "claude", (f) => f.includes("Selected: claude"));
+
+    // Select "Done" to proceed
+    await submitAndWait(instance, "Done", (f) => f.includes("Step 3/4"));
+
+    // "Add a system prompt entity?" — default Yes, press Enter
+    instance.stdin.write(KEYS.ENTER);
+
+    // Wait for completion (add-prompt + apply run automatically)
+    const completeFrame = await waitForFrame(instance, (f) => f.includes("Setup complete"), 5000);
+    assertFrameContains(completeFrame, "Press Enter to continue to the main menu");
+
+    // Verify API calls: init, provider.enable, add.prompt, apply
+    assert.equal(calls.length, 4);
+    assert.equal(calls[0]?.command, "init");
+    assert.equal(calls[1]?.command, "provider.enable");
+    assert.equal(calls[1]?.args?.provider, "claude");
+    assert.equal(calls[2]?.command, "add.prompt");
+    assert.equal(calls[3]?.command, "apply");
+
+    // Dismiss → main menu
+    await confirmAndWait(instance, (f) => f.includes("Command"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Journey 10: Onboarding with preset
+// ---------------------------------------------------------------------------
+describe("journey 10 — onboarding with preset", { timeout: 15_000 }, () => {
+  test("user selects a preset during onboarding", async () => {
+    const onExit = mock.fn((_code: number) => {});
+    const { api, calls } = createMockApi((input) => {
+      if (input.command === "init") return makeInitOutput();
+      if (input.command === "provider.enable") return makeProviderOutput();
+      if (input.command === "apply") return makeApplyOutput();
+      return makePlanOutput();
+    });
+    const instance = render(
+      <App api={api} presets={TEST_PRESETS} workspaceStatus={makeMissingStatus()} onExit={onExit} />,
+    );
+
+    // Welcome → Enter
+    await waitForFrame(instance, (f) => f.includes("get started"), 5000);
+    await confirmAndWait(instance, (f) => f.includes("Step 1/4"));
+
+    // Select "Starter" preset
+    await submitAndWait(instance, "Starter", (f) => f.includes("Step 2/4"));
+
+    // Skip providers
+    instance.stdin.write(KEYS.ENTER);
+
+    // "Add a system prompt?" — toggle to No, submit
+    await waitForFrame(instance, (f) => f.includes("Step 3/4"));
+    instance.stdin.write(KEYS.TAB);
+    await delay(50);
+    instance.stdin.write(KEYS.ENTER);
+
+    // Wait for completion (apply runs automatically)
+    await waitForFrame(instance, (f) => f.includes("Setup complete"), 5000);
+
+    // Verify init was called with preset
+    assert.equal(calls[0]?.command, "init");
+    assert.equal(calls[0]?.options?.preset, "starter");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Journey 10b: Onboarding with multiple providers
+// ---------------------------------------------------------------------------
+describe("journey 10b — onboarding multi-provider", { timeout: 15_000 }, () => {
+  test("user selects multiple providers during onboarding", async () => {
+    const onExit = mock.fn((_code: number) => {});
+    const { api, calls } = createMockApi((input) => {
+      if (input.command === "init") return makeInitOutput();
+      if (input.command === "provider.enable") return makeProviderOutput(input.args?.provider);
+      if (input.command === "apply") return makeApplyOutput();
+      return makePlanOutput();
+    });
+    const instance = render(
+      <App api={api} presets={TEST_PRESETS} workspaceStatus={makeMissingStatus()} onExit={onExit} />,
+    );
+
+    // Welcome → Enter
+    await waitForFrame(instance, (f) => f.includes("get started"), 5000);
+    await confirmAndWait(instance, (f) => f.includes("Step 1/4"));
+
+    // Skip preset
+    instance.stdin.write(KEYS.ENTER);
+    await waitForFrame(instance, (f) => f.includes("Step 2/4"), 5000);
+
+    // Select "claude" → see it in selected list
+    await submitAndWait(instance, "claude", (f) => f.includes("Selected: claude"));
+
+    // Select "codex" → see both in selected list
+    await submitAndWait(instance, "codex", (f) => f.includes("claude, codex"));
+
+    // Select "Done" to proceed
+    await submitAndWait(instance, "Done", (f) => f.includes("Step 3/4"));
+
+    // Skip prompt → toggle to No, submit
+    instance.stdin.write(KEYS.TAB);
+    await delay(50);
+    instance.stdin.write(KEYS.ENTER);
+
+    // Wait for completion
+    await waitForFrame(instance, (f) => f.includes("Setup complete"), 5000);
+
+    // Verify provider.enable was called for both
+    const providerCalls = calls.filter((c) => c.command === "provider.enable");
+    assert.equal(providerCalls.length, 2);
+    assert.equal(providerCalls[0]?.args?.provider, "claude");
+    assert.equal(providerCalls[1]?.args?.provider, "codex");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Journey 11: Workspace warning → continue to menu
+// ---------------------------------------------------------------------------
+describe("journey 11 — workspace warning continue", { timeout: 10_000 }, () => {
+  test("unhealthy workspace shows warning, user continues to menu", async () => {
+    const onExit = mock.fn((_code: number) => {});
+    const { api } = createMockApi();
+    const instance = render(
+      <App api={api} presets={TEST_PRESETS} workspaceStatus={makeUnhealthyStatus()} onExit={onExit} />,
+    );
+
+    // Warning banner appears with diagnostic info
+    const warningFrame = await waitForFrame(instance, (f) => f.includes("Workspace issues detected"));
+    assertFrameContains(warningFrame, "MANIFEST_VERSION_OUTDATED");
+
+    // Select "Continue to menu"
+    await submitAndWait(instance, "Continue", (f) => f.includes("Command"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Journey 12: Workspace warning → run doctor
+// ---------------------------------------------------------------------------
+describe("journey 12 — workspace warning run doctor", { timeout: 10_000 }, () => {
+  test("unhealthy workspace shows warning, user runs doctor then continues", async () => {
+    const onExit = mock.fn((_code: number) => {});
+    const { api, calls } = createMockApi(() => makeDoctorOutput());
+    const instance = render(
+      <App api={api} presets={TEST_PRESETS} workspaceStatus={makeUnhealthyStatus()} onExit={onExit} />,
+    );
+
+    // Warning banner
+    await waitForFrame(instance, (f) => f.includes("Workspace issues detected"));
+
+    // Select "Run doctor"
+    await submitAndWait(instance, "Run doctor", (f) => f.includes("Press Enter to continue"));
+
+    // Verify doctor was called
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.command, "doctor");
+
+    // Dismiss → main menu
+    await confirmAndWait(instance, (f) => f.includes("Command"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Journey 13: Healthy workspace (unchanged behavior)
+// ---------------------------------------------------------------------------
+describe("journey 13 — healthy workspace unchanged", { timeout: 10_000 }, () => {
+  test("healthy workspace status shows command menu directly", async () => {
+    const onExit = mock.fn((_code: number) => {});
+    const { api } = createMockApi();
+    const instance = render(
+      <App api={api} presets={TEST_PRESETS} workspaceStatus={makeHealthyStatus()} onExit={onExit} />,
+    );
+
+    // Should go straight to command menu
+    await waitForFrame(instance, (f) => f.includes("Command"));
+
+    // Exit
+    await selectCommand(instance.stdin, "Exit");
+    await waitForFrame(instance, () => onExit.mock.calls.length > 0);
     assert.equal(onExit.mock.calls[0]?.arguments[0], 0);
   });
 });
