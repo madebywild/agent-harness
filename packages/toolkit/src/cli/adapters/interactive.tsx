@@ -299,13 +299,13 @@ function buildCommandInput(commandId: CommandId, values: CollectedValues): Comma
 // React components
 // ---------------------------------------------------------------------------
 
-interface AppProps {
+export interface AppProps {
   api: InteractiveExecutionApi;
   presets: Array<{ id: string; name: string }>;
   onExit: (exitCode: number) => void;
 }
 
-function App({ api, presets, onExit }: AppProps) {
+export function App({ api, presets, onExit }: AppProps) {
   const { exit } = useApp();
   const [step, setStep] = useState<WizardStep>({ type: "select-command" });
   const [pastLines, setPastLines] = useState([{ id: 0, text: "Harness interactive mode" }]);

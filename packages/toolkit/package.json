@@ -49,6 +49,7 @@
   "devDependencies": {
     "@types/node": "^25.5.0",
     "@types/react": "^19.0.0",
+    "ink-testing-library": "^4.0.0",
     "testcontainers": "^11.13.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
@@ -63,7 +64,7 @@
     "format:write": "biome format --write .",
     "check": "biome check .",
     "check:write": "biome check --write .",
-    "test": "pnpm exec tsx --test test/*.test.ts",
+    "test": "pnpm exec tsx --test test/*.test.ts test/*.test.tsx",
     "test:e2e:containers": "pnpm exec tsx --test test/e2e/**/*.e2e.test.ts",
     "typecheck": "pnpm exec tsc -b --pretty false",
     "preview": "pnpm run build && node dist/cli.js"
