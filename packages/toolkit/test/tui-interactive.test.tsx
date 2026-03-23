@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, mock, test } from "node:test";
 import { cleanup, render } from "ink-testing-library";
-// biome-ignore lint/correctness/noUnusedImports: React must be in scope for JSX when running via tsx outside tsconfig
+// biome-ignore lint/correctness/noUnusedImports: tsx test runner doesn't use tsconfig jsx transform — React must be in scope
 import React from "react";
 import { App } from "../src/cli/adapters/interactive.js";
 import type { CommandInput, CommandOutput } from "../src/cli/contracts.js";
@@ -157,7 +157,7 @@ describe("journey 3 — add skill with prompts", { timeout: 10_000 }, () => {
     await delay(50);
 
     // Confirm step — "Run 'Add skill' now?"
-    await waitForFrame(instance, (f) => f.includes("Add skill"));
+    await waitForFrame(instance, (f) => f.includes("Run 'Add skill' now?"));
     // Default is Yes, just press Enter
     instance.stdin.write(KEYS.ENTER);
     await delay(50);
@@ -226,7 +226,7 @@ describe("journey 5 — decline confirmation", { timeout: 10_000 }, () => {
     await delay(50);
 
     // Confirm step — "Run 'Initialize workspace' now?"
-    const confirmFrame = await waitForFrame(instance, (f) => f.includes("Initialize workspace"));
+    const confirmFrame = await waitForFrame(instance, (f) => f.includes("Run 'Initialize workspace' now?"));
     assertFrameContains(confirmFrame, "Yes", "No");
 
     // Toggle to No (default is Yes, so toggle once) and submit
@@ -307,7 +307,7 @@ describe("journey 7 — delegate preset dynamic prompt", { timeout: 10_000 }, ()
     await delay(50);
 
     // Confirm step
-    await waitForFrame(instance, (f) => f.includes("Initialize workspace"));
+    await waitForFrame(instance, (f) => f.includes("Run 'Initialize workspace' now?"));
     instance.stdin.write(KEYS.ENTER);
     await delay(50);
 
@@ -347,17 +347,17 @@ describe("journey 8 — multi-command session", { timeout: 15_000 }, () => {
 
     // --- Command 2: Apply (mutating, needs confirm) ---
     await waitForFrame(instance, (f) => f.includes("Command"));
-    // "Apply" filter matches "Apply preset" first, so clear and use DOWN to reach the right one
+    // "Apply" matches both "Apply preset" and "Apply planned operations…";
+    // arrow down past "Apply preset" to reach the apply command, then submit
     instance.stdin.write("Apply");
     await delay(50);
-    // "Apply preset" is first, "Apply" is second
     instance.stdin.write(KEYS.DOWN);
     await delay(50);
     instance.stdin.write(KEYS.ENTER);
     await delay(50);
 
     // Confirm step
-    await waitForFrame(instance, (f) => f.includes("Apply"));
+    await waitForFrame(instance, (f) => f.includes("now?"));
     instance.stdin.write(KEYS.ENTER);
     await delay(50);
 

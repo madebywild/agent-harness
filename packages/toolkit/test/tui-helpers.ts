@@ -18,6 +18,10 @@ export function delay(ms = 50): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/**
+ * Poll until a rendered frame satisfies `predicate`.
+ * ink-testing-library exposes no frame-change event, so polling is the only option.
+ */
 export async function waitForFrame(
   instance: ReturnType<typeof render>,
   predicate: (frame: string) => boolean,
