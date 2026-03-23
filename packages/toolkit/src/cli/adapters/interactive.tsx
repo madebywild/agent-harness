@@ -344,6 +344,7 @@ function App({ api, presets, onExit }: AppProps) {
       return (
         <Box marginTop={1}>
           <AutocompleteSelect
+            key="select-command"
             label="Command"
             options={COMMAND_OPTIONS}
             onChange={(value) => {
@@ -426,6 +427,7 @@ function App({ api, presets, onExit }: AppProps) {
         return (
           <Box marginTop={1}>
             <AutocompleteSelect
+              key={`${commandId}-${collector.index}`}
               label={prompt.message}
               options={prompt.options}
               onChange={(value) => advanceWith(value)}
