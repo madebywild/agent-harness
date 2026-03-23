@@ -74,9 +74,10 @@ export async function runCliArgv(
           cwd,
         };
 
-        const result = await runInteractiveAdapter({
-          execute: (input) => runCliCommand(input, interactiveContext),
-        });
+        const result = await runInteractiveAdapter(
+          { execute: (input) => runCliCommand(input, interactiveContext) },
+          { cwd },
+        );
 
         return {
           exitCode: result.exitCode,
@@ -94,9 +95,10 @@ export async function runCliArgv(
         });
       },
       runInteractive: async (interactiveContext) =>
-        runInteractiveAdapter({
-          execute: (input) => runCliCommand(input, interactiveContext),
-        }),
+        runInteractiveAdapter(
+          { execute: (input) => runCliCommand(input, interactiveContext) },
+          { cwd: interactiveContext.cwd },
+        ),
     });
 
     return commandResult;

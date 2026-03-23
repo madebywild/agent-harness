@@ -29,6 +29,16 @@ Implements the layered CLI runtime with shared command execution for both non-in
 - Interactive `init` now offers bundled preset selection with a skip option.
 - Interactive `init` can also launch delegated prompt authoring when the `delegate` preset is selected.
 
+## Workspace-aware interactive startup
+
+On every interactive launch, `runInteractiveAdapter` detects workspace state before rendering:
+
+- **No workspace** (`.harness/` missing): shows an animated onboarding wizard that guides the user through init (with optional preset), multi-provider enablement (pick one or more, then confirm), optional system prompt creation, and apply. The onboarding transitions to the main command menu on completion.
+- **Unhealthy workspace** (doctor finds issues): shows a warning banner listing diagnostics and offers to run `doctor` or continue to the main menu.
+- **Healthy workspace**: shows the command menu directly (existing behavior).
+
+Detection uses `resolveHarnessPaths` + `exists` for the fast path and `runDoctor` when the workspace exists. The `WorkspaceStatus` type and `detectWorkspaceStatus` function are exported from `interactive.tsx` for testability.
+
 ## Notable command surface
 
 - `add prompt|skill|mcp|subagent|hook`

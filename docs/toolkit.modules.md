@@ -27,7 +27,9 @@ This set documents source files under `packages/toolkit/src`.
 - `cli/contracts.ts`: shared CLI contracts and envelope types
 - `cli/command-registry.ts`: command metadata and dispatcher
 - `cli/adapters/commander.ts`: non-interactive parser adapter
-- `cli/adapters/interactive.ts`: prompt wizard adapter
+- `cli/adapters/interactive.tsx`: prompt wizard adapter (exports `App` and `AppProps` for testing)
+- `cli/adapters/autocomplete-select.tsx`: type-to-filter select component
+- `cli/adapters/toggle-confirm.tsx`: yes/no toggle confirmation component
 - `cli/handlers/*.ts`: command-family execution handlers
 - `cli/renderers/text.ts`: human-readable output renderer
 - `cli/renderers/json.ts`: stable JSON envelope renderer
