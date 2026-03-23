@@ -50,31 +50,111 @@ export interface MockApi {
 
 export function createMockApi(handler?: (input: CommandInput) => CommandOutput | Promise<CommandOutput>): MockApi {
   const calls: CommandInput[] = [];
-  const defaultOutput: CommandOutput = {
-    family: "plan",
-    command: "plan",
-    ok: true,
-    data: { result: { operations: [], diagnostics: [] }, defaultInvocation: false },
-    diagnostics: [],
-    exitCode: 0,
-  };
-
   return {
     api: {
       execute: async (input: CommandInput) => {
         calls.push(input);
         if (handler) return handler(input);
-        return defaultOutput;
+        return makePlanOutput();
       },
     },
     calls,
   };
 }
 
+// ---------------------------------------------------------------------------
+// Output factories
+// ---------------------------------------------------------------------------
+
+export function makePlanOutput(ok = true): CommandOutput {
+  return {
+    family: "plan",
+    command: "plan",
+    ok,
+    data: { result: { operations: [], diagnostics: [] }, defaultInvocation: false },
+    diagnostics: [],
+    exitCode: ok ? 0 : 1,
+  };
+}
+
+export function makeApplyOutput(ok = true): CommandOutput {
+  return {
+    family: "apply",
+    command: "apply",
+    ok,
+    data: {
+      result: {
+        operations: [],
+        diagnostics: [],
+        writtenArtifacts: [],
+        prunedArtifacts: [],
+      },
+    },
+    diagnostics: [],
+    exitCode: ok ? 0 : 1,
+  };
+}
+
+export function makeEntityMutationOutput(
+  command: CommandInput["command"],
+  entityType: string,
+  id: string,
+): CommandOutput {
+  return {
+    family: "entity-mutation",
+    command,
+    ok: true,
+    data: {
+      operation: "add",
+      entityType: entityType as "skill",
+      id,
+      message: `Added ${entityType} '${id}'.`,
+    },
+    diagnostics: [],
+    exitCode: 0,
+  };
+}
+
+export function makeInitOutput(): CommandOutput {
+  return {
+    family: "init",
+    command: "init",
+    ok: true,
+    data: { force: false, message: "Initialized .harness workspace." },
+    diagnostics: [],
+    exitCode: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Interaction helpers
+// ---------------------------------------------------------------------------
+
+type Stdin = { write: (data: string) => void };
+type Instance = ReturnType<typeof render>;
+
 /** Type-to-filter in the command selector and press ENTER. */
-export async function selectCommand(stdin: { write: (data: string) => void }, filterText: string): Promise<void> {
+export async function selectCommand(stdin: Stdin, filterText: string): Promise<void> {
   stdin.write(filterText);
   await delay(50);
   stdin.write(KEYS.ENTER);
   await delay(50);
+}
+
+/** Write text + ENTER, then wait for the next frame matching `predicate`. */
+export async function submitAndWait(
+  instance: Instance,
+  text: string,
+  predicate: (frame: string) => boolean,
+): Promise<string> {
+  instance.stdin.write(text);
+  await delay(50);
+  instance.stdin.write(KEYS.ENTER);
+  return waitForFrame(instance, predicate);
+}
+
+/** Press ENTER and wait for the next frame matching `predicate`. */
+export async function confirmAndWait(instance: Instance, predicate: (frame: string) => boolean): Promise<string> {
+  instance.stdin.write(KEYS.ENTER);
+  return waitForFrame(instance, predicate);
 }

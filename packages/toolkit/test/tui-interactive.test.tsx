@@ -12,69 +12,25 @@ import { cleanup, render } from "ink-testing-library";
 // biome-ignore lint/correctness/noUnusedImports: tsx test runner doesn't use tsconfig jsx transform — React must be in scope
 import React from "react";
 import { App } from "../src/cli/adapters/interactive.js";
-import type { CommandInput, CommandOutput } from "../src/cli/contracts.js";
-import { assertFrameContains, createMockApi, delay, KEYS, selectCommand, waitForFrame } from "./tui-helpers.ts";
+import {
+  assertFrameContains,
+  confirmAndWait,
+  createMockApi,
+  delay,
+  KEYS,
+  makeApplyOutput,
+  makeEntityMutationOutput,
+  makeInitOutput,
+  makePlanOutput,
+  selectCommand,
+  submitAndWait,
+  waitForFrame,
+} from "./tui-helpers.ts";
 
 const TEST_PRESETS = [
   { id: "starter", name: "Starter" },
   { id: "delegate", name: "Delegate" },
 ];
-
-function makePlanOutput(ok = true): CommandOutput {
-  return {
-    family: "plan",
-    command: "plan",
-    ok,
-    data: { result: { operations: [], diagnostics: [] }, defaultInvocation: false },
-    diagnostics: [],
-    exitCode: ok ? 0 : 1,
-  };
-}
-
-function makeApplyOutput(ok = true): CommandOutput {
-  return {
-    family: "apply",
-    command: "apply",
-    ok,
-    data: {
-      result: {
-        operations: [],
-        diagnostics: [],
-        writtenArtifacts: [],
-        prunedArtifacts: [],
-      },
-    },
-    diagnostics: [],
-    exitCode: ok ? 0 : 1,
-  };
-}
-
-function makeEntityMutationOutput(command: CommandInput["command"], entityType: string, id: string): CommandOutput {
-  return {
-    family: "entity-mutation",
-    command,
-    ok: true,
-    data: {
-      operation: "add",
-      entityType: entityType as "skill",
-      id,
-      message: `Added ${entityType} '${id}'.`,
-    },
-    diagnostics: [],
-    exitCode: 0,
-  };
-}
-
-function makeInitOutput(): CommandOutput {
-  return {
-    family: "init",
-    command: "init",
-    ok: true,
-    data: { force: false, message: "Initialized .harness workspace." },
-    diagnostics: [],
-    exitCode: 0,
-  };
-}
 
 afterEach(() => {
   cleanup();
@@ -119,12 +75,8 @@ describe("journey 2 — run read-only command", { timeout: 10_000 }, () => {
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.command, "plan");
 
-    // Dismiss output
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
-
-    // Verify we're back at the command selector
-    await waitForFrame(instance, (f) => f.includes("Command"));
+    // Dismiss output and verify we're back at the command selector
+    await confirmAndWait(instance, (f) => f.includes("Command"));
   });
 });
 
@@ -145,25 +97,14 @@ describe("journey 3 — add skill with prompts", { timeout: 10_000 }, () => {
     // Verify "Skill id" prompt appears
     await waitForFrame(instance, (f) => f.includes("Skill id"));
 
-    // Type skill id and submit
-    instance.stdin.write("reviewer");
-    await delay(50);
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
+    // Type skill id and submit → wait for "Registry id" prompt
+    await submitAndWait(instance, "reviewer", (f) => f.includes("Registry id"));
 
-    // Optional "Registry id" prompt — just press Enter to skip
-    await waitForFrame(instance, (f) => f.includes("Registry id"));
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
+    // Skip optional "Registry id" → wait for confirm step
+    await confirmAndWait(instance, (f) => f.includes("Run 'Add skill' now?"));
 
-    // Confirm step — "Run 'Add skill' now?"
-    await waitForFrame(instance, (f) => f.includes("Run 'Add skill' now?"));
-    // Default is Yes, just press Enter
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
-
-    // Wait for output
-    await waitForFrame(instance, (f) => f.includes("Press Enter to continue"));
+    // Default is Yes, just press Enter → wait for output
+    await confirmAndWait(instance, (f) => f.includes("Press Enter to continue"));
 
     // Verify API received correct input
     assert.equal(calls.length, 1);
@@ -171,8 +112,7 @@ describe("journey 3 — add skill with prompts", { timeout: 10_000 }, () => {
     assert.equal(calls[0]?.args?.skillId, "reviewer");
 
     // Dismiss and return to selector
-    instance.stdin.write(KEYS.ENTER);
-    await waitForFrame(instance, (f) => f.includes("Command"));
+    await confirmAndWait(instance, (f) => f.includes("Command"));
   });
 });
 
@@ -191,11 +131,8 @@ describe("journey 4 — cancel mid-prompt", { timeout: 10_000 }, () => {
     await selectCommand(instance.stdin, "Add skill");
     await waitForFrame(instance, (f) => f.includes("Skill id"));
 
-    // Press Escape to cancel
+    // Press Escape to cancel → back at command selector, no API call made
     instance.stdin.write(KEYS.ESCAPE);
-    await delay(50);
-
-    // Verify back at command selector, no API call made
     await waitForFrame(instance, (f) => f.includes("Command"));
     assert.equal(calls.length, 0);
   });
@@ -217,26 +154,21 @@ describe("journey 5 — decline confirmation", { timeout: 10_000 }, () => {
     await waitForFrame(instance, (f) => f.includes("Overwrite"));
 
     // "Overwrite existing .harness workspace?" — default No, just press Enter
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
+    await confirmAndWait(instance, (f) => f.includes("preset"));
 
     // "Select a preset" — select "Skip preset" (first option, already focused)
-    await waitForFrame(instance, (f) => f.includes("preset"));
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
+    await confirmAndWait(instance, (f) => f.includes("Run 'Initialize workspace' now?"));
 
-    // Confirm step — "Run 'Initialize workspace' now?"
-    const confirmFrame = await waitForFrame(instance, (f) => f.includes("Run 'Initialize workspace' now?"));
+    // Confirm step — verify both options visible
+    const confirmFrame = instance.lastFrame();
     assertFrameContains(confirmFrame, "Yes", "No");
 
     // Toggle to No (default is Yes, so toggle once) and submit
     instance.stdin.write(KEYS.TAB);
     await delay(50);
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
 
-    // Back at command selector, no API call
-    await waitForFrame(instance, (f) => f.includes("Command"));
+    // Submit "No" → back at command selector, no API call
+    await confirmAndWait(instance, (f) => f.includes("Command"));
     assert.equal(calls.length, 0);
   });
 });
@@ -262,12 +194,8 @@ describe("journey 6 — command failure", { timeout: 10_000 }, () => {
     assertFrameContains(errorFrame, "Workspace not initialized");
     assertFrameContains(errorFrame, "Press Enter to continue");
 
-    // Dismiss
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
-
-    // Back at selector
-    await waitForFrame(instance, (f) => f.includes("Command"));
+    // Dismiss → back at selector
+    await confirmAndWait(instance, (f) => f.includes("Command"));
   });
 });
 
@@ -286,33 +214,17 @@ describe("journey 7 — delegate preset dynamic prompt", { timeout: 10_000 }, ()
     await selectCommand(instance.stdin, "Initialize");
     await waitForFrame(instance, (f) => f.includes("Overwrite"));
 
-    // "Overwrite?" — press Enter (No)
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
+    // "Overwrite?" — press Enter (No) → wait for preset selector
+    await confirmAndWait(instance, (f) => f.includes("preset"));
 
-    // "Select a preset" — select "Delegate"
-    await waitForFrame(instance, (f) => f.includes("preset"));
-    instance.stdin.write("Delegate");
-    await delay(50);
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
+    // "Select a preset" — select "Delegate" → wait for provider prompt
+    await submitAndWait(instance, "Delegate", (f) => f.includes("provider"));
 
-    // Dynamic prompt: "Select the provider CLI to delegate prompt authoring to"
-    await waitForFrame(instance, (f) => f.includes("provider"));
+    // Select "claude" → wait for confirm step
+    await submitAndWait(instance, "claude", (f) => f.includes("Run 'Initialize workspace' now?"));
 
-    // Select "claude" (first option)
-    instance.stdin.write("claude");
-    await delay(50);
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
-
-    // Confirm step
-    await waitForFrame(instance, (f) => f.includes("Run 'Initialize workspace' now?"));
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
-
-    // Wait for output
-    await waitForFrame(instance, (f) => f.includes("Press Enter to continue"));
+    // Confirm → wait for output
+    await confirmAndWait(instance, (f) => f.includes("Press Enter to continue"));
 
     // Verify API received delegate option
     assert.equal(calls.length, 1);
@@ -320,8 +232,7 @@ describe("journey 7 — delegate preset dynamic prompt", { timeout: 10_000 }, ()
     assert.equal(calls[0]?.options?.delegate, "claude");
 
     // Dismiss
-    instance.stdin.write(KEYS.ENTER);
-    await waitForFrame(instance, (f) => f.includes("Command"));
+    await confirmAndWait(instance, (f) => f.includes("Command"));
   });
 });
 
@@ -342,31 +253,30 @@ describe("journey 8 — multi-command session", { timeout: 15_000 }, () => {
     await waitForFrame(instance, (f) => f.includes("Command"));
     await selectCommand(instance.stdin, "Plan");
     await waitForFrame(instance, (f) => f.includes("Press Enter to continue"));
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
+    await confirmAndWait(instance, (f) => f.includes("Command"));
 
     // --- Command 2: Apply (mutating, needs confirm) ---
-    await waitForFrame(instance, (f) => f.includes("Command"));
-    // "Apply" matches both "Apply preset" and "Apply planned operations…";
-    // arrow down past "Apply preset" to reach the apply command, then submit
+    // "Apply" matches both "Apply preset" and "Apply" (the apply command);
+    // arrow down past "Apply preset" to reach the apply command
     instance.stdin.write("Apply");
     await delay(50);
     instance.stdin.write(KEYS.DOWN);
-    await delay(50);
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
 
-    // Confirm step
+    // Assert the focused item is "Apply" (not "Apply preset") before submitting.
+    // Match "❯ Apply" at end-of-line to avoid substring match with "❯ Apply preset".
+    const applyFrame = await waitForFrame(instance, (f) => /❯ Apply$/m.test(f));
+    assert.ok(/❯ Apply$/m.test(applyFrame), `Expected focused item to be "Apply", got:\n${applyFrame}`);
+
+    instance.stdin.write(KEYS.ENTER);
+
+    // Confirm step → submit
     await waitForFrame(instance, (f) => f.includes("now?"));
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
+    await confirmAndWait(instance, (f) => f.includes("Press Enter to continue"));
 
-    await waitForFrame(instance, (f) => f.includes("Press Enter to continue"));
-    instance.stdin.write(KEYS.ENTER);
-    await delay(50);
+    // Dismiss output
+    await confirmAndWait(instance, (f) => f.includes("Command"));
 
     // --- Exit ---
-    await waitForFrame(instance, (f) => f.includes("Command"));
     await selectCommand(instance.stdin, "Exit");
 
     await waitForFrame(instance, () => onExit.mock.calls.length > 0);
