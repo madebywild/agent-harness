@@ -26,6 +26,15 @@ Implements the shared adapter builder used by all concrete providers.
 - Subagents:
   - not handled in this shared builder.
   - provider-specific adapters implement `renderSubagent` (Claude/Copilot) or `renderProviderState` (Codex shared TOML).
+- Hooks:
+  - not handled in this shared builder.
+  - provider-specific adapters implement `renderHooks` (Copilot) or `renderProviderState` (Claude/Codex).
+- Commands:
+  - not handled in this shared builder.
+  - provider-specific adapters implement `renderCommand` (Claude/Copilot).
+- Settings:
+  - not handled in this shared builder.
+  - provider-specific adapters implement `renderSettings` (Copilot) or `renderProviderState` (Claude/Codex).
 
 ## Ownership tagging
 
