@@ -29,7 +29,8 @@ export type WorkspaceStatus =
 
 export async function detectWorkspaceStatus(cwd: string): Promise<WorkspaceStatus> {
   const paths = resolveHarnessPaths(cwd);
-  if (!(await exists(paths.agentsDir))) {
+  const [dirExists, manifestExists] = await Promise.all([exists(paths.agentsDir), exists(paths.manifestFile)]);
+  if (!dirExists || !manifestExists) {
     return { state: "missing" };
   }
   try {
@@ -936,7 +937,8 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
     }
   });
 
-  // Single effect for all async onboarding actions, guarded by ref
+  // Single effect for all async onboarding actions, guarded by ref.
+  // Uses else-if so only one branch can fire per render cycle.
   useEffect(() => {
     if (runningRef.current) return;
 
@@ -978,9 +980,7 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
         .finally(() => {
           runningRef.current = false;
         });
-    }
-
-    if (subStep.type === "running-providers") {
+    } else if (subStep.type === "running-providers") {
       runningRef.current = true;
       const { selected } = subStep;
       (async () => {
@@ -990,13 +990,16 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
         summaryRef.current.push(`Enabled provider(s): ${selected.join(", ")}`);
         setSubStep({ type: "add-prompt" });
       })()
-        .catch(() => setSubStep({ type: "add-prompt" }))
+        .catch((err: unknown) => {
+          summaryRef.current.push(
+            `Warning: provider enablement failed (${err instanceof Error ? err.message : String(err)})`,
+          );
+          setSubStep({ type: "add-prompt" });
+        })
         .finally(() => {
           runningRef.current = false;
         });
-    }
-
-    if (subStep.type === "running-add-prompt") {
+    } else if (subStep.type === "running-add-prompt") {
       runningRef.current = true;
       api
         .execute({ command: "add.prompt" })
@@ -1004,13 +1007,16 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
           summaryRef.current.push("Added system prompt entity");
           setSubStep({ type: "running-apply" });
         })
-        .catch(() => setSubStep({ type: "running-apply" }))
+        .catch((err: unknown) => {
+          summaryRef.current.push(
+            `Warning: failed to add prompt (${err instanceof Error ? err.message : String(err)})`,
+          );
+          setSubStep({ type: "running-apply" });
+        })
         .finally(() => {
           runningRef.current = false;
         });
-    }
-
-    if (subStep.type === "running-apply") {
+    } else if (subStep.type === "running-apply") {
       runningRef.current = true;
       api
         .execute({ command: "apply" })
@@ -1018,7 +1024,8 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
           summaryRef.current.push("Applied workspace (generated provider artifacts)");
           setSubStep({ type: "complete", summary: summaryRef.current });
         })
-        .catch(() => {
+        .catch((err: unknown) => {
+          summaryRef.current.push(`Warning: apply failed (${err instanceof Error ? err.message : String(err)})`);
           setSubStep({ type: "complete", summary: summaryRef.current });
         })
         .finally(() => {
@@ -1248,8 +1255,9 @@ function OnboardingComplete({ summary, onDismiss }: { summary: string[]; onDismi
       </Text>
       {summary.length > 0 && (
         <Box flexDirection="column" marginLeft={2} marginTop={1}>
-          {summary.map((line) => (
-            <Text key={line} dimColor>
+          {summary.map((line, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: static list, never reordered
+            <Text key={i} dimColor>
               - {line}
             </Text>
           ))}
