@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import type { render } from "ink-testing-library";
 import type { InteractiveExecutionApi, WorkspaceStatus } from "../src/cli/adapters/interactive.js";
-import type { CommandInput, CommandOutput } from "../src/cli/contracts.js";
+import type { CommandInput, CommandOutput, EntityMutationOutput, ProviderOutput } from "../src/cli/contracts.js";
+import type { CliEntityType, ProviderId } from "../src/types.js";
 
 export const KEYS = {
   ENTER: "\r",
@@ -71,7 +72,10 @@ export function makePlanOutput(ok = true): CommandOutput {
     family: "plan",
     command: "plan",
     ok,
-    data: { result: { operations: [], diagnostics: [] }, defaultInvocation: false },
+    data: {
+      result: { operations: [], diagnostics: [] },
+      defaultInvocation: false,
+    },
     diagnostics: [],
     exitCode: ok ? 0 : 1,
   };
@@ -97,22 +101,23 @@ export function makeApplyOutput(ok = true): CommandOutput {
 
 export function makeEntityMutationOutput(
   command: CommandInput["command"],
-  entityType: string,
+  entityType: CliEntityType,
   id: string,
 ): CommandOutput {
-  return {
+  const output: EntityMutationOutput = {
     family: "entity-mutation",
     command,
     ok: true,
     data: {
       operation: "add",
-      entityType: entityType as "skill",
+      entityType,
       id,
       message: `Added ${entityType} '${id}'.`,
     },
     diagnostics: [],
     exitCode: 0,
   };
+  return output;
 }
 
 export function makeInitOutput(): CommandOutput {
@@ -155,6 +160,7 @@ export async function submitAndWait(
 
 /** Press ENTER and wait for the next frame matching `predicate`. */
 export async function confirmAndWait(instance: Instance, predicate: (frame: string) => boolean): Promise<string> {
+  await delay(50);
   instance.stdin.write(KEYS.ENTER);
   return waitForFrame(instance, predicate);
 }
@@ -173,7 +179,11 @@ export function makeMissingStatus(): WorkspaceStatus {
 
 export function makeUnhealthyStatus(
   diagnostics = [
-    { code: "MANIFEST_VERSION_OUTDATED", severity: "error" as const, message: "Detected version 0; latest is 1" },
+    {
+      code: "MANIFEST_VERSION_OUTDATED",
+      severity: "error" as const,
+      message: "Detected version 0; latest is 1",
+    },
   ],
 ): WorkspaceStatus {
   return { state: "unhealthy", diagnostics };
@@ -183,15 +193,20 @@ export function makeUnhealthyStatus(
 // Additional output factories
 // ---------------------------------------------------------------------------
 
-export function makeProviderOutput(provider = "claude"): CommandOutput {
-  return {
+export function makeProviderOutput(provider: ProviderId = "claude"): CommandOutput {
+  const output: ProviderOutput = {
     family: "provider",
     command: "provider.enable",
     ok: true,
-    data: { provider, enabled: true, message: `Provider '${provider}' enabled.` },
+    data: {
+      action: "enable",
+      provider,
+      message: `Provider '${provider}' enabled.`,
+    },
     diagnostics: [],
     exitCode: 0,
   };
+  return output;
 }
 
 export function makeDoctorOutput(ok = true): CommandOutput {

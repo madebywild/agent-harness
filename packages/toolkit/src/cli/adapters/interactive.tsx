@@ -32,11 +32,25 @@ export async function detectWorkspaceStatus(cwd: string): Promise<WorkspaceStatu
   if (!(await exists(paths.agentsDir))) {
     return { state: "missing" };
   }
-  const doctor = await runDoctor(paths);
-  if (!doctor.healthy) {
-    return { state: "unhealthy", diagnostics: doctor.diagnostics };
+  try {
+    const doctor = await runDoctor(paths);
+    if (!doctor.healthy) {
+      return { state: "unhealthy", diagnostics: doctor.diagnostics };
+    }
+    return { state: "healthy" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      state: "unhealthy",
+      diagnostics: [
+        {
+          code: "INTERACTIVE_WORKSPACE_STATUS_CHECK_FAILED",
+          severity: "error",
+          message: `Failed to determine workspace health: ${message}`,
+        },
+      ],
+    };
   }
-  return { state: "healthy" };
 }
 
 interface InteractiveRunResult {
@@ -112,27 +126,43 @@ interface InputCollector {
 type CollectorPrompt =
   | { id: string; type: "text"; message: string; required: boolean }
   | { id: string; type: "confirm"; message: string; initial: boolean }
-  | { id: string; type: "select"; message: string; options: Array<{ label: string; value: string }> };
+  | {
+      id: string;
+      type: "select";
+      message: string;
+      options: Array<{ label: string; value: string }>;
+    };
 
 // ---------------------------------------------------------------------------
 // Build the prompt list for each command
 // ---------------------------------------------------------------------------
 
 function buildPromptsForCommand(commandId: CommandId, presets: Array<{ id: string; name: string }>): CollectorPrompt[] {
-  const providers = providerIdSchema.options.map((p) => ({ label: p, value: p }));
+  const providers = providerIdSchema.options.map((p) => ({
+    label: p,
+    value: p,
+  }));
   const entityTypes = CLI_ENTITY_TYPES.map((t) => ({ label: t, value: t }));
 
   switch (commandId) {
     case "init":
       return [
-        { id: "force", type: "confirm", message: "Overwrite existing .harness workspace if present?", initial: false },
+        {
+          id: "force",
+          type: "confirm",
+          message: "Overwrite existing .harness workspace if present?",
+          initial: false,
+        },
         {
           id: "preset",
           type: "select",
           message: "Select a preset to apply during init",
           options: [
             { value: "", label: "Skip preset" },
-            ...presets.map((p) => ({ value: p.id, label: `${p.name} (${p.id})` })),
+            ...presets.map((p) => ({
+              value: p.id,
+              label: `${p.name} (${p.id})`,
+            })),
           ],
         },
         // delegate prompt inserted dynamically when preset === "delegate"
@@ -140,15 +170,37 @@ function buildPromptsForCommand(commandId: CommandId, presets: Array<{ id: strin
 
     case "provider.enable":
     case "provider.disable":
-      return [{ id: "provider", type: "select", message: "Select provider", options: providers }];
+      return [
+        {
+          id: "provider",
+          type: "select",
+          message: "Select provider",
+          options: providers,
+        },
+      ];
 
     case "registry.add":
       return [
         { id: "name", type: "text", message: "Registry name", required: true },
         { id: "gitUrl", type: "text", message: "Git URL", required: true },
-        { id: "ref", type: "text", message: "Git ref (default: main)", required: false },
-        { id: "root", type: "text", message: "Registry root path", required: false },
-        { id: "tokenEnv", type: "text", message: "Token env var", required: false },
+        {
+          id: "ref",
+          type: "text",
+          message: "Git ref (default: main)",
+          required: false,
+        },
+        {
+          id: "root",
+          type: "text",
+          message: "Registry root path",
+          required: false,
+        },
+        {
+          id: "tokenEnv",
+          type: "text",
+          message: "Token env var",
+          required: false,
+        },
       ];
 
     case "registry.remove":
@@ -163,69 +215,170 @@ function buildPromptsForCommand(commandId: CommandId, presets: Array<{ id: strin
           message: "Entity type filter",
           options: [{ value: "", label: "All entity types" }, ...entityTypes],
         },
-        { id: "id", type: "text", message: "Entity id filter", required: false },
-        { id: "registry", type: "text", message: "Registry filter", required: false },
-        { id: "force", type: "confirm", message: "Overwrite locally modified imported sources?", initial: false },
+        {
+          id: "id",
+          type: "text",
+          message: "Entity id filter",
+          required: false,
+        },
+        {
+          id: "registry",
+          type: "text",
+          message: "Registry filter",
+          required: false,
+        },
+        {
+          id: "force",
+          type: "confirm",
+          message: "Overwrite locally modified imported sources?",
+          initial: false,
+        },
       ];
 
     case "preset.list":
-      return [{ id: "registry", type: "text", message: "Registry id", required: false }];
+      return [
+        {
+          id: "registry",
+          type: "text",
+          message: "Registry id",
+          required: false,
+        },
+      ];
 
     case "preset.describe":
     case "preset.apply":
       return [
         { id: "presetId", type: "text", message: "Preset id", required: true },
-        { id: "registry", type: "text", message: "Registry id", required: false },
+        {
+          id: "registry",
+          type: "text",
+          message: "Registry id",
+          required: false,
+        },
       ];
 
     case "add.prompt":
-      return [{ id: "registry", type: "text", message: "Registry id", required: false }];
+      return [
+        {
+          id: "registry",
+          type: "text",
+          message: "Registry id",
+          required: false,
+        },
+      ];
 
     case "add.skill":
       return [
         { id: "skillId", type: "text", message: "Skill id", required: true },
-        { id: "registry", type: "text", message: "Registry id", required: false },
+        {
+          id: "registry",
+          type: "text",
+          message: "Registry id",
+          required: false,
+        },
       ];
 
     case "add.mcp":
       return [
-        { id: "configId", type: "text", message: "MCP config id", required: true },
-        { id: "registry", type: "text", message: "Registry id", required: false },
+        {
+          id: "configId",
+          type: "text",
+          message: "MCP config id",
+          required: true,
+        },
+        {
+          id: "registry",
+          type: "text",
+          message: "Registry id",
+          required: false,
+        },
       ];
 
     case "add.subagent":
       return [
-        { id: "subagentId", type: "text", message: "Subagent id", required: true },
-        { id: "registry", type: "text", message: "Registry id", required: false },
+        {
+          id: "subagentId",
+          type: "text",
+          message: "Subagent id",
+          required: true,
+        },
+        {
+          id: "registry",
+          type: "text",
+          message: "Registry id",
+          required: false,
+        },
       ];
 
     case "add.hook":
       return [
         { id: "hookId", type: "text", message: "Hook id", required: true },
-        { id: "registry", type: "text", message: "Registry id", required: false },
+        {
+          id: "registry",
+          type: "text",
+          message: "Registry id",
+          required: false,
+        },
       ];
 
     case "add.settings":
       return [
-        { id: "provider", type: "select", message: "Provider", options: providers },
-        { id: "registry", type: "text", message: "Registry id", required: false },
+        {
+          id: "provider",
+          type: "select",
+          message: "Provider",
+          options: providers,
+        },
+        {
+          id: "registry",
+          type: "text",
+          message: "Registry id",
+          required: false,
+        },
       ];
 
     case "add.command":
       return [
-        { id: "commandId", type: "text", message: "Command id", required: true },
-        { id: "registry", type: "text", message: "Registry id", required: false },
+        {
+          id: "commandId",
+          type: "text",
+          message: "Command id",
+          required: true,
+        },
+        {
+          id: "registry",
+          type: "text",
+          message: "Registry id",
+          required: false,
+        },
       ];
 
     case "remove":
       return [
-        { id: "entityType", type: "select", message: "Entity type", options: entityTypes },
+        {
+          id: "entityType",
+          type: "select",
+          message: "Entity type",
+          options: entityTypes,
+        },
         { id: "id", type: "text", message: "Entity id", required: true },
-        { id: "deleteSource", type: "confirm", message: "Delete source files too?", initial: true },
+        {
+          id: "deleteSource",
+          type: "confirm",
+          message: "Delete source files too?",
+          initial: true,
+        },
       ];
 
     case "migrate":
-      return [{ id: "dryRun", type: "confirm", message: "Run as dry-run only?", initial: false }];
+      return [
+        {
+          id: "dryRun",
+          type: "confirm",
+          message: "Run as dry-run only?",
+          initial: false,
+        },
+      ];
 
     default:
       return [];
@@ -254,7 +407,11 @@ function buildCommandInput(commandId: CommandId, values: CollectedValues): Comma
     case "init":
       return {
         command: commandId,
-        options: { force: bool("force"), preset: str("preset"), delegate: str("delegate") },
+        options: {
+          force: bool("force"),
+          preset: str("preset"),
+          delegate: str("delegate"),
+        },
       };
 
     case "provider.enable":
@@ -265,7 +422,12 @@ function buildCommandInput(commandId: CommandId, values: CollectedValues): Comma
       return {
         command: commandId,
         args: { name: str("name") },
-        options: { gitUrl: str("gitUrl"), ref: str("ref"), root: str("root"), tokenEnv: str("tokenEnv") },
+        options: {
+          gitUrl: str("gitUrl"),
+          ref: str("ref"),
+          root: str("root"),
+          tokenEnv: str("tokenEnv"),
+        },
       };
 
     case "registry.remove":
@@ -284,28 +446,56 @@ function buildCommandInput(commandId: CommandId, values: CollectedValues): Comma
 
     case "preset.describe":
     case "preset.apply":
-      return { command: commandId, args: { presetId: str("presetId") }, options: { registry: str("registry") } };
+      return {
+        command: commandId,
+        args: { presetId: str("presetId") },
+        options: { registry: str("registry") },
+      };
 
     case "add.prompt":
       return { command: commandId, options: { registry: str("registry") } };
 
     case "add.skill":
-      return { command: commandId, args: { skillId: str("skillId") }, options: { registry: str("registry") } };
+      return {
+        command: commandId,
+        args: { skillId: str("skillId") },
+        options: { registry: str("registry") },
+      };
 
     case "add.mcp":
-      return { command: commandId, args: { configId: str("configId") }, options: { registry: str("registry") } };
+      return {
+        command: commandId,
+        args: { configId: str("configId") },
+        options: { registry: str("registry") },
+      };
 
     case "add.subagent":
-      return { command: commandId, args: { subagentId: str("subagentId") }, options: { registry: str("registry") } };
+      return {
+        command: commandId,
+        args: { subagentId: str("subagentId") },
+        options: { registry: str("registry") },
+      };
 
     case "add.hook":
-      return { command: commandId, args: { hookId: str("hookId") }, options: { registry: str("registry") } };
+      return {
+        command: commandId,
+        args: { hookId: str("hookId") },
+        options: { registry: str("registry") },
+      };
 
     case "add.settings":
-      return { command: commandId, args: { provider: str("provider") }, options: { registry: str("registry") } };
+      return {
+        command: commandId,
+        args: { provider: str("provider") },
+        options: { registry: str("registry") },
+      };
 
     case "add.command":
-      return { command: commandId, args: { commandId: str("commandId") }, options: { registry: str("registry") } };
+      return {
+        command: commandId,
+        args: { commandId: str("commandId") },
+        options: { registry: str("registry") },
+      };
 
     case "remove":
       return {
@@ -315,7 +505,10 @@ function buildCommandInput(commandId: CommandId, values: CollectedValues): Comma
       };
 
     case "migrate":
-      return { command: commandId, options: { to: "latest", dryRun: bool("dryRun") } };
+      return {
+        command: commandId,
+        options: { to: "latest", dryRun: bool("dryRun") },
+      };
 
     default:
       return { command: commandId };
@@ -412,7 +605,11 @@ export function App({ api, presets, workspaceStatus, onExit }: AppProps) {
               }
               const commandId = value as CommandId;
               const prompts = buildPromptsForCommand(commandId, presets);
-              setStep({ type: "prompt-input", commandId, collector: { prompts, values: {}, index: 0 } });
+              setStep({
+                type: "prompt-input",
+                commandId,
+                collector: { prompts, values: {}, index: 0 },
+              });
             }}
           />
         </Box>
@@ -436,7 +633,10 @@ export function App({ api, presets, workspaceStatus, onExit }: AppProps) {
             id: "delegate",
             type: "select",
             message: "Select the provider CLI to delegate prompt authoring to",
-            options: providerIdSchema.options.map((p) => ({ label: p, value: p })),
+            options: providerIdSchema.options.map((p) => ({
+              label: p,
+              value: p,
+            })),
           };
           newPrompts = [
             ...collector.prompts.slice(0, collector.index + 1),
@@ -448,7 +648,11 @@ export function App({ api, presets, workspaceStatus, onExit }: AppProps) {
         setStep({
           type: "prompt-input",
           commandId,
-          collector: { prompts: newPrompts, values: newValues, index: collector.index + 1 },
+          collector: {
+            prompts: newPrompts,
+            values: newValues,
+            index: collector.index + 1,
+          },
         });
       };
 
@@ -541,7 +745,12 @@ export function App({ api, presets, workspaceStatus, onExit }: AppProps) {
           }}
           onError={(message) => {
             setExitCode(1);
-            setStep({ type: "show-output", label, lines: [`Error: ${message}`], isError: true });
+            setStep({
+              type: "show-output",
+              label,
+              lines: [`Error: ${message}`],
+              isError: true,
+            });
           }}
         />
       );
@@ -680,7 +889,7 @@ type OnboardingSubStep =
   | { type: "preset" }
   | { type: "delegate-provider" }
   | { type: "running-init"; preset?: string; delegate?: string }
-  | { type: "init-error"; message: string }
+  | { type: "init-error"; message: string; preset?: string; delegate?: string }
   | { type: "providers"; selected: string[] }
   | { type: "running-providers"; selected: string[] }
   | { type: "add-prompt" }
@@ -695,7 +904,9 @@ interface OnboardingWizardProps {
 }
 
 function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
-  const [subStep, setSubStep] = useState<OnboardingSubStep>({ type: "welcome" });
+  const [subStep, setSubStep] = useState<OnboardingSubStep>({
+    type: "welcome",
+  });
   const [revealIndex, setRevealIndex] = useState(0);
   const [animationDone, setAnimationDone] = useState(false);
   const summaryRef = useRef<string[]>([]);
@@ -734,13 +945,22 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
       api
         .execute({
           command: "init",
-          options: { force: false, preset: subStep.preset, delegate: subStep.delegate },
+          options: {
+            force: false,
+            preset: subStep.preset,
+            delegate: subStep.delegate,
+          },
         })
         .then((output) => {
           if (output.exitCode !== 0) {
             const lines: string[] = [];
             renderTextOutput(output, (line) => lines.push(line));
-            setSubStep({ type: "init-error", message: lines.join("\n") });
+            setSubStep({
+              type: "init-error",
+              message: lines.join("\n"),
+              preset: subStep.preset,
+              delegate: subStep.delegate,
+            });
             return;
           }
           summaryRef.current.push("Initialized .harness/ workspace");
@@ -748,7 +968,12 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
           setSubStep({ type: "providers", selected: [] });
         })
         .catch((err: unknown) => {
-          setSubStep({ type: "init-error", message: err instanceof Error ? err.message : String(err) });
+          setSubStep({
+            type: "init-error",
+            message: err instanceof Error ? err.message : String(err),
+            preset: subStep.preset,
+            delegate: subStep.delegate,
+          });
         })
         .finally(() => {
           runningRef.current = false;
@@ -832,7 +1057,10 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
               if (value === "delegate") {
                 setSubStep({ type: "delegate-provider" });
               } else {
-                setSubStep({ type: "running-init", preset: value || undefined });
+                setSubStep({
+                  type: "running-init",
+                  preset: value || undefined,
+                });
               }
             }}
           />
@@ -842,7 +1070,10 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
   }
 
   if (subStep.type === "delegate-provider") {
-    const providers = providerIdSchema.options.map((p) => ({ label: p, value: p }));
+    const providers = providerIdSchema.options.map((p) => ({
+      label: p,
+      value: p,
+    }));
     return (
       <Box flexDirection="column" marginTop={1}>
         <Text bold>Step 1/4 — Select delegate provider</Text>
@@ -852,7 +1083,11 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
             label="Provider"
             options={providers}
             onChange={(value) => {
-              setSubStep({ type: "running-init", preset: "delegate", delegate: value });
+              setSubStep({
+                type: "running-init",
+                preset: "delegate",
+                delegate: value,
+              });
             }}
           />
         </Box>
@@ -880,6 +1115,36 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
         <Box marginTop={1}>
           <Text dimColor>Please resolve the issue and try again.</Text>
         </Box>
+        <Box marginTop={1}>
+          <AutocompleteSelect
+            key="onboarding-init-error-action"
+            label="Action"
+            options={[
+              { label: "Retry initialization", value: "retry" },
+              { label: "Back", value: "back" },
+              { label: "Continue to main menu", value: "continue" },
+            ]}
+            onChange={(value) => {
+              if (value === "retry") {
+                setSubStep({
+                  type: "running-init",
+                  preset: subStep.preset,
+                  delegate: subStep.delegate,
+                });
+                return;
+              }
+              if (value === "back") {
+                if (subStep.preset === "delegate") {
+                  setSubStep({ type: "delegate-provider" });
+                } else {
+                  setSubStep({ type: "preset" });
+                }
+                return;
+              }
+              onComplete();
+            }}
+          />
+        </Box>
       </Box>
     );
   }
@@ -903,10 +1168,16 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
                 if (subStep.selected.length === 0) {
                   setSubStep({ type: "add-prompt" });
                 } else {
-                  setSubStep({ type: "running-providers", selected: subStep.selected });
+                  setSubStep({
+                    type: "running-providers",
+                    selected: subStep.selected,
+                  });
                 }
               } else {
-                setSubStep({ type: "providers", selected: [...subStep.selected, value] });
+                setSubStep({
+                  type: "providers",
+                  selected: [...subStep.selected, value],
+                });
               }
             }}
           />
@@ -1003,7 +1274,10 @@ interface WorkspaceWarningStepProps {
 
 function WorkspaceWarningStep({ diagnostics, api, onDismiss }: WorkspaceWarningStepProps) {
   const [running, setRunning] = useState(false);
-  const [output, setOutput] = useState<{ lines: string[]; isError: boolean } | null>(null);
+  const [output, setOutput] = useState<{
+    lines: string[];
+    isError: boolean;
+  } | null>(null);
   const runningRef = useRef(false);
 
   useEffect(() => {
@@ -1017,7 +1291,10 @@ function WorkspaceWarningStep({ diagnostics, api, onDismiss }: WorkspaceWarningS
         setOutput({ lines, isError: result.exitCode !== 0 });
       })
       .catch((err: unknown) => {
-        setOutput({ lines: [err instanceof Error ? err.message : String(err)], isError: true });
+        setOutput({
+          lines: [err instanceof Error ? err.message : String(err)],
+          isError: true,
+        });
       })
       .finally(() => {
         runningRef.current = false;
