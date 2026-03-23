@@ -276,32 +276,18 @@ pnpm check:write
 pnpm --filter @madebywild/agent-harness-framework watch
 ```
 
-## Private npm Release
+## Release
 
-This repository publishes two private npm packages in lockstep:
+This repository publishes two npm packages in lockstep:
 
 - `@madebywild/agent-harness-manifest`
 - `@madebywild/agent-harness-framework`
 
-### Required setup
+To release:
 
-- npm organization `@madebywild` with private package publishing enabled
-- Repository secret `NPM_TOKEN` with publish/read access to the `@madebywild` scope
-
-### Release flow
-
-1. Update `version` in both package manifests to the same semver:
-   - `packages/manifest-schema/package.json`
-   - `packages/toolkit/package.json`
+1. Bump `version` in both `packages/manifest-schema/package.json` and `packages/toolkit/package.json` to the same semver.
 2. Merge the version bump PR.
-3. Create and push a release tag that matches the package version:
-   - `vX.Y.Z` (for example, `v0.2.0`)
-4. GitHub Actions workflow `.github/workflows/publish-npm.yml` runs automatically and:
-   - validates both package versions are equal
-   - validates tag version matches package version
-   - validates the version is not already published
-   - publishes manifest first, then framework
-   - validates both packages are published at the tagged version
+3. Create and push a `vX.Y.Z` tag (e.g. `v0.2.0`). CI publishes manifest-schema first, then framework.
 
 ## Containerized E2E Tests
 
