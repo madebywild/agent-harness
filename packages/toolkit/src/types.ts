@@ -276,7 +276,7 @@ export interface SkillAuditProviderResult {
 export interface SkillAuditDecision {
   audited: boolean;
   allowed: boolean;
-  reason: "pass" | "non_pass" | "unaudited" | "not_evaluated";
+  reason: "pass" | "warn" | "fail" | "unaudited" | "not_evaluated";
   allowUnsafe: boolean;
   allowUnaudited: boolean;
   detailsUrl?: string;

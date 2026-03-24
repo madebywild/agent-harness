@@ -20,7 +20,8 @@ Implements Harness-native integration with `skills.sh` for:
 
 - Audit policy defaults:
   - Block unaudited imports unless `allowUnaudited` is true.
-  - Block non-pass audit providers unless `allowUnsafe` is true.
+  - Allow warn-level audit results (e.g. `Low Risk`, `Med Risk`) with a warning diagnostic.
+  - Block fail-level audit results (e.g. `High Risk`, `Critical`) unless `allowUnsafe` is true.
 - Payload policy:
   - Validates upstream skill ids (no path separators or traversal segments)
   - Requires top-level `SKILL.md`

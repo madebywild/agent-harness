@@ -61,8 +61,8 @@ test("classifyAuditOutcome handles pass, warn, and fail patterns", () => {
   assert.equal(classifyAuditOutcome("High Risk"), "fail");
 });
 
-test("evaluateSkillAudit enforces allowUnsafe and allowUnaudited overrides", () => {
-  const audited = evaluateSkillAudit(
+test("evaluateSkillAudit allows warn-only, blocks fail, and enforces unaudited", () => {
+  const warnOnly = evaluateSkillAudit(
     [
       { provider: "gen", raw: "Low Risk", outcome: "warn" },
       { provider: "socket", raw: "0 alerts", outcome: "pass" },
@@ -70,18 +70,29 @@ test("evaluateSkillAudit enforces allowUnsafe and allowUnaudited overrides", () 
     ],
     { allowUnsafe: false, allowUnaudited: false },
   );
-  assert.equal(audited.allowed, false);
-  assert.equal(audited.reason, "non_pass");
+  assert.equal(warnOnly.allowed, true);
+  assert.equal(warnOnly.reason, "warn");
 
-  const auditedOverride = evaluateSkillAudit(
+  const withFail = evaluateSkillAudit(
     [
-      { provider: "gen", raw: "Low Risk", outcome: "warn" },
+      { provider: "gen", raw: "High Risk", outcome: "fail" },
+      { provider: "socket", raw: "0 alerts", outcome: "pass" },
+      { provider: "snyk", raw: "Safe", outcome: "pass" },
+    ],
+    { allowUnsafe: false, allowUnaudited: false },
+  );
+  assert.equal(withFail.allowed, false);
+  assert.equal(withFail.reason, "fail");
+
+  const failOverride = evaluateSkillAudit(
+    [
+      { provider: "gen", raw: "High Risk", outcome: "fail" },
       { provider: "socket", raw: "0 alerts", outcome: "pass" },
       { provider: "snyk", raw: "Safe", outcome: "pass" },
     ],
     { allowUnsafe: true, allowUnaudited: false },
   );
-  assert.equal(auditedOverride.allowed, true);
+  assert.equal(failOverride.allowed, true);
 
   const unaudited = evaluateSkillAudit([], { allowUnsafe: false, allowUnaudited: false });
   assert.equal(unaudited.allowed, false);

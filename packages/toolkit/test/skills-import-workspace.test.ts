@@ -122,11 +122,11 @@ test("engine importSkill leaves workspace unchanged when audit or payload valida
         audit: {
           audited: true,
           allowed: false,
-          reason: "non_pass",
+          reason: "fail",
           allowUnsafe: false,
           allowUnaudited: false,
           providers: [
-            { provider: "gen", raw: "Low Risk", outcome: "warn" },
+            { provider: "gen", raw: "High Risk", outcome: "fail" },
             { provider: "socket", raw: "0 alerts", outcome: "pass" },
             { provider: "snyk", raw: "Med Risk", outcome: "warn" },
           ],

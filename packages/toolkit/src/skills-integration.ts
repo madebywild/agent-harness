@@ -166,11 +166,18 @@ export async function prepareSkillImport(
         message:
           "Blocked import because this skill source has no published audit report. Use --allow-unaudited to override.",
       });
-    } else if (audit.audited && !audit.allowed && audit.reason === "non_pass") {
+    } else if (audit.audited && !audit.allowed && audit.reason === "fail") {
       diagnostics.push({
         code: "SKILL_IMPORT_AUDIT_BLOCKED",
         severity: "error",
-        message: "Blocked import because at least one audit provider is non-pass. Use --allow-unsafe to override.",
+        message:
+          "Blocked import because at least one audit provider reported a failure. Use --allow-unsafe to override.",
+      });
+    } else if (audit.reason === "warn") {
+      diagnostics.push({
+        code: "SKILL_IMPORT_AUDIT_WARN",
+        severity: "warning",
+        message: "Some audit providers reported warnings. Review audit details before use.",
       });
     }
 
@@ -369,8 +376,10 @@ export function evaluateSkillAudit(
     };
   }
 
-  const hasNonPass = providers.some((provider) => provider.outcome !== "pass");
-  if (!hasNonPass) {
+  const hasFail = providers.some((p) => p.outcome === "fail");
+  const hasWarn = providers.some((p) => p.outcome === "warn" || p.outcome === "unknown");
+
+  if (!hasFail && !hasWarn) {
     return {
       audited: true,
       allowed: true,
@@ -382,10 +391,22 @@ export function evaluateSkillAudit(
     };
   }
 
+  if (hasFail) {
+    return {
+      audited: true,
+      allowed: options.allowUnsafe,
+      reason: "fail",
+      allowUnsafe: options.allowUnsafe,
+      allowUnaudited: options.allowUnaudited,
+      detailsUrl: options.detailsUrl,
+      providers,
+    };
+  }
+
   return {
     audited: true,
-    allowed: options.allowUnsafe,
-    reason: "non_pass",
+    allowed: true,
+    reason: "warn",
     allowUnsafe: options.allowUnsafe,
     allowUnaudited: options.allowUnaudited,
     detailsUrl: options.detailsUrl,
