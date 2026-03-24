@@ -282,7 +282,7 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
       },
     ],
     mutatesWorkspace: true,
-    interactiveLabel: "Import third-party skill",
+    interactiveLabel: "Search + import third-party skills",
     run: (input, context) =>
       handleSkillImport(
         {

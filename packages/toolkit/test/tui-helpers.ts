@@ -266,3 +266,33 @@ export function makeSkillsImportOutput(id = "imported-skill"): CommandOutput {
     exitCode: 0,
   };
 }
+
+export function makeSkillsFindOutput(
+  results?: Array<{ source: string; upstreamSkill: string; installs?: string; url?: string }>,
+): CommandOutput {
+  const effectiveResults = results ?? [
+    {
+      source: "vercel-labs/agent-skills",
+      upstreamSkill: "web-design-guidelines",
+      installs: "194.7K installs",
+      url: "https://skills.sh/vercel-labs/agent-skills/web-design-guidelines",
+    },
+  ];
+
+  return {
+    family: "skills",
+    command: "skill.find",
+    ok: true,
+    data: {
+      operation: "find",
+      query: "web design",
+      results: effectiveResults.map((result) => ({
+        ...result,
+        rawLine: `${result.source}@${result.upstreamSkill}${result.installs ? ` ${result.installs}` : ""}`,
+      })),
+      rawText: effectiveResults.map((result) => `${result.source}@${result.upstreamSkill}`).join("\n"),
+    },
+    diagnostics: [],
+    exitCode: 0,
+  };
+}

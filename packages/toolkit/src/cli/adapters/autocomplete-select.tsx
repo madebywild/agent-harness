@@ -14,6 +14,15 @@ export interface AutocompleteSelectProps {
   visibleOptionCount?: number;
 }
 
+export interface AutocompleteMultiSelectProps {
+  options: AutocompleteSelectOption[];
+  onSubmit: (values: string[]) => void;
+  onCancel?: () => void;
+  label?: string;
+  visibleOptionCount?: number;
+  doneLabel?: (selectedCount: number) => string;
+}
+
 export function AutocompleteSelect({
   options,
   onChange,
@@ -91,6 +100,134 @@ export function AutocompleteSelect({
         );
       })}
       {scrollRef.current + actualVisible < filtered.length && <Text dimColor>{"  ↓"}</Text>}
+      {filtered.length === 0 && <Text dimColor>{"  No matches"}</Text>}
+    </Box>
+  );
+}
+
+export function AutocompleteMultiSelect({
+  options,
+  onSubmit,
+  onCancel,
+  label = "Search",
+  visibleOptionCount = 8,
+  doneLabel = (selectedCount) => `Done (${selectedCount} selected)`,
+}: AutocompleteMultiSelectProps) {
+  const [query, setQuery] = useState("");
+  const [focusIndex, setFocusIndex] = useState(0);
+  const [selectedValues, setSelectedValues] = useState<Set<string>>(() => new Set());
+  const scrollRef = useRef(0);
+
+  const filtered = useMemo(() => {
+    if (!query) return options;
+    const q = query.toLowerCase();
+    return options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [options, query]);
+
+  const rowCount = filtered.length + 1;
+  const focus = Math.min(focusIndex, Math.max(0, rowCount - 1));
+  const actualVisible = Math.min(visibleOptionCount, rowCount);
+
+  if (focus < scrollRef.current) {
+    scrollRef.current = focus;
+  } else if (focus >= scrollRef.current + actualVisible) {
+    scrollRef.current = focus - actualVisible + 1;
+  }
+  scrollRef.current = Math.max(0, Math.min(scrollRef.current, Math.max(0, rowCount - actualVisible)));
+
+  const visibleRows = Array.from({ length: actualVisible }, (_, i) => scrollRef.current + i).filter(
+    (row) => row < rowCount,
+  );
+
+  useInput((input, key) => {
+    if (key.downArrow) {
+      setFocusIndex((i) => Math.min(i + 1, rowCount - 1));
+      return;
+    }
+    if (key.upArrow) {
+      setFocusIndex((i) => Math.max(i - 1, 0));
+      return;
+    }
+    if (key.return) {
+      if (focus === 0) {
+        const orderedSelection = options
+          .filter((option) => selectedValues.has(option.value))
+          .map((option) => option.value);
+        onSubmit(orderedSelection);
+        return;
+      }
+      const focusedOption = filtered[focus - 1];
+      if (!focusedOption) return;
+      setSelectedValues((prev) => {
+        const next = new Set(prev);
+        if (next.has(focusedOption.value)) {
+          next.delete(focusedOption.value);
+        } else {
+          next.add(focusedOption.value);
+        }
+        return next;
+      });
+      return;
+    }
+    if (key.escape) {
+      if (query) {
+        setQuery("");
+        setFocusIndex(0);
+        scrollRef.current = 0;
+      } else {
+        onCancel?.();
+      }
+      return;
+    }
+    if (key.backspace || key.delete) {
+      setQuery((q) => q.slice(0, -1));
+      setFocusIndex(0);
+      scrollRef.current = 0;
+      return;
+    }
+    if (input && !key.ctrl && !key.meta && !key.tab) {
+      setQuery((q) => q + input);
+      setFocusIndex(0);
+      scrollRef.current = 0;
+    }
+  });
+
+  const selectedCount = selectedValues.size;
+
+  return (
+    <Box flexDirection="column">
+      <Box>
+        <Text dimColor>{label}: </Text>
+        <Text>{query}</Text>
+        <Text dimColor>█</Text>
+        {filtered.length !== options.length && <Text dimColor>{` (${filtered.length}/${options.length})`}</Text>}
+      </Box>
+      <Text dimColor>{`Enter toggles selection. Select "${doneLabel(selectedCount)}" to continue.`}</Text>
+      {scrollRef.current > 0 && <Text dimColor>{"  ^"}</Text>}
+      {visibleRows.map((row) => {
+        const isFocused = row === focus;
+        if (row === 0) {
+          return (
+            <Box key="done-row">
+              <Text color={isFocused ? "cyan" : undefined}>{isFocused ? "> " : "  "}</Text>
+              <Text bold color={isFocused ? "cyan" : undefined}>
+                {doneLabel(selectedCount)}
+              </Text>
+            </Box>
+          );
+        }
+        const option = filtered[row - 1];
+        if (!option) return null;
+        const selected = selectedValues.has(option.value);
+        return (
+          <Box key={option.value}>
+            <Text color={isFocused ? "cyan" : undefined}>{isFocused ? "> " : "  "}</Text>
+            <Text color={isFocused ? "cyan" : undefined}>{selected ? "[x] " : "[ ] "}</Text>
+            <HighlightedLabel label={option.label} query={query} isFocused={isFocused} />
+          </Box>
+        );
+      })}
+      {scrollRef.current + actualVisible < rowCount && <Text dimColor>{"  v"}</Text>}
       {filtered.length === 0 && <Text dimColor>{"  No matches"}</Text>}
     </Box>
   );

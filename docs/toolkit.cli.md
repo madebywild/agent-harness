@@ -15,7 +15,7 @@ Implements the layered CLI runtime with shared command execution for both non-in
 - `cli/renderers/json.ts`: stable JSON envelope rendering (`schemaVersion: "1"`).
 - `cli/adapters/commander.ts`: Commander parser adapter.
 - `cli/adapters/interactive.tsx`: prompt wizard adapter (Ink + `@inkjs/ui` React components).
-- `cli/adapters/autocomplete-select.tsx`: type-to-filter select component used by the interactive adapter for all selection prompts.
+- `cli/adapters/autocomplete-select.tsx`: type-to-filter single-select and multi-select components used by the interactive adapter.
 - `cli/utils/runtime.ts`: TTY/CI/env mode helpers and context resolution.
 
 ## Runtime behavior
@@ -28,6 +28,7 @@ Implements the layered CLI runtime with shared command execution for both non-in
 - `harness ui` is the explicit interactive entrypoint.
 - Interactive `init` now offers bundled preset selection with a skip option.
 - Interactive `init` can also launch delegated prompt authoring when the `delegate` preset is selected.
+- Interactive `skill.import` runs an integrated workflow: search (`skill.find`) → multi-select results → batch import (`skill.import`) in one flow.
 
 ## Workspace-aware interactive startup
 
@@ -54,6 +55,7 @@ Examples:
 
 - Safe discovery: `harness skill find "web design"`
 - Strict import (default audit gates): `harness skill import vercel-labs/agent-skills --skill web-design-guidelines`
+- Interactive search + multi-import: `harness ui` → `Search + import third-party skills`
 - Replace existing local skill: `harness skill import vercel-labs/agent-skills --skill web-design-guidelines --replace`
 - Explicit unsafe override: `harness skill import <source> --skill <id> --allow-unsafe`
 - Explicit unaudited override: `harness skill import <source> --skill <id> --allow-unaudited`
