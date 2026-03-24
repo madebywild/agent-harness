@@ -4,14 +4,14 @@ import { Box, render, Static, Text, useApp, useInput } from "ink";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveHarnessPaths } from "../../paths.js";
 import { listBuiltinPresets, summarizePreset } from "../../presets.js";
-import type { Diagnostic } from "../../types.js";
+import type { Diagnostic, SkillDiscoveryResult } from "../../types.js";
 import { CLI_ENTITY_TYPES } from "../../types.js";
 import { exists } from "../../utils.js";
 import { runDoctor } from "../../versioning/doctor.js";
 import { getCommandDefinition } from "../command-registry.js";
 import type { CommandId, CommandInput, CommandOutput } from "../contracts.js";
 import { renderTextOutput } from "../renderers/text.js";
-import { AutocompleteSelect } from "./autocomplete-select.js";
+import { AutocompleteMultiSelect, AutocompleteSelect, type RenderLabelProps } from "./autocomplete-select.js";
 import { ToggleConfirm } from "./toggle-confirm.js";
 
 export interface InteractiveExecutionApi {
@@ -75,6 +75,7 @@ const INTERACTIVE_COMMAND_IDS: readonly CommandId[] = [
   "preset.list",
   "preset.describe",
   "preset.apply",
+  "skill.import",
   "add.prompt",
   "add.skill",
   "add.mcp",
@@ -106,6 +107,7 @@ type WizardStep =
   | { type: "onboarding" }
   | { type: "workspace-warning"; diagnostics: Diagnostic[] }
   | { type: "select-command" }
+  | { type: "skills-import-workflow" }
   | { type: "prompt-input"; commandId: CommandId; collector: InputCollector }
   | { type: "confirm-run"; commandId: CommandId; input: CommandInput }
   | { type: "running"; commandId: CommandId; input: CommandInput }
@@ -255,6 +257,49 @@ function buildPromptsForCommand(commandId: CommandId, presets: Array<{ id: strin
           type: "text",
           message: "Registry id",
           required: false,
+        },
+      ];
+
+    case "skill.find":
+      return [{ id: "query", type: "text", message: "Search query", required: true }];
+
+    case "skill.import":
+      return [
+        {
+          id: "source",
+          type: "text",
+          message: "Source (owner/repo, URL, or local path)",
+          required: true,
+        },
+        {
+          id: "upstreamSkill",
+          type: "text",
+          message: "Upstream skill id",
+          required: true,
+        },
+        {
+          id: "as",
+          type: "text",
+          message: "Target harness skill id",
+          required: false,
+        },
+        {
+          id: "replace",
+          type: "confirm",
+          message: "Replace existing skill if it already exists?",
+          initial: false,
+        },
+        {
+          id: "allowUnsafe",
+          type: "confirm",
+          message: "Allow non-pass audited skills?",
+          initial: false,
+        },
+        {
+          id: "allowUnaudited",
+          type: "confirm",
+          message: "Allow unaudited sources?",
+          initial: false,
         },
       ];
 
@@ -453,6 +498,25 @@ function buildCommandInput(commandId: CommandId, values: CollectedValues): Comma
         options: { registry: str("registry") },
       };
 
+    case "skill.find":
+      return {
+        command: commandId,
+        args: { query: str("query") },
+      };
+
+    case "skill.import":
+      return {
+        command: commandId,
+        args: { source: str("source") },
+        options: {
+          skill: str("upstreamSkill"),
+          as: str("as"),
+          replace: bool("replace"),
+          allowUnsafe: bool("allowUnsafe"),
+          allowUnaudited: bool("allowUnaudited"),
+        },
+      };
+
     case "add.prompt":
       return { command: commandId, options: { registry: str("registry") } };
 
@@ -605,6 +669,10 @@ export function App({ api, presets, workspaceStatus, onExit }: AppProps) {
                 return;
               }
               const commandId = value as CommandId;
+              if (commandId === "skill.import") {
+                setStep({ type: "skills-import-workflow" });
+                return;
+              }
               const prompts = buildPromptsForCommand(commandId, presets);
               setStep({
                 type: "prompt-input",
@@ -614,6 +682,27 @@ export function App({ api, presets, workspaceStatus, onExit }: AppProps) {
             }}
           />
         </Box>
+      );
+    }
+
+    if (step.type === "skills-import-workflow") {
+      return (
+        <SkillsImportWorkflow
+          api={api}
+          onCancel={() => {
+            addPastLine("Cancelled command input.");
+            setStep({ type: "select-command" });
+          }}
+          onComplete={(lines, isError) => {
+            setStep({
+              type: "show-output",
+              label: "Search and import third-party skills",
+              lines,
+              isError,
+            });
+          }}
+          onDismiss={() => setStep({ type: "select-command" })}
+        />
       );
     }
 
@@ -870,6 +959,406 @@ function RunningStep({ label, input, api, onDone, onError }: RunningStepProps) {
   return (
     <Box marginTop={1}>
       <Spinner label={`Running ${label}...`} />
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SkillsImportWorkflow — integrated search + multi-select + batch import
+// ---------------------------------------------------------------------------
+
+interface SkillsImportWorkflowProps {
+  api: InteractiveExecutionApi;
+  onCancel: () => void;
+  onComplete: (lines: string[], isError: boolean) => void;
+  onDismiss: () => void;
+}
+
+interface SkillSearchState {
+  query: string;
+  results: SkillDiscoveryResult[];
+  diagnostics: Diagnostic[];
+  rawText: string;
+}
+
+interface SkillImportOptionsState {
+  replace: boolean;
+  allowUnsafe: boolean;
+  allowUnaudited: boolean;
+}
+
+const DEFAULT_SKILL_IMPORT_OPTIONS: SkillImportOptionsState = {
+  replace: false,
+  allowUnsafe: false,
+  allowUnaudited: false,
+};
+
+const SKILL_IMPORT_OPTION_PROMPTS: Array<{
+  key: keyof SkillImportOptionsState;
+  message: string;
+}> = [
+  { key: "replace", message: "Replace existing local skills if they already exist?" },
+  { key: "allowUnsafe", message: "Allow non-pass audited skills?" },
+  { key: "allowUnaudited", message: "Allow unaudited sources?" },
+];
+
+interface SkillImportEntry {
+  skill: SkillDiscoveryResult;
+  ok: boolean;
+  fileCount: number;
+  auditSummary: string;
+  errorMessage?: string;
+}
+
+type SkillImportWorkflowStep =
+  | { type: "query" }
+  | { type: "searching"; query: string }
+  | { type: "select"; search: SkillSearchState }
+  | {
+      type: "options";
+      search: SkillSearchState;
+      selected: SkillDiscoveryResult[];
+      options: SkillImportOptionsState;
+      optionIndex: number;
+    }
+  | {
+      type: "confirm";
+      search: SkillSearchState;
+      selected: SkillDiscoveryResult[];
+      options: SkillImportOptionsState;
+    }
+  | {
+      type: "running";
+      search: SkillSearchState;
+      selected: SkillDiscoveryResult[];
+      options: SkillImportOptionsState;
+    }
+  | { type: "results"; entries: SkillImportEntry[] };
+
+function formatDiagnosticLine(diagnostic: Diagnostic): string {
+  const p = diagnostic.path ? ` (${diagnostic.path})` : "";
+  return `[${diagnostic.severity}] ${diagnostic.code}: ${diagnostic.message}${p}`;
+}
+
+function summarizeAudit(output: CommandOutput): string {
+  if (output.family !== "skills" || output.data.operation !== "import") return "";
+  const audit = output.data.result.audit;
+  if (!audit.audited) return "";
+  return audit.providers.map((p) => `${p.provider}: ${p.raw}`).join(" · ");
+}
+
+function extractUserError(output: CommandOutput): string | undefined {
+  const errors = output.diagnostics.filter((d) => d.severity === "error");
+  if (errors.length === 0) return undefined;
+  for (const e of errors) {
+    if (e.code === "SKILL_IMPORT_SUBPROCESS_FAILED") return "Skill source not found or unavailable.";
+    if (e.code === "SKILL_IMPORT_AUDIT_BLOCKED") return "Blocked by security audit. Use --allow-unsafe to override.";
+    if (e.code === "SKILL_IMPORT_AUDIT_UNAUDITED")
+      return "No audit report available. Use --allow-unaudited to override.";
+    if (e.code === "SKILL_IMPORT_COLLISION") return "Skill already exists. Enable replace to overwrite.";
+    if (e.code?.startsWith("SKILL_IMPORT_PAYLOAD_")) return "Skill payload validation failed.";
+  }
+  return errors[0]?.message;
+}
+
+function formatSkillResultLabel(result: SkillDiscoveryResult): string {
+  return `${result.source}@${result.upstreamSkill}`;
+}
+
+function SkillItemLabel({
+  result,
+  isFocused,
+  isSelected,
+}: {
+  result: SkillDiscoveryResult;
+  isFocused: boolean;
+  isSelected: boolean;
+}) {
+  const nameColor = isSelected ? "green" : isFocused ? "cyan" : undefined;
+  const meta = [result.source, result.installs].filter(Boolean).join(" · ");
+  return (
+    <Box flexDirection="column">
+      <Text bold color={nameColor}>
+        {result.upstreamSkill}
+      </Text>
+      {meta && <Text dimColor>{`    ${meta}`}</Text>}
+    </Box>
+  );
+}
+
+function readSkillFindState(output: CommandOutput): SkillSearchState | null {
+  if (output.family !== "skills") return null;
+  if (output.data.operation !== "find") return null;
+  return {
+    query: output.data.query,
+    results: output.data.results,
+    diagnostics: output.diagnostics,
+    rawText: output.data.rawText,
+  };
+}
+
+function buildSkillImportInput(skill: SkillDiscoveryResult, options: SkillImportOptionsState): CommandInput {
+  return {
+    command: "skill.import",
+    args: { source: skill.source },
+    options: {
+      skill: skill.upstreamSkill,
+      replace: options.replace,
+      allowUnsafe: options.allowUnsafe,
+      allowUnaudited: options.allowUnaudited,
+    },
+  };
+}
+
+function SkillsImportWorkflow({ api, onCancel, onComplete, onDismiss }: SkillsImportWorkflowProps) {
+  const [step, setStep] = useState<SkillImportWorkflowStep>({ type: "query" });
+  const runningRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  useEffect(() => {
+    if (runningRef.current) return;
+
+    if (step.type === "searching") {
+      runningRef.current = true;
+      api
+        .execute({ command: "skill.find", args: { query: step.query } })
+        .then((output) => {
+          const search = readSkillFindState(output);
+          if (!search) {
+            onCompleteRef.current(["Error: Unexpected output while searching third-party skills."], true);
+            return;
+          }
+
+          if (search.results.length === 0) {
+            const lines = [`No skills found for query '${search.query}'.`];
+            if (search.rawText.trim().length > 0) {
+              lines.push("", search.rawText.trim());
+            }
+            if (search.diagnostics.length > 0) {
+              lines.push("", ...search.diagnostics.map(formatDiagnosticLine));
+            }
+            onCompleteRef.current(lines, output.exitCode !== 0);
+            return;
+          }
+
+          setStep({ type: "select", search });
+        })
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          onCompleteRef.current([`Error: ${message}`], true);
+        })
+        .finally(() => {
+          runningRef.current = false;
+        });
+      return;
+    }
+
+    if (step.type === "running") {
+      runningRef.current = true;
+      (async () => {
+        const entries: SkillImportEntry[] = [];
+        for (const skill of step.selected) {
+          const output = await api.execute(buildSkillImportInput(skill, step.options));
+          const fileCount =
+            output.family === "skills" && output.data.operation === "import" ? output.data.result.fileCount : 0;
+          entries.push({
+            skill,
+            ok: output.ok,
+            fileCount,
+            auditSummary: summarizeAudit(output),
+            errorMessage: output.ok ? undefined : extractUserError(output),
+          });
+        }
+        setStep({ type: "results", entries });
+      })()
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          onCompleteRef.current([`Error: ${message}`], true);
+        })
+        .finally(() => {
+          runningRef.current = false;
+        });
+    }
+  }, [api, step]);
+
+  if (step.type === "query") {
+    return (
+      <TextPrompt
+        key="skill-import-query"
+        message="Search third-party skills"
+        required
+        onSubmit={(value) => {
+          const query = value.trim();
+          if (query.length === 0) return;
+          setStep({ type: "searching", query });
+        }}
+        onCancel={onCancel}
+      />
+    );
+  }
+
+  if (step.type === "searching") {
+    return (
+      <Box marginTop={1}>
+        <Spinner label={`Searching skills for '${step.query}'...`} />
+      </Box>
+    );
+  }
+
+  if (step.type === "select") {
+    const results = step.search.results;
+    const options = results.map((result, index) => ({
+      value: String(index),
+      label: formatSkillResultLabel(result),
+    }));
+    const renderSkillLabel = ({ option, isFocused, isSelected }: RenderLabelProps) => {
+      const result = results[Number(option.value)];
+      if (!result) return null;
+      return <SkillItemLabel result={result} isFocused={isFocused} isSelected={isSelected} />;
+    };
+
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>{`Found ${results.length} skill(s) for '${step.search.query}'.`}</Text>
+        <Box marginTop={1}>
+          <AutocompleteMultiSelect
+            key={`skill-import-select-${step.search.query}`}
+            label="Filter skills"
+            options={options}
+            renderLabel={renderSkillLabel}
+            onCancel={onCancel}
+            onSubmit={(selectedValues) => {
+              const selected = selectedValues
+                .map((value) => Number.parseInt(value, 10))
+                .filter((index) => Number.isInteger(index))
+                .map((index) => step.search.results[index])
+                .filter((result): result is SkillDiscoveryResult => result !== undefined);
+
+              if (selected.length === 0) {
+                onComplete(["No skills selected. Nothing imported."], false);
+                return;
+              }
+
+              setStep({
+                type: "options",
+                search: step.search,
+                selected,
+                options: { ...DEFAULT_SKILL_IMPORT_OPTIONS },
+                optionIndex: 0,
+              });
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (step.type === "options") {
+    const prompt = SKILL_IMPORT_OPTION_PROMPTS[step.optionIndex];
+    if (!prompt) {
+      return null;
+    }
+    return (
+      <ToggleConfirm
+        key={`skill-import-option-${step.optionIndex}`}
+        message={prompt.message}
+        defaultValue={step.options[prompt.key]}
+        onEscape={onCancel}
+        onSubmit={(value) => {
+          const nextOptions: SkillImportOptionsState = {
+            ...step.options,
+            [prompt.key]: value,
+          };
+
+          const nextIndex = step.optionIndex + 1;
+          if (nextIndex < SKILL_IMPORT_OPTION_PROMPTS.length) {
+            setStep({
+              ...step,
+              options: nextOptions,
+              optionIndex: nextIndex,
+            });
+            return;
+          }
+
+          setStep({
+            type: "confirm",
+            search: step.search,
+            selected: step.selected,
+            options: nextOptions,
+          });
+        }}
+      />
+    );
+  }
+
+  if (step.type === "confirm") {
+    return (
+      <ToggleConfirm
+        message={`Import ${step.selected.length} selected skill(s) now?`}
+        defaultValue
+        onEscape={onCancel}
+        onSubmit={(confirmed) => {
+          if (!confirmed) {
+            onCancel();
+            return;
+          }
+
+          setStep({
+            type: "running",
+            search: step.search,
+            selected: step.selected,
+            options: step.options,
+          });
+        }}
+      />
+    );
+  }
+
+  if (step.type === "running") {
+    return (
+      <Box marginTop={1}>
+        <Spinner label={`Importing ${step.selected.length} skill(s)...`} />
+      </Box>
+    );
+  }
+
+  if (step.type === "results") {
+    return <SkillImportResults entries={step.entries} onDismiss={onDismiss} />;
+  }
+
+  return null;
+}
+
+function SkillImportResults({ entries, onDismiss }: { entries: SkillImportEntry[]; onDismiss: () => void }) {
+  useInput((_input, key) => {
+    if (key.return) onDismiss();
+  });
+
+  const imported = entries.filter((e) => e.ok);
+  const failed = entries.filter((e) => !e.ok);
+  const allOk = failed.length === 0;
+
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text bold color={allOk ? "green" : "yellow"}>
+        {allOk ? `✓ Imported ${imported.length} skill(s)` : `${imported.length} imported, ${failed.length} failed`}
+      </Text>
+      <Box flexDirection="column" marginTop={1}>
+        {entries.map((entry) => (
+          <Box key={`${entry.skill.source}/${entry.skill.upstreamSkill}`} flexDirection="column" marginBottom={1}>
+            <Box gap={1}>
+              <Text color={entry.ok ? "green" : "red"}>{entry.ok ? "✓" : "✗"}</Text>
+              <Text bold>{entry.skill.upstreamSkill}</Text>
+              <Text dimColor>{entry.skill.source}</Text>
+            </Box>
+            {entry.ok && entry.fileCount > 0 && <Text dimColor>{`    ${entry.fileCount} file(s) added`}</Text>}
+            {entry.ok && entry.auditSummary && <Text dimColor>{`    Audit: ${entry.auditSummary}`}</Text>}
+            {!entry.ok && entry.errorMessage && <Text color="red">{`    ${entry.errorMessage}`}</Text>}
+          </Box>
+        ))}
+      </Box>
+      <Text dimColor>Press Enter to continue...</Text>
     </Box>
   );
 }

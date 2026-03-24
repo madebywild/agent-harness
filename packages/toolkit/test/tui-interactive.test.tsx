@@ -26,6 +26,8 @@ import {
   makeMissingStatus,
   makePlanOutput,
   makeProviderOutput,
+  makeSkillsFindOutput,
+  makeSkillsImportOutput,
   makeUnhealthyStatus,
   selectCommand,
   submitAndWait,
@@ -117,6 +119,79 @@ describe("journey 3 — add skill with prompts", { timeout: 10_000 }, () => {
     assert.equal(calls[0]?.args?.skillId, "reviewer");
 
     // Dismiss and return to selector
+    await confirmAndWait(instance, (f) => f.includes("Command"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Journey 3b: Import third-party skill (prompts + collision policy)
+// ---------------------------------------------------------------------------
+describe("journey 3b — import third-party skill", { timeout: 12_000 }, () => {
+  test("user searches, multi-selects, and imports multiple skills in one flow", async () => {
+    const onExit = mock.fn((_code: number) => {});
+    const { api, calls } = createMockApi((input) => {
+      if (input.command === "skill.find") {
+        return makeSkillsFindOutput([
+          {
+            source: "vercel-labs/agent-skills",
+            upstreamSkill: "web-design-guidelines",
+            installs: "194.7K installs",
+            url: "https://skills.sh/vercel-labs/agent-skills/web-design-guidelines",
+          },
+          {
+            source: "vercel-labs/agent-skills",
+            upstreamSkill: "design-system-maintainer",
+            installs: "88.1K installs",
+            url: "https://skills.sh/vercel-labs/agent-skills/design-system-maintainer",
+          },
+        ]);
+      }
+
+      if (input.command === "skill.import") {
+        const imported = typeof input.options?.skill === "string" ? input.options.skill : "imported-skill";
+        return makeSkillsImportOutput(imported);
+      }
+
+      return makePlanOutput();
+    });
+    const instance = render(<App api={api} presets={TEST_PRESETS} onExit={onExit} />);
+
+    await waitForFrame(instance, (f) => f.includes("Command"));
+
+    await selectCommand(instance.stdin, "Search + import third-party skills");
+    await waitForFrame(instance, (f) => f.includes("Search third-party skills"));
+    await delay(100);
+
+    await submitAndWait(instance, "web design", (f) => f.includes("Found 2 skill(s)"));
+
+    // Multi-select first and second result with SPACE, then ENTER to confirm.
+    instance.stdin.write(KEYS.SPACE);
+    await delay(50);
+    instance.stdin.write(KEYS.DOWN);
+    await delay(50);
+    instance.stdin.write(KEYS.SPACE);
+    await delay(50);
+    instance.stdin.write(KEYS.ENTER);
+    await waitForFrame(instance, (f) => f.includes("Replace existing local skills"));
+
+    // Keep defaults (No/No/No) for replace/allowUnsafe/allowUnaudited, then confirm run.
+    await confirmAndWait(instance, (f) => f.includes("Allow non-pass audited skills"));
+    await confirmAndWait(instance, (f) => f.includes("Allow unaudited sources"));
+    await confirmAndWait(instance, (f) => f.includes("Import 2 selected skill(s) now?"));
+
+    await confirmAndWait(instance, (f) => f.includes("Press Enter to continue"));
+    assert.equal(calls.length, 3);
+    assert.equal(calls[0]?.command, "skill.find");
+    assert.equal(calls[0]?.args?.query, "web design");
+    assert.equal(calls[1]?.command, "skill.import");
+    assert.equal(calls[1]?.args?.source, "vercel-labs/agent-skills");
+    assert.equal(calls[1]?.options?.skill, "web-design-guidelines");
+    assert.equal(calls[1]?.options?.replace, false);
+    assert.equal(calls[1]?.options?.allowUnsafe, false);
+    assert.equal(calls[1]?.options?.allowUnaudited, false);
+    assert.equal(calls[2]?.command, "skill.import");
+    assert.equal(calls[2]?.options?.skill, "design-system-maintainer");
+
     await confirmAndWait(instance, (f) => f.includes("Command"));
   });
 });

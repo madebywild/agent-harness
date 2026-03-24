@@ -21,6 +21,7 @@ Defines shared toolkit interfaces for canonical entities, provider adapters, dia
   - `PresetDefinition`, `PresetOperation` (re-exported from manifest-schema)
 - Command result models:
   - `ValidationResult`, `PlanResult`, `ApplyResult`, `DoctorResult`, `MigrationResult`
+  - skills integration: `SkillDiscoveryResult`, `SkillsFindResult`, `SkillAuditDecision`, `SkillImportResult`
 - Versioning models:
   - `VersionStatus`, `VersionDiagnostic`, `MigrationAction`
 - Loader/planner internal models:

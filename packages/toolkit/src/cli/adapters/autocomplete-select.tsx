@@ -1,4 +1,5 @@
 import { Box, Text, useInput } from "ink";
+import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 
 export interface AutocompleteSelectOption {
@@ -12,6 +13,22 @@ export interface AutocompleteSelectProps {
   onCancel?: () => void;
   label?: string;
   visibleOptionCount?: number;
+}
+
+export interface RenderLabelProps {
+  option: AutocompleteSelectOption;
+  isFocused: boolean;
+  isSelected: boolean;
+  query: string;
+}
+
+export interface AutocompleteMultiSelectProps {
+  options: AutocompleteSelectOption[];
+  onSubmit: (values: string[]) => void;
+  onCancel?: () => void;
+  label?: string;
+  visibleOptionCount?: number;
+  renderLabel?: (props: RenderLabelProps) => ReactNode;
 }
 
 export function AutocompleteSelect({
@@ -87,6 +104,124 @@ export function AutocompleteSelect({
           <Box key={option.value}>
             <Text color={isFocused ? "cyan" : undefined}>{isFocused ? "❯ " : "  "}</Text>
             <HighlightedLabel label={option.label} query={query} isFocused={isFocused} />
+          </Box>
+        );
+      })}
+      {scrollRef.current + actualVisible < filtered.length && <Text dimColor>{"  ↓"}</Text>}
+      {filtered.length === 0 && <Text dimColor>{"  No matches"}</Text>}
+    </Box>
+  );
+}
+
+export function AutocompleteMultiSelect({
+  options,
+  onSubmit,
+  onCancel,
+  label = "Search",
+  visibleOptionCount = 8,
+  renderLabel,
+}: AutocompleteMultiSelectProps) {
+  const [query, setQuery] = useState("");
+  const [focusIndex, setFocusIndex] = useState(0);
+  const [selectedValues, setSelectedValues] = useState<Set<string>>(() => new Set());
+  const scrollRef = useRef(0);
+
+  const filtered = useMemo(() => {
+    if (!query) return options;
+    const q = query.toLowerCase();
+    return options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [options, query]);
+
+  const focus = Math.min(focusIndex, Math.max(0, filtered.length - 1));
+  const actualVisible = Math.min(visibleOptionCount, filtered.length);
+
+  if (focus < scrollRef.current) {
+    scrollRef.current = focus;
+  } else if (focus >= scrollRef.current + actualVisible) {
+    scrollRef.current = focus - actualVisible + 1;
+  }
+  scrollRef.current = Math.max(0, Math.min(scrollRef.current, Math.max(0, filtered.length - actualVisible)));
+
+  const visibleSlice = filtered.slice(scrollRef.current, scrollRef.current + actualVisible);
+
+  useInput((input, key) => {
+    if (key.downArrow) {
+      setFocusIndex((i) => Math.min(i + 1, filtered.length - 1));
+      return;
+    }
+    if (key.upArrow) {
+      setFocusIndex((i) => Math.max(i - 1, 0));
+      return;
+    }
+    if (input === " ") {
+      const focusedOption = filtered[focus];
+      if (!focusedOption) return;
+      setSelectedValues((prev) => {
+        const next = new Set(prev);
+        if (next.has(focusedOption.value)) {
+          next.delete(focusedOption.value);
+        } else {
+          next.add(focusedOption.value);
+        }
+        return next;
+      });
+      return;
+    }
+    if (key.return) {
+      const orderedSelection = options
+        .filter((option) => selectedValues.has(option.value))
+        .map((option) => option.value);
+      onSubmit(orderedSelection);
+      return;
+    }
+    if (key.escape) {
+      if (query) {
+        setQuery("");
+        setFocusIndex(0);
+        scrollRef.current = 0;
+      } else {
+        onCancel?.();
+      }
+      return;
+    }
+    if (key.backspace || key.delete) {
+      setQuery((q) => q.slice(0, -1));
+      setFocusIndex(0);
+      scrollRef.current = 0;
+      return;
+    }
+    if (input && !key.ctrl && !key.meta && !key.tab) {
+      setQuery((q) => q + input);
+      setFocusIndex(0);
+      scrollRef.current = 0;
+    }
+  });
+
+  const selectedCount = selectedValues.size;
+
+  return (
+    <Box flexDirection="column">
+      <Box>
+        <Text dimColor>{label}: </Text>
+        <Text>{query}</Text>
+        <Text dimColor>█</Text>
+        {filtered.length !== options.length && <Text dimColor>{` (${filtered.length}/${options.length})`}</Text>}
+      </Box>
+      <Text dimColor>{"↑↓ navigate · space select · enter confirm"}</Text>
+      {selectedCount > 0 && <Text color="green">{`  ${selectedCount} selected`}</Text>}
+      {scrollRef.current > 0 && <Text dimColor>{"  ↑"}</Text>}
+      {visibleSlice.map((option, i) => {
+        const isFocused = scrollRef.current + i === focus;
+        const selected = selectedValues.has(option.value);
+        return (
+          <Box key={option.value}>
+            <Text color={isFocused ? "cyan" : undefined}>{isFocused ? "❯ " : "  "}</Text>
+            <Text color={selected ? "green" : "gray"}>{selected ? "◼ " : "◻ "}</Text>
+            {renderLabel ? (
+              renderLabel({ option, isFocused, isSelected: selected, query })
+            ) : (
+              <HighlightedLabel label={option.label} query={query} isFocused={isFocused} />
+            )}
           </Box>
         );
       })}

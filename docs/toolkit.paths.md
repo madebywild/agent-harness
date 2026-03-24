@@ -6,7 +6,7 @@ Centralizes path conventions for `.harness` workspace files and canonical source
 
 ## Key exports
 
-- `HarnessPaths`: resolved absolute path set for workspace files/directories, including `hookDir`, `presetsDir`, `envFile`, and `rootEnvFile`.
+- `HarnessPaths`: resolved absolute path set for workspace files/directories, including `hookDir`, `presetsDir`, `importsDir`, `skillImportDir`, `envFile`, and `rootEnvFile`.
 - `resolveHarnessPaths(rootDir)`: computes absolute paths for `.harness` files.
 - `DEFAULT_PROMPT_SOURCE_PATH`: `.harness/src/prompts/system.md`.
 
@@ -23,6 +23,7 @@ Source path helpers:
 - `defaultHookSourcePath(id)`
 - `defaultSettingsSourcePath(provider)` — returns `.harness/src/settings/codex.toml` for codex, `.harness/src/settings/<provider>.json` for others.
 - `defaultCommandSourcePath(id)`
+- `defaultSkillImportMetadataPath(skillId)` → `.harness/imports/skills/<id>.json`
 
 Override path helpers:
 

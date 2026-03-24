@@ -18,6 +18,7 @@ This set documents source files under `packages/toolkit/src`.
 - `presets.ts`: [`toolkit.presets.md`](./toolkit.presets.md)
 - `providers.ts`: [`toolkit.providers.md`](./toolkit.providers.md)
 - `repository.ts`: [`toolkit.repository.md`](./toolkit.repository.md)
+- `skills-integration.ts`: [`toolkit.skills-integration.md`](./toolkit.skills-integration.md)
 - `types.ts`: [`toolkit.types.md`](./toolkit.types.md)
 - `utils.ts`: [`toolkit.utils.md`](./toolkit.utils.md)
 

@@ -53,6 +53,9 @@ Supporting logic is split across submodules in `engine/`:
   - `addSubagent`
   - `addHook`
   - `addSettings`
+- third-party skills integration:
+  - `findSkills(query)` — runs discovery through pinned `skills@1.4.6`
+  - `importSkill(...)` — imports single-skill snapshots with strict audit/payload gates and provenance sidecar writes
 - registry methods:
   - `listRegistries`
   - `addRegistry`
@@ -76,6 +79,7 @@ Supporting logic is split across submodules in `engine/`:
 - Version preflight runs before normal runtime/mutating commands.
 - Apply short-circuits when any `error` diagnostic exists.
 - Lock/index are updated only when semantic payload changed.
+- `importSkill` blocks workspace mutation on failed audit/payload validation; successful imports write provenance metadata to `.harness/imports/skills/<id>.json`.
 
 ## Settings pull hash policy
 

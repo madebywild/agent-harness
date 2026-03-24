@@ -21,10 +21,11 @@ import {
   preflightDiagnosticsFromDoctor,
   printApplySummary,
   printDiagnostics,
+  validateEntityId,
   validateRegistryId,
 } from "./engine/utils.js";
 import { loadCanonicalState } from "./loader.js";
-import { resolveHarnessPaths } from "./paths.js";
+import { defaultSkillImportMetadataPath, defaultSkillSourcePath, resolveHarnessPaths } from "./paths.js";
 import { buildPlan } from "./planner.js";
 import {
   listBuiltinPresets,
@@ -43,6 +44,7 @@ import {
   writeManagedIndex,
   writeManifest,
 } from "./repository.js";
+import { findSkills, prepareSkillImport, SKILLS_CLI_VERSION } from "./skills-integration.js";
 import type {
   AgentsManifest,
   ApplyResult,
@@ -60,6 +62,8 @@ import type {
   RegistryPullResult,
   RemoveResult,
   ResolvedPreset,
+  SkillImportResult,
+  SkillsFindResult,
   ValidationResult,
 } from "./types.js";
 import {
@@ -104,6 +108,7 @@ export class HarnessEngine {
     await fs.mkdir(paths.hookDir, { recursive: true });
     await fs.mkdir(paths.settingsDir, { recursive: true });
     await fs.mkdir(paths.commandDir, { recursive: true });
+    await fs.mkdir(paths.skillImportDir, { recursive: true });
     await fs.mkdir(paths.presetsDir, { recursive: true });
 
     const manifest: AgentsManifest = {
@@ -313,6 +318,163 @@ export class HarnessEngine {
   async addSettings(provider: ProviderId, options?: { registry?: string }): Promise<void> {
     await this.assertWorkspaceVersionCurrent();
     await addSettingsEntity(this.cwd, provider, options);
+  }
+
+  async findSkills(
+    query: string,
+    options?: {
+      findImpl?: typeof findSkills;
+    },
+  ): Promise<SkillsFindResult> {
+    const findImpl = options?.findImpl ?? findSkills;
+    return findImpl(query);
+  }
+
+  async importSkill(
+    input: {
+      source: string;
+      upstreamSkill: string;
+      as?: string;
+      replace?: boolean;
+      allowUnsafe?: boolean;
+      allowUnaudited?: boolean;
+    },
+    options?: {
+      prepareImportImpl?: typeof prepareSkillImport;
+    },
+  ): Promise<SkillImportResult> {
+    await this.assertWorkspaceVersionCurrent();
+
+    const source = input.source.trim();
+    if (source.length === 0) {
+      throw new Error("source must not be empty");
+    }
+
+    const upstreamSkill = input.upstreamSkill.trim();
+    if (upstreamSkill.length === 0) {
+      throw new Error("upstream skill must not be empty");
+    }
+    validateEntityId(upstreamSkill, "skill");
+
+    const requestedIdRaw = (input.as ?? upstreamSkill).trim();
+    if (requestedIdRaw.length === 0) {
+      throw new Error("target skill id must not be empty");
+    }
+
+    validateEntityId(requestedIdRaw, "skill");
+    const requestedId = requestedIdRaw;
+
+    const paths = resolveHarnessPaths(this.cwd);
+    const manifest = await readManifestOrThrow(paths);
+    const existingSkill = manifest.entities.find((entity) => entity.type === "skill" && entity.id === requestedId);
+    const replace = input.replace === true;
+
+    if (existingSkill && !replace) {
+      return {
+        importedId: requestedId,
+        requestedId,
+        replaced: false,
+        provenance: {
+          source,
+          upstreamSkill,
+          skillsCliVersion: SKILLS_CLI_VERSION,
+        },
+        fileCount: 0,
+        audit: {
+          audited: false,
+          allowed: false,
+          reason: "not_evaluated",
+          allowUnsafe: input.allowUnsafe === true,
+          allowUnaudited: input.allowUnaudited === true,
+          providers: [],
+        },
+        diagnostics: [
+          {
+            code: "SKILL_IMPORT_COLLISION",
+            severity: "error",
+            message: `Skill '${requestedId}' already exists. Re-run with --replace to overwrite it.`,
+            entityId: requestedId,
+            path: defaultSkillSourcePath(requestedId),
+          },
+        ],
+      };
+    }
+
+    const prepareImportImpl = options?.prepareImportImpl ?? prepareSkillImport;
+    const prepared = await prepareImportImpl({
+      source,
+      upstreamSkill,
+      allowUnsafe: input.allowUnsafe === true,
+      allowUnaudited: input.allowUnaudited === true,
+    });
+
+    if (!prepared.ok || !prepared.files) {
+      return {
+        importedId: requestedId,
+        requestedId,
+        replaced: false,
+        provenance: {
+          source,
+          resolvedSource: prepared.resolvedSource,
+          upstreamSkill,
+          skillsCliVersion: SKILLS_CLI_VERSION,
+        },
+        fileCount: prepared.files?.length ?? 0,
+        audit: prepared.audit,
+        diagnostics: prepared.diagnostics,
+      };
+    }
+
+    if (existingSkill && replace) {
+      await removeEntity(this.cwd, "skill", requestedId, true);
+    }
+
+    await addSkillEntity(this.cwd, requestedId, {
+      files: prepared.files.map((file) => ({
+        path: file.path,
+        content: file.content,
+        encoding: file.encoding,
+      })),
+    });
+
+    const metadataPath = defaultSkillImportMetadataPath(requestedId);
+    const metadataAbs = path.join(this.cwd, metadataPath);
+    await ensureParentDir(metadataAbs);
+    await fs.writeFile(
+      metadataAbs,
+      stableStringify({
+        version: 1,
+        importedAt: nowIso(),
+        id: requestedId,
+        source,
+        resolvedSource: prepared.resolvedSource,
+        upstreamSkill,
+        skillsCliVersion: SKILLS_CLI_VERSION,
+        audit: prepared.audit,
+        files: prepared.files.map((file) => ({
+          path: file.path,
+          sha256: file.sha256,
+          sizeBytes: file.sizeBytes,
+        })),
+      }),
+      "utf8",
+    );
+
+    return {
+      importedId: requestedId,
+      requestedId,
+      replaced: existingSkill !== undefined,
+      provenance: {
+        source,
+        resolvedSource: prepared.resolvedSource,
+        upstreamSkill,
+        skillsCliVersion: SKILLS_CLI_VERSION,
+      },
+      metadataPath,
+      fileCount: prepared.files.length,
+      audit: prepared.audit,
+      diagnostics: prepared.diagnostics,
+    };
   }
 
   async pullRegistry(options?: {
