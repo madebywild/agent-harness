@@ -7,11 +7,15 @@
  */
 
 import { Spinner } from "@inkjs/ui";
+import {
+  AutocompleteSelect,
+  OnboardingComplete,
+  OutputStep,
+  TextPrompt,
+  ToggleConfirm,
+} from "@madebywild/agent-harness-tui";
 import { Box, render, Text, useApp } from "ink";
 import { useState } from "react";
-import { AutocompleteSelect } from "./adapters/autocomplete-select.js";
-import { OnboardingComplete, OutputStep, TextPrompt } from "./adapters/interactive.js";
-import { ToggleConfirm } from "./adapters/toggle-confirm.js";
 
 // ---------------------------------------------------------------------------
 // Story definitions

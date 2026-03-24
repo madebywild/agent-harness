@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "outDir": "storybook-static"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "stories/**/*.tsx", ".storybook/**/*.ts"]
+}

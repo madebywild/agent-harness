@@ -1,14 +1,11 @@
 {
-  "name": "@madebywild/agent-harness-framework",
+  "name": "@madebywild/agent-harness-tui",
   "version": "1.5.0",
   "license": "MIT",
   "private": false,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": {
-    "harness": "./dist/cli.js"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -21,39 +18,29 @@
   "keywords": [
     "ai",
     "agent",
-    "agents",
-    "llm",
-    "claude",
-    "copilot",
-    "codex",
-    "mcp",
-    "harness",
+    "tui",
+    "ink",
+    "terminal",
     "cli",
-    "workflow",
-    "prompt-management"
+    "components",
+    "storybook"
   ],
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "@iarna/toml": "^2.2.5",
     "@inkjs/ui": "^2.0.0",
-    "@madebywild/agent-harness-manifest": "workspace:*",
-    "@madebywild/agent-harness-tui": "workspace:*",
-    "chokidar": "^5.0.0",
-    "commander": "^14.0.3",
-    "gray-matter": "^4.0.3",
     "ink": "^6.0.0",
-    "react": "^19.0.0",
-    "yaml": "^2.8.2"
+    "react": "^19.0.0"
   },
   "devDependencies": {
+    "@storybook/addon-essentials": "^8.6.14",
+    "@storybook/react-vite": "^8.6.14",
     "@types/node": "^25.5.0",
     "@types/react": "^19.0.0",
-    "ink-testing-library": "^4.0.0",
-    "testcontainers": "^11.13.0",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "storybook": "^8.6.14",
+    "typescript": "^5.9.3",
+    "vite": "^6.3.5"
   },
   "scripts": {
     "build": "pnpm exec tsc -b",
@@ -65,10 +52,9 @@
     "format:write": "biome format --write .",
     "check": "biome check .",
     "check:write": "biome check --write .",
-    "test": "pnpm exec tsx --test test/*.test.ts test/*.test.tsx",
-    "test:e2e:containers": "pnpm exec tsx --test test/e2e/**/*.e2e.test.ts",
+    "test": "echo \"No tests in tui\"",
     "typecheck": "pnpm exec tsc -b --pretty false",
-    "preview": "pnpm run build && node dist/cli.js",
-    "storybook": "pnpm exec tsx src/cli/storybook.tsx"
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   }
 }
