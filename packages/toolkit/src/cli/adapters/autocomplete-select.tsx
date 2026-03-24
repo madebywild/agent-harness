@@ -1,4 +1,5 @@
 import { Box, Text, useInput } from "ink";
+import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 
 export interface AutocompleteSelectOption {
@@ -14,12 +15,20 @@ export interface AutocompleteSelectProps {
   visibleOptionCount?: number;
 }
 
+export interface RenderLabelProps {
+  option: AutocompleteSelectOption;
+  isFocused: boolean;
+  isSelected: boolean;
+  query: string;
+}
+
 export interface AutocompleteMultiSelectProps {
   options: AutocompleteSelectOption[];
   onSubmit: (values: string[]) => void;
   onCancel?: () => void;
   label?: string;
   visibleOptionCount?: number;
+  renderLabel?: (props: RenderLabelProps) => ReactNode;
 }
 
 export function AutocompleteSelect({
@@ -110,6 +119,7 @@ export function AutocompleteMultiSelect({
   onCancel,
   label = "Search",
   visibleOptionCount = 8,
+  renderLabel,
 }: AutocompleteMultiSelectProps) {
   const [query, setQuery] = useState("");
   const [focusIndex, setFocusIndex] = useState(0);
@@ -207,7 +217,11 @@ export function AutocompleteMultiSelect({
           <Box key={option.value}>
             <Text color={isFocused ? "cyan" : undefined}>{isFocused ? "❯ " : "  "}</Text>
             <Text color={selected ? "green" : "gray"}>{selected ? "◼ " : "◻ "}</Text>
-            <HighlightedLabel label={option.label} query={query} isFocused={isFocused} />
+            {renderLabel ? (
+              renderLabel({ option, isFocused, isSelected: selected, query })
+            ) : (
+              <HighlightedLabel label={option.label} query={query} isFocused={isFocused} />
+            )}
           </Box>
         );
       })}

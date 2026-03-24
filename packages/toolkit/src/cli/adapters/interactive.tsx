@@ -11,7 +11,7 @@ import { runDoctor } from "../../versioning/doctor.js";
 import { getCommandDefinition } from "../command-registry.js";
 import type { CommandId, CommandInput, CommandOutput } from "../contracts.js";
 import { renderTextOutput } from "../renderers/text.js";
-import { AutocompleteMultiSelect, AutocompleteSelect } from "./autocomplete-select.js";
+import { AutocompleteMultiSelect, AutocompleteSelect, type RenderLabelProps } from "./autocomplete-select.js";
 import { ToggleConfirm } from "./toggle-confirm.js";
 
 export interface InteractiveExecutionApi {
@@ -1030,9 +1030,28 @@ function formatDiagnosticLine(diagnostic: Diagnostic): string {
 }
 
 function formatSkillResultLabel(result: SkillDiscoveryResult): string {
-  const installs = result.installs ? ` ${result.installs}` : "";
-  const url = result.url ? ` ${result.url}` : "";
-  return `${result.source}@${result.upstreamSkill}${installs}${url}`;
+  return `${result.source}@${result.upstreamSkill}`;
+}
+
+function SkillItemLabel({
+  result,
+  isFocused,
+  isSelected,
+}: {
+  result: SkillDiscoveryResult;
+  isFocused: boolean;
+  isSelected: boolean;
+}) {
+  const nameColor = isSelected ? "green" : isFocused ? "cyan" : undefined;
+  const meta = [result.source, result.installs].filter(Boolean).join(" · ");
+  return (
+    <Box flexDirection="column">
+      <Text bold color={nameColor}>
+        {result.upstreamSkill}
+      </Text>
+      {meta && <Text dimColor>{`    ${meta}`}</Text>}
+    </Box>
+  );
 }
 
 function readSkillFindState(output: CommandOutput): SkillSearchState | null {
@@ -1169,19 +1188,26 @@ function SkillsImportWorkflow({ api, onCancel, onComplete }: SkillsImportWorkflo
   }
 
   if (step.type === "select") {
-    const options = step.search.results.map((result, index) => ({
+    const results = step.search.results;
+    const options = results.map((result, index) => ({
       value: String(index),
       label: formatSkillResultLabel(result),
     }));
+    const renderSkillLabel = ({ option, isFocused, isSelected }: RenderLabelProps) => {
+      const result = results[Number(option.value)];
+      if (!result) return null;
+      return <SkillItemLabel result={result} isFocused={isFocused} isSelected={isSelected} />;
+    };
 
     return (
       <Box flexDirection="column" marginTop={1}>
-        <Text bold>{`Found ${step.search.results.length} skill(s) for '${step.search.query}'.`}</Text>
+        <Text bold>{`Found ${results.length} skill(s) for '${step.search.query}'.`}</Text>
         <Box marginTop={1}>
           <AutocompleteMultiSelect
             key={`skill-import-select-${step.search.query}`}
             label="Filter skills"
             options={options}
+            renderLabel={renderSkillLabel}
             onCancel={onCancel}
             onSubmit={(selectedValues) => {
               const selected = selectedValues
