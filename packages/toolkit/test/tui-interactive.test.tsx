@@ -171,6 +171,7 @@ describe("journey 3b — import third-party skill", { timeout: 12_000 }, () => {
     await delay(50);
     instance.stdin.write(KEYS.SPACE);
     await delay(50);
+    await waitForFrame(instance, (f) => f.includes("2 selected"));
     instance.stdin.write(KEYS.ENTER);
     await waitForFrame(instance, (f) => f.includes("Replace existing local skills"));
 

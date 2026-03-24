@@ -124,6 +124,7 @@ export function AutocompleteMultiSelect({
   const [query, setQuery] = useState("");
   const [focusIndex, setFocusIndex] = useState(0);
   const [selectedValues, setSelectedValues] = useState<Set<string>>(() => new Set());
+  const selectedValuesRef = useRef<Set<string>>(new Set());
   const scrollRef = useRef(0);
 
   const filtered = useMemo(() => {
@@ -163,13 +164,14 @@ export function AutocompleteMultiSelect({
         } else {
           next.add(focusedOption.value);
         }
+        selectedValuesRef.current = next;
         return next;
       });
       return;
     }
     if (key.return) {
       const orderedSelection = options
-        .filter((option) => selectedValues.has(option.value))
+        .filter((option) => selectedValuesRef.current.has(option.value))
         .map((option) => option.value);
       onSubmit(orderedSelection);
       return;
