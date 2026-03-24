@@ -13,6 +13,7 @@ export const KEYS = {
   RIGHT: "\x1B[C",
   BACKSPACE: "\x7F",
   TAB: "\t",
+  SPACE: " ",
 } as const;
 
 export function delay(ms = 50): Promise<void> {

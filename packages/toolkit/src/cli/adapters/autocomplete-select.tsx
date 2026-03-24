@@ -20,7 +20,6 @@ export interface AutocompleteMultiSelectProps {
   onCancel?: () => void;
   label?: string;
   visibleOptionCount?: number;
-  doneLabel?: (selectedCount: number) => string;
 }
 
 export function AutocompleteSelect({
@@ -111,7 +110,6 @@ export function AutocompleteMultiSelect({
   onCancel,
   label = "Search",
   visibleOptionCount = 8,
-  doneLabel = (selectedCount) => `Done (${selectedCount} selected)`,
 }: AutocompleteMultiSelectProps) {
   const [query, setQuery] = useState("");
   const [focusIndex, setFocusIndex] = useState(0);
@@ -124,39 +122,29 @@ export function AutocompleteMultiSelect({
     return options.filter((o) => o.label.toLowerCase().includes(q));
   }, [options, query]);
 
-  const rowCount = filtered.length + 1;
-  const focus = Math.min(focusIndex, Math.max(0, rowCount - 1));
-  const actualVisible = Math.min(visibleOptionCount, rowCount);
+  const focus = Math.min(focusIndex, Math.max(0, filtered.length - 1));
+  const actualVisible = Math.min(visibleOptionCount, filtered.length);
 
   if (focus < scrollRef.current) {
     scrollRef.current = focus;
   } else if (focus >= scrollRef.current + actualVisible) {
     scrollRef.current = focus - actualVisible + 1;
   }
-  scrollRef.current = Math.max(0, Math.min(scrollRef.current, Math.max(0, rowCount - actualVisible)));
+  scrollRef.current = Math.max(0, Math.min(scrollRef.current, Math.max(0, filtered.length - actualVisible)));
 
-  const visibleRows = Array.from({ length: actualVisible }, (_, i) => scrollRef.current + i).filter(
-    (row) => row < rowCount,
-  );
+  const visibleSlice = filtered.slice(scrollRef.current, scrollRef.current + actualVisible);
 
   useInput((input, key) => {
     if (key.downArrow) {
-      setFocusIndex((i) => Math.min(i + 1, rowCount - 1));
+      setFocusIndex((i) => Math.min(i + 1, filtered.length - 1));
       return;
     }
     if (key.upArrow) {
       setFocusIndex((i) => Math.max(i - 1, 0));
       return;
     }
-    if (key.return) {
-      if (focus === 0) {
-        const orderedSelection = options
-          .filter((option) => selectedValues.has(option.value))
-          .map((option) => option.value);
-        onSubmit(orderedSelection);
-        return;
-      }
-      const focusedOption = filtered[focus - 1];
+    if (input === " ") {
+      const focusedOption = filtered[focus];
       if (!focusedOption) return;
       setSelectedValues((prev) => {
         const next = new Set(prev);
@@ -167,6 +155,13 @@ export function AutocompleteMultiSelect({
         }
         return next;
       });
+      return;
+    }
+    if (key.return) {
+      const orderedSelection = options
+        .filter((option) => selectedValues.has(option.value))
+        .map((option) => option.value);
+      onSubmit(orderedSelection);
       return;
     }
     if (key.escape) {
@@ -202,32 +197,21 @@ export function AutocompleteMultiSelect({
         <Text dimColor>█</Text>
         {filtered.length !== options.length && <Text dimColor>{` (${filtered.length}/${options.length})`}</Text>}
       </Box>
-      <Text dimColor>{`Enter toggles selection. Select "${doneLabel(selectedCount)}" to continue.`}</Text>
-      {scrollRef.current > 0 && <Text dimColor>{"  ^"}</Text>}
-      {visibleRows.map((row) => {
-        const isFocused = row === focus;
-        if (row === 0) {
-          return (
-            <Box key="done-row">
-              <Text color={isFocused ? "cyan" : undefined}>{isFocused ? "> " : "  "}</Text>
-              <Text bold color={isFocused ? "cyan" : undefined}>
-                {doneLabel(selectedCount)}
-              </Text>
-            </Box>
-          );
-        }
-        const option = filtered[row - 1];
-        if (!option) return null;
+      <Text dimColor>{"↑↓ navigate · space select · enter confirm"}</Text>
+      {selectedCount > 0 && <Text color="green">{`  ${selectedCount} selected`}</Text>}
+      {scrollRef.current > 0 && <Text dimColor>{"  ↑"}</Text>}
+      {visibleSlice.map((option, i) => {
+        const isFocused = scrollRef.current + i === focus;
         const selected = selectedValues.has(option.value);
         return (
           <Box key={option.value}>
-            <Text color={isFocused ? "cyan" : undefined}>{isFocused ? "> " : "  "}</Text>
-            <Text color={isFocused ? "cyan" : undefined}>{selected ? "[x] " : "[ ] "}</Text>
+            <Text color={isFocused ? "cyan" : undefined}>{isFocused ? "❯ " : "  "}</Text>
+            <Text color={selected ? "green" : "gray"}>{selected ? "◼ " : "◻ "}</Text>
             <HighlightedLabel label={option.label} query={query} isFocused={isFocused} />
           </Box>
         );
       })}
-      {scrollRef.current + actualVisible < rowCount && <Text dimColor>{"  v"}</Text>}
+      {scrollRef.current + actualVisible < filtered.length && <Text dimColor>{"  ↓"}</Text>}
       {filtered.length === 0 && <Text dimColor>{"  No matches"}</Text>}
     </Box>
   );

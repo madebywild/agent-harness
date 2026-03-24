@@ -1182,7 +1182,6 @@ function SkillsImportWorkflow({ api, onCancel, onComplete }: SkillsImportWorkflo
             key={`skill-import-select-${step.search.query}`}
             label="Filter skills"
             options={options}
-            doneLabel={(count) => `Import selected (${count})`}
             onCancel={onCancel}
             onSubmit={(selectedValues) => {
               const selected = selectedValues

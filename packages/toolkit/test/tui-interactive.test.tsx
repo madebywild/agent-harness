@@ -164,20 +164,15 @@ describe("journey 3b — import third-party skill", { timeout: 12_000 }, () => {
 
     await submitAndWait(instance, "web design", (f) => f.includes("Found 2 skill(s)"));
 
-    // Multi-select first and second result, then submit on done-row.
-    instance.stdin.write(KEYS.DOWN);
-    await delay(50);
-    instance.stdin.write(KEYS.ENTER);
+    // Multi-select first and second result with SPACE, then ENTER to confirm.
+    instance.stdin.write(KEYS.SPACE);
     await delay(50);
     instance.stdin.write(KEYS.DOWN);
     await delay(50);
+    instance.stdin.write(KEYS.SPACE);
+    await delay(50);
     instance.stdin.write(KEYS.ENTER);
-    await delay(50);
-    instance.stdin.write(KEYS.UP);
-    await delay(50);
-    instance.stdin.write(KEYS.UP);
-    await delay(50);
-    await confirmAndWait(instance, (f) => f.includes("Replace existing local skills"));
+    await waitForFrame(instance, (f) => f.includes("Replace existing local skills"));
 
     // Keep defaults (No/No/No) for replace/allowUnsafe/allowUnaudited, then confirm run.
     await confirmAndWait(instance, (f) => f.includes("Allow non-pass audited skills"));
