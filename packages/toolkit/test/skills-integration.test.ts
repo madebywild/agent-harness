@@ -198,27 +198,98 @@ test("prepareSkillImport blocks unaudited payload unless override is enabled", a
   }
 });
 
-test("prepareSkillImport rejects upstream skill ids with path separators", async () => {
-  await assert.rejects(
-    () =>
-      prepareSkillImport(
-        {
-          source: "vercel-labs/agent-skills",
-          upstreamSkill: "../web-design-guidelines",
-          allowUnsafe: false,
-          allowUnaudited: false,
-        },
-        {
-          createSandbox: async () => {
-            throw new Error("createSandbox should not be called for invalid upstream skill ids");
+test("prepareSkillImport rejects traversal-like upstream skill ids", async () => {
+  for (const upstreamSkill of ["../web-design-guidelines", ".", ".."]) {
+    await assert.rejects(
+      () =>
+        prepareSkillImport(
+          {
+            source: "vercel-labs/agent-skills",
+            upstreamSkill,
+            allowUnsafe: false,
+            allowUnaudited: false,
           },
-          cleanupSandbox: async () => {},
-          runSkillsCliCommand: async () => ({
-            stdout: "",
-            stderr: "",
-          }),
+          {
+            createSandbox: async () => {
+              throw new Error("createSandbox should not be called for invalid upstream skill ids");
+            },
+            cleanupSandbox: async () => {},
+            runSkillsCliCommand: async () => ({
+              stdout: "",
+              stderr: "",
+            }),
+          },
+        ),
+      /Invalid upstream skill id/u,
+    );
+  }
+});
+
+test("prepareSkillImport emits each payload limit diagnostic at most once", async () => {
+  const sandbox = await fs.mkdtemp(path.join(os.tmpdir(), "skills-import-limits-"));
+  try {
+    const importedRoot = path.join(sandbox, ".agents/skills/foo");
+    await fs.mkdir(importedRoot, { recursive: true });
+    await fs.writeFile(path.join(importedRoot, "SKILL.md"), "# foo\n", "utf8");
+    await fs.writeFile(path.join(importedRoot, "a.md"), "aaaaaaaaaa\n", "utf8");
+    await fs.writeFile(path.join(importedRoot, "b.md"), "bbbbbbbbbb\n", "utf8");
+    await fs.writeFile(path.join(importedRoot, "c.md"), "cccccccccc\n", "utf8");
+
+    const tooManyFiles = await prepareSkillImport(
+      {
+        source: "vercel-labs/agent-skills",
+        upstreamSkill: "foo",
+        allowUnsafe: false,
+        allowUnaudited: false,
+      },
+      {
+        createSandbox: async () => sandbox,
+        cleanupSandbox: async () => {},
+        runSkillsCliCommand: async () => ({
+          stdout: "◇ Source: /tmp/local-repo\n",
+          stderr: "",
+        }),
+        limits: {
+          maxFiles: 1,
+          maxFileBytes: 512 * 1024,
+          maxTotalBytes: 4 * 1024 * 1024,
         },
-      ),
-    /Invalid upstream skill id/u,
-  );
+      },
+    );
+    assert.equal(tooManyFiles.ok, false);
+    assert.equal(
+      tooManyFiles.diagnostics.filter((diagnostic) => diagnostic.code === "SKILL_IMPORT_PAYLOAD_TOO_MANY_FILES").length,
+      1,
+    );
+
+    const tooLargeTotal = await prepareSkillImport(
+      {
+        source: "vercel-labs/agent-skills",
+        upstreamSkill: "foo",
+        allowUnsafe: false,
+        allowUnaudited: false,
+      },
+      {
+        createSandbox: async () => sandbox,
+        cleanupSandbox: async () => {},
+        runSkillsCliCommand: async () => ({
+          stdout: "◇ Source: /tmp/local-repo\n",
+          stderr: "",
+        }),
+        limits: {
+          maxFiles: 200,
+          maxFileBytes: 512 * 1024,
+          maxTotalBytes: 12,
+        },
+      },
+    );
+    assert.equal(tooLargeTotal.ok, false);
+    assert.equal(
+      tooLargeTotal.diagnostics.filter((diagnostic) => diagnostic.code === "SKILL_IMPORT_PAYLOAD_TOTAL_TOO_LARGE")
+        .length,
+      1,
+    );
+  } finally {
+    await fs.rm(sandbox, { recursive: true, force: true });
+  }
 });

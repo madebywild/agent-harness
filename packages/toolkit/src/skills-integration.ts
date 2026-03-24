@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -71,6 +72,12 @@ const DEFAULT_IMPORT_LIMITS: SkillImportLimits = {
 };
 
 function validateUpstreamSkillId(upstreamSkill: string): void {
+  if (upstreamSkill === "." || upstreamSkill === "..") {
+    throw new Error(
+      `Invalid upstream skill id '${upstreamSkill}'. Values '.' and '..' are not allowed due to path traversal risk.`,
+    );
+  }
+
   if (!/^[a-zA-Z0-9._-]+$/u.test(upstreamSkill)) {
     throw new Error(`Invalid upstream skill id '${upstreamSkill}'. Allowed characters: letters, digits, '.', '_', '-'`);
   }
@@ -427,8 +434,14 @@ async function readImportedSkillFiles(
   const queue = [skillRootAbs];
   let totalBytes = 0;
   const utf8Decoder = new TextDecoder("utf8", { fatal: true });
+  const openReadOnlyNoFollow =
+    process.platform === "win32" ? fsConstants.O_RDONLY : fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW;
 
-  while (queue.length > 0) {
+  let limitExceeded = false;
+  let addedTotalTooLargeDiagnostic = false;
+  let addedTooManyFilesDiagnostic = false;
+
+  outer: while (queue.length > 0) {
     const current = queue.pop();
     if (!current) {
       continue;
@@ -437,7 +450,20 @@ async function readImportedSkillFiles(
     const entries = await fs.readdir(current, { withFileTypes: true });
     for (const entry of entries) {
       const absolutePath = path.join(current, entry.name);
-      if (entry.isSymbolicLink()) {
+
+      let absoluteStat: Awaited<ReturnType<typeof fs.lstat>>;
+      try {
+        absoluteStat = await fs.lstat(absolutePath);
+      } catch {
+        diagnostics.push({
+          code: "SKILL_IMPORT_PAYLOAD_READ_FAILED",
+          severity: "error",
+          message: `Failed to inspect imported file '${entry.name}'.`,
+        });
+        continue;
+      }
+
+      if (absoluteStat.isSymbolicLink()) {
         diagnostics.push({
           code: "SKILL_IMPORT_PAYLOAD_SYMLINK",
           severity: "error",
@@ -446,12 +472,12 @@ async function readImportedSkillFiles(
         continue;
       }
 
-      if (entry.isDirectory()) {
+      if (absoluteStat.isDirectory()) {
         queue.push(absolutePath);
         continue;
       }
 
-      if (!entry.isFile()) {
+      if (!absoluteStat.isFile()) {
         continue;
       }
 
@@ -467,8 +493,7 @@ async function readImportedSkillFiles(
         continue;
       }
 
-      const stat = await fs.stat(absolutePath);
-      if (stat.size > limits.maxFileBytes) {
+      if (absoluteStat.size > limits.maxFileBytes) {
         diagnostics.push({
           code: "SKILL_IMPORT_PAYLOAD_FILE_TOO_LARGE",
           severity: "error",
@@ -477,7 +502,41 @@ async function readImportedSkillFiles(
         continue;
       }
 
-      const buffer = await fs.readFile(absolutePath);
+      let buffer: Buffer;
+      try {
+        const fileHandle = await fs.open(absolutePath, openReadOnlyNoFollow);
+        try {
+          buffer = await fileHandle.readFile();
+        } finally {
+          await fileHandle.close();
+        }
+      } catch (error) {
+        if (isErrno(error, "ELOOP")) {
+          diagnostics.push({
+            code: "SKILL_IMPORT_PAYLOAD_SYMLINK",
+            severity: "error",
+            message: `Symlink '${relativePath}' is not allowed in imported skill payload.`,
+          });
+          continue;
+        }
+
+        diagnostics.push({
+          code: "SKILL_IMPORT_PAYLOAD_READ_FAILED",
+          severity: "error",
+          message: `Failed to read imported file '${relativePath}'.`,
+        });
+        continue;
+      }
+
+      if (buffer.length > limits.maxFileBytes) {
+        diagnostics.push({
+          code: "SKILL_IMPORT_PAYLOAD_FILE_TOO_LARGE",
+          severity: "error",
+          message: `Imported file '${relativePath}' exceeds max size (${limits.maxFileBytes} bytes).`,
+        });
+        continue;
+      }
+
       let content: string;
       try {
         content = utf8Decoder.decode(buffer);
@@ -499,33 +558,43 @@ async function readImportedSkillFiles(
         continue;
       }
 
-      totalBytes += stat.size;
+      totalBytes += buffer.length;
       if (totalBytes > limits.maxTotalBytes) {
-        diagnostics.push({
-          code: "SKILL_IMPORT_PAYLOAD_TOTAL_TOO_LARGE",
-          severity: "error",
-          message: `Imported payload exceeds max total size (${limits.maxTotalBytes} bytes).`,
-        });
+        if (!addedTotalTooLargeDiagnostic) {
+          diagnostics.push({
+            code: "SKILL_IMPORT_PAYLOAD_TOTAL_TOO_LARGE",
+            severity: "error",
+            message: `Imported payload exceeds max total size (${limits.maxTotalBytes} bytes).`,
+          });
+          addedTotalTooLargeDiagnostic = true;
+        }
+        limitExceeded = true;
+        break outer;
       }
 
       files.push({
         path: relativePath,
         content,
         sha256: sha256(content),
-        sizeBytes: stat.size,
+        sizeBytes: buffer.length,
       });
 
       if (files.length > limits.maxFiles) {
-        diagnostics.push({
-          code: "SKILL_IMPORT_PAYLOAD_TOO_MANY_FILES",
-          severity: "error",
-          message: `Imported payload exceeds max file count (${limits.maxFiles}).`,
-        });
+        if (!addedTooManyFilesDiagnostic) {
+          diagnostics.push({
+            code: "SKILL_IMPORT_PAYLOAD_TOO_MANY_FILES",
+            severity: "error",
+            message: `Imported payload exceeds max file count (${limits.maxFiles}).`,
+          });
+          addedTooManyFilesDiagnostic = true;
+        }
+        limitExceeded = true;
+        break outer;
       }
     }
   }
 
-  if (!files.some((file) => file.path === "SKILL.md")) {
+  if (!limitExceeded && !files.some((file) => file.path === "SKILL.md")) {
     diagnostics.push({
       code: "SKILL_IMPORT_PAYLOAD_MISSING_SKILL_MD",
       severity: "error",
@@ -581,4 +650,8 @@ function stripAnsi(value: string): string {
       /\u001B\][^\u0007]*(?:\u0007|\u001B\\)/gu,
       "",
     );
+}
+
+function isErrno(error: unknown, code: string): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }

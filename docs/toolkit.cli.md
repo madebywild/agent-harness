@@ -70,7 +70,7 @@ Examples:
 - `meta: { cwd: string; durationMs: number }`
 
 `skill find` returns both parsed matches and raw text fallback in `data`.
-`skill import` returns imported id/provenance, audit decision, sidecar metadata path, and imported file count.
+`skill import` returns imported id/provenance, audit decision, and imported file count; `metadataPath` is present only when a sidecar was written.
 
 ## Programmatic API
 

@@ -145,6 +145,7 @@ test("engine importSkill leaves workspace unchanged when audit or payload valida
 
   assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "SKILL_IMPORT_AUDIT_BLOCKED"));
   assert.equal(result.fileCount, 0);
+  assert.equal(result.metadataPath, undefined);
 
   const manifestAfter = await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8");
   const lockAfter = await fs.readFile(path.join(cwd, ".harness/manifest.lock.json"), "utf8");
@@ -189,4 +190,47 @@ test("engine importSkill validates upstream skill id even when target id is over
   );
 
   assert.equal(prepareCalled, false);
+});
+
+test("engine importSkill rejects traversal-like target ids", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+
+  let prepareCalled = false;
+  await assert.rejects(
+    () =>
+      engine.importSkill(
+        {
+          source: "vercel-labs/agent-skills",
+          upstreamSkill: "web-design-guidelines",
+          as: "..",
+        },
+        {
+          prepareImportImpl: async () => {
+            prepareCalled = true;
+            throw new Error("prepareImportImpl should not be called for invalid target ids");
+          },
+        },
+      ),
+    /Invalid skill id/u,
+  );
+
+  assert.equal(prepareCalled, false);
+});
+
+test("engine importSkill collision result omits metadataPath when nothing is written", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+
+  await engine.addSkill("web-design-guidelines");
+
+  const result = await engine.importSkill({
+    source: "vercel-labs/agent-skills",
+    upstreamSkill: "web-design-guidelines",
+  });
+
+  assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "SKILL_IMPORT_COLLISION"));
+  assert.equal(result.metadataPath, undefined);
 });

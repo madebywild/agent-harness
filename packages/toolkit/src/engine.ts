@@ -379,7 +379,6 @@ export class HarnessEngine {
           upstreamSkill,
           skillsCliVersion: SKILLS_CLI_VERSION,
         },
-        metadataPath: defaultSkillImportMetadataPath(requestedId),
         fileCount: 0,
         audit: {
           audited: false,
@@ -420,7 +419,6 @@ export class HarnessEngine {
           upstreamSkill,
           skillsCliVersion: SKILLS_CLI_VERSION,
         },
-        metadataPath: defaultSkillImportMetadataPath(requestedId),
         fileCount: prepared.files?.length ?? 0,
         audit: prepared.audit,
         diagnostics: prepared.diagnostics,

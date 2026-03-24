@@ -139,7 +139,7 @@ function renderPresetOutput(output: PresetOutput, writeLine: (line: string) => v
 function renderSkillsOutput(output: SkillsOutput, writeLine: (line: string) => void): void {
   if (output.data.operation === "find") {
     if (output.data.results.length === 0) {
-      writeLine("No skill matches parsed from skills find output.");
+      writeLine("No skill matches were parsed from skills find output.");
       if (output.data.rawText.length > 0) {
         writeLine("");
         writeLine(output.data.rawText);

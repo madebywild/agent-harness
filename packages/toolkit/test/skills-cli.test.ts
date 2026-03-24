@@ -179,10 +179,11 @@ test("runCliArgv skill import requires --replace when target skill already exist
     command: string;
     ok: boolean;
     diagnostics: Array<{ code: string }>;
-    data: { operation: string };
+    data: { operation: string; result: { metadataPath?: string } };
   };
   assert.equal(payload.command, "skill.import");
   assert.equal(payload.ok, false);
   assert.equal(payload.data.operation, "import");
+  assert.equal(payload.data.result.metadataPath, undefined);
   assert.ok(payload.diagnostics.some((diagnostic) => diagnostic.code === "SKILL_IMPORT_COLLISION"));
 });
