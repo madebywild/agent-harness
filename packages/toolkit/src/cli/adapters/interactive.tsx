@@ -774,14 +774,14 @@ export function App({ api, presets, workspaceStatus, onExit }: AppProps) {
 // TextPrompt — wraps TextInput and handles Escape via useInput
 // ---------------------------------------------------------------------------
 
-interface TextPromptProps {
+export interface TextPromptProps {
   message: string;
   required: boolean;
   onSubmit: (value: string) => void;
   onCancel: () => void;
 }
 
-function TextPrompt({ message, required, onSubmit, onCancel }: TextPromptProps) {
+export function TextPrompt({ message, required, onSubmit, onCancel }: TextPromptProps) {
   const [error, setError] = useState(false);
 
   useInput((_input, key) => {
@@ -813,14 +813,14 @@ function TextPrompt({ message, required, onSubmit, onCancel }: TextPromptProps) 
 // OutputStep — shows command output inline, dismissed with Enter
 // ---------------------------------------------------------------------------
 
-interface OutputStepProps {
+export interface OutputStepProps {
   label: string;
   lines: string[];
   isError: boolean;
   onDismiss: () => void;
 }
 
-function OutputStep({ label, lines, isError, onDismiss }: OutputStepProps) {
+export function OutputStep({ label, lines, isError, onDismiss }: OutputStepProps) {
   useInput((_input, key) => {
     if (key.return) onDismiss();
   });
@@ -852,7 +852,7 @@ interface RunningStepProps {
   onError: (message: string) => void;
 }
 
-function RunningStep({ label, input, api, onDone, onError }: RunningStepProps) {
+export function RunningStep({ label, input, api, onDone, onError }: RunningStepProps) {
   const callbacks = useRef({ onDone, onError });
   callbacks.current = { onDone, onError };
 
@@ -1243,7 +1243,7 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
   return null;
 }
 
-function OnboardingComplete({ summary, onDismiss }: { summary: string[]; onDismiss: () => void }) {
+export function OnboardingComplete({ summary, onDismiss }: { summary: string[]; onDismiss: () => void }) {
   useInput((_input, key) => {
     if (key.return) onDismiss();
   });
