@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines reusable renderer factories for provider-specific MCP output formats.
+Defines reusable JSON renderer factories for provider-specific MCP output formats.
 
 ## Export
 
@@ -15,3 +15,5 @@ Defines reusable renderer factories for provider-specific MCP output formats.
   - `mcpServers` (Claude)
   - `servers` (Copilot)
 - Serializes output via deterministic `stableStringify`.
+- Scope note: Codex uses an inline TOML MCP renderer in `packages/toolkit/src/provider-adapters/codex.ts` (`mcp_servers`) and
+  does not use this helper.
