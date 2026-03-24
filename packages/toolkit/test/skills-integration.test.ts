@@ -197,3 +197,28 @@ test("prepareSkillImport blocks unaudited payload unless override is enabled", a
     await fs.rm(sandbox, { recursive: true, force: true });
   }
 });
+
+test("prepareSkillImport rejects upstream skill ids with path separators", async () => {
+  await assert.rejects(
+    () =>
+      prepareSkillImport(
+        {
+          source: "vercel-labs/agent-skills",
+          upstreamSkill: "../web-design-guidelines",
+          allowUnsafe: false,
+          allowUnaudited: false,
+        },
+        {
+          createSandbox: async () => {
+            throw new Error("createSandbox should not be called for invalid upstream skill ids");
+          },
+          cleanupSandbox: async () => {},
+          runSkillsCliCommand: async () => ({
+            stdout: "",
+            stderr: "",
+          }),
+        },
+      ),
+    /Invalid upstream skill id/u,
+  );
+});

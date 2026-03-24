@@ -70,6 +70,12 @@ const DEFAULT_IMPORT_LIMITS: SkillImportLimits = {
   maxTotalBytes: 4 * 1024 * 1024,
 };
 
+function validateUpstreamSkillId(upstreamSkill: string): void {
+  if (!/^[a-zA-Z0-9._-]+$/u.test(upstreamSkill)) {
+    throw new Error(`Invalid upstream skill id '${upstreamSkill}'. Allowed characters: letters, digits, '.', '_', '-'`);
+  }
+}
+
 export async function findSkills(
   query: string,
   deps?: Pick<SkillsIntegrationDependencies, "createSandbox" | "cleanupSandbox" | "runSkillsCliCommand">,
@@ -124,6 +130,7 @@ export async function prepareSkillImport(
   if (upstreamSkill.length === 0) {
     throw new Error("upstream skill must not be empty");
   }
+  validateUpstreamSkillId(upstreamSkill);
 
   const createSandbox = deps?.createSandbox ?? createDefaultSandbox;
   const cleanupSandbox = deps?.cleanupSandbox ?? cleanupDefaultSandbox;

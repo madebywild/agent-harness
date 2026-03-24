@@ -163,3 +163,30 @@ test("engine importSkill leaves workspace unchanged when audit or payload valida
     /ENOENT/u,
   );
 });
+
+test("engine importSkill validates upstream skill id even when target id is overridden", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+
+  let prepareCalled = false;
+  await assert.rejects(
+    () =>
+      engine.importSkill(
+        {
+          source: "vercel-labs/agent-skills",
+          upstreamSkill: "../web-design-guidelines",
+          as: "web-design-guidelines",
+        },
+        {
+          prepareImportImpl: async () => {
+            prepareCalled = true;
+            throw new Error("prepareImportImpl should not be called for invalid upstream skill ids");
+          },
+        },
+      ),
+    /Invalid skill id/u,
+  );
+
+  assert.equal(prepareCalled, false);
+});

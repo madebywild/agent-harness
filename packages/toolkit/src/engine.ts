@@ -354,6 +354,7 @@ export class HarnessEngine {
     if (upstreamSkill.length === 0) {
       throw new Error("upstream skill must not be empty");
     }
+    validateEntityId(upstreamSkill, "skill");
 
     const requestedIdRaw = (input.as ?? upstreamSkill).trim();
     if (requestedIdRaw.length === 0) {

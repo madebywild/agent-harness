@@ -22,6 +22,7 @@ Implements Harness-native integration with `skills.sh` for:
   - Block unaudited imports unless `allowUnaudited` is true.
   - Block non-pass audit providers unless `allowUnsafe` is true.
 - Payload policy:
+  - Validates upstream skill ids (no path separators or traversal segments)
   - Requires top-level `SKILL.md`
   - Rejects symlinks
   - Rejects invalid/traversing paths
