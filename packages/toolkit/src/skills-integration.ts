@@ -461,8 +461,6 @@ async function readImportedSkillFiles(
     process.platform === "win32" ? fsConstants.O_RDONLY : fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW;
 
   let limitExceeded = false;
-  let addedTotalTooLargeDiagnostic = false;
-  let addedTooManyFilesDiagnostic = false;
 
   outer: while (queue.length > 0) {
     const current = queue.pop();
@@ -577,14 +575,11 @@ async function readImportedSkillFiles(
 
       totalBytes += buffer.length;
       if (totalBytes > limits.maxTotalBytes) {
-        if (!addedTotalTooLargeDiagnostic) {
-          diagnostics.push({
-            code: "SKILL_IMPORT_PAYLOAD_TOTAL_TOO_LARGE",
-            severity: "error",
-            message: `Imported payload exceeds max total size (${limits.maxTotalBytes} bytes).`,
-          });
-          addedTotalTooLargeDiagnostic = true;
-        }
+        diagnostics.push({
+          code: "SKILL_IMPORT_PAYLOAD_TOTAL_TOO_LARGE",
+          severity: "error",
+          message: `Imported payload exceeds max total size (${limits.maxTotalBytes} bytes).`,
+        });
         limitExceeded = true;
         break outer;
       }
@@ -598,14 +593,11 @@ async function readImportedSkillFiles(
       });
 
       if (files.length > limits.maxFiles) {
-        if (!addedTooManyFilesDiagnostic) {
-          diagnostics.push({
-            code: "SKILL_IMPORT_PAYLOAD_TOO_MANY_FILES",
-            severity: "error",
-            message: `Imported payload exceeds max file count (${limits.maxFiles}).`,
-          });
-          addedTooManyFilesDiagnostic = true;
-        }
+        diagnostics.push({
+          code: "SKILL_IMPORT_PAYLOAD_TOO_MANY_FILES",
+          severity: "error",
+          message: `Imported payload exceeds max file count (${limits.maxFiles}).`,
+        });
         limitExceeded = true;
         break outer;
       }
