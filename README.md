@@ -21,6 +21,7 @@ Like [shadcn/ui](https://ui.shadcn.com/) does for UI components, Agent Harness g
 - Multi-provider support with simultaneous output generation for Codex, Claude, and Copilot
 - System prompt management with provider-specific overrides
 - Reusable skill management synchronized across providers
+- Third-party skill discovery and import via [skills.sh](https://skills.sh) with audit gating
 - Centralized MCP server configuration with merged outputs
 - Subagent management with provider-specific rendering
 - Lifecycle hook management (webhooks, scripts, notifications)
@@ -82,6 +83,12 @@ npx harness add prompt
 # Add a skill
 npx harness add skill my-skill
 
+# Find third-party skills via skills.sh
+npx harness skill find "code review"
+
+# Import a third-party skill
+npx harness skill import owner/repo --skill my-skill
+
 # Add MCP config
 npx harness add mcp my-mcp
 
@@ -142,6 +149,8 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | `npx harness preset describe <id> [--registry <name>]`                  | Describe a preset                                                                                             |
 | `npx harness preset apply <id> [--registry <name>]`                     | Materialize a preset into normal harness state                                                                |
 | `npx harness add prompt [--registry <name>]`                            | Add system prompt entity                                                                                      |
+| `npx harness skill find <query>`                                        | Search third-party skills via skills.sh                                                                       |
+| `npx harness skill import <source> --skill <id> [--as <id>] [--replace]`| Import a third-party skill with audit gating                                                                  |
 | `npx harness add skill <id> [--registry <name>]`                        | Add a skill entity                                                                                            |
 | `npx harness add mcp <id> [--registry <name>]`                          | Add an MCP config entity                                                                                      |
 | `npx harness add subagent <id> [--registry <name>]`                     | Add a subagent entity                                                                                         |

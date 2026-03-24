@@ -1,6 +1,6 @@
 {
   "name": "@madebywild/agent-harness-manifest",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "license": "MIT",
   "private": false,
   "type": "module",
@@ -29,6 +29,11 @@
     "manifest",
     "zod"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/madebywild/agent-harness.git",
+    "directory": "packages/manifest-schema"
+  },
   "publishConfig": {
     "access": "public"
   },
