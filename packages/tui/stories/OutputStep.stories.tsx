@@ -1,5 +1,5 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "@storybook/test";
+import type { Meta, StoryObj } from "storybook";
+import { fn } from "storybook/test";
 import { OutputStep } from "../src/components/output-step";
 
 const meta = {

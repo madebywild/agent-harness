@@ -1,5 +1,5 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "@storybook/test";
+import type { Meta, StoryObj } from "storybook";
+import { fn } from "storybook/test";
 import { AutocompleteSelect } from "../src/components/autocomplete-select";
 
 const COMMAND_OPTIONS = [
