@@ -11,6 +11,7 @@ This document describes the architecture implemented in the current codebase.
   - `.harness/manifest.json`
   - `.harness/manifest.lock.json`
   - `.harness/managed-index.json`
+  - `.harness/imports/skills/*.json` (third-party import provenance sidecars; not canonical entities)
 - Provider-native artifacts are generated into repository paths (for example `AGENTS.md`, `.claude/*`, `.github/*`, `.vscode/*`, `.codex/config.toml`).
 
 Only enabled providers receive generated artifacts. Supported providers are `codex`, `claude`, and `copilot`.
@@ -145,6 +146,13 @@ CLI registry commands:
 - `harness registry default show|set`
 - `harness registry pull [entity-type] [id] [--registry <name>] [--force]`
 
+CLI third-party skill commands:
+
+- `harness skill find <query>`
+- `harness skill import <source> --skill <upstream-skill> [--as <harness-id>] [--replace] [--allow-unsafe] [--allow-unaudited]`
+
+`skill import` is snapshot-only in v1 (no auto-sync) and persists provenance metadata in `.harness/imports/skills/<id>.json`.
+
 ## Planning/apply pipeline
 
 High-level flow (`loader.ts` + `planner.ts` + `engine.ts`):
@@ -178,6 +186,7 @@ Core commands:
 - `add prompt|skill|mcp|subagent|hook`
 - `remove <entity-type> <id>`
 - `registry ...` (management + pull)
+- `skill find|import` (third-party discovery/import through pinned `skills@1.4.6`)
 - `preset list|describe|apply`
 - `validate`
 - `doctor`

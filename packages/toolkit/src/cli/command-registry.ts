@@ -27,6 +27,7 @@ import {
   handleRegistryRemove,
   handleRegistryValidate,
 } from "./handlers/registry.js";
+import { handleSkillFind, handleSkillImport } from "./handlers/skills.js";
 import { handleValidate } from "./handlers/validate.js";
 import { handleWatch } from "./handlers/watch.js";
 
@@ -225,6 +226,72 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         {
           presetId: readStringArg(input, "presetId") ?? "",
           registry: readStringOption(input, "registry"),
+        },
+        context,
+      ),
+  },
+  {
+    id: "skill.find",
+    path: ["skill", "find"],
+    description: "Search third-party skills via skills.sh",
+    args: [{ name: "query", required: true, description: "search query" }],
+    options: [],
+    mutatesWorkspace: false,
+    interactiveLabel: "Find third-party skills",
+    run: (input, context) =>
+      handleSkillFind(
+        {
+          query: readStringArg(input, "query") ?? "",
+        },
+        context,
+      ),
+  },
+  {
+    id: "skill.import",
+    path: ["skill", "import"],
+    description: "Import a third-party skill into .harness/src/skills",
+    args: [{ name: "source", required: true, description: "skills source (owner/repo, URL, or local path)" }],
+    options: [
+      {
+        name: "skill",
+        description: "upstream skill id to import",
+        takesValue: true,
+      },
+      {
+        name: "as",
+        description: "target harness skill id",
+        takesValue: true,
+      },
+      {
+        name: "replace",
+        description: "replace existing target skill when it already exists",
+        takesValue: false,
+        defaultValue: false,
+      },
+      {
+        name: "allowUnsafe",
+        description: "allow importing non-pass audited skills",
+        takesValue: false,
+        defaultValue: false,
+      },
+      {
+        name: "allowUnaudited",
+        description: "allow importing skills without published audits",
+        takesValue: false,
+        defaultValue: false,
+      },
+    ],
+    mutatesWorkspace: true,
+    interactiveLabel: "Search + import third-party skills",
+    run: (input, context) =>
+      handleSkillImport(
+        {
+          source: readStringArg(input, "source") ?? "",
+          upstreamSkill: readRequiredStringOption(input, "skill"),
+          as: readStringOption(input, "as"),
+          replace: readBooleanOption(input, "replace"),
+          allowUnsafe: readBooleanOption(input, "allowUnsafe"),
+          allowUnaudited: readBooleanOption(input, "allowUnaudited"),
         },
         context,
       ),

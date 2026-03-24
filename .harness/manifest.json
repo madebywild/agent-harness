@@ -98,6 +98,18 @@
     },
     {
       "enabled": true,
+      "id": "npm-workflow-release",
+      "overrides": {
+        "claude": ".harness/src/skills/npm-workflow-release/OVERRIDES.claude.yaml",
+        "codex": ".harness/src/skills/npm-workflow-release/OVERRIDES.codex.yaml",
+        "copilot": ".harness/src/skills/npm-workflow-release/OVERRIDES.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/skills/npm-workflow-release/SKILL.md",
+      "type": "skill"
+    },
+    {
+      "enabled": true,
       "id": "claude",
       "registry": "local",
       "sourcePath": ".harness/src/settings/claude.json",

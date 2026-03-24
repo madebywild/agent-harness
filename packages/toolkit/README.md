@@ -68,7 +68,7 @@ Five entity types are supported:
 | Type | Source format | Description |
 |---|---|---|
 | **prompt** | Markdown | System prompt shared across providers |
-| **skill** | Directory (Markdown + files) | Reusable tool/skill definitions |
+| **skill** | Directory (Markdown + files) | Reusable tool/skill definitions (also importable from [skills.sh](https://skills.sh)) |
 | **mcp** | JSON | MCP server configurations |
 | **subagent** | Markdown with frontmatter | Sub-agent definitions with tools/model config |
 | **hook** | JSON | Lifecycle hooks (webhooks, scripts, notifications) |
@@ -83,6 +83,17 @@ npx harness add subagent <id>              # Add a subagent
 npx harness add hook <id>                  # Add a lifecycle hook
 npx harness remove <entityType> <id>       # Remove an entity (deletes source by default)
 ```
+
+### Third-party skills (skills.sh)
+
+Search and import community skills from [skills.sh](https://skills.sh) with built-in audit gating:
+
+```bash
+npx harness skill find <query>                                          # Search third-party skills
+npx harness skill import <source> --skill <id> [--as <id>] [--replace]  # Import into .harness/src/skills
+```
+
+Imported skills go through a security audit pipeline (gen, socket, snyk). Use `--allow-unsafe` to override audit failures or `--allow-unaudited` to import skills without published audits.
 
 ### Provider management
 

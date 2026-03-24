@@ -191,6 +191,69 @@ export async function runCommanderAdapter(
       }),
   );
 
+  const skillCommand = program.command("skill").description("Discover and import third-party skills safely");
+
+  addJsonOption(
+    skillCommand
+      .command("find")
+      .description("Search third-party skills")
+      .argument("<query...>", "search query")
+      .action(async (queryParts: string[], options: JsonOption) => {
+        const query = queryParts.join(" ").trim();
+        await runCommand(
+          {
+            command: "skill.find",
+            args: {
+              query,
+            },
+          },
+          options,
+        );
+      }),
+  );
+
+  addJsonOption(
+    skillCommand
+      .command("import")
+      .description("Import a third-party skill into .harness/src/skills")
+      .argument("<source>", "skills source (owner/repo, URL, or local path)")
+      .requiredOption("--skill <upstream-skill>", "upstream skill id to import")
+      .option("--as <harness-id>", "target harness skill id")
+      .option("--replace", "replace an existing target skill", false)
+      .option("--allow-unsafe", "allow importing non-pass audited skills", false)
+      .option("--allow-unaudited", "allow importing skills without published audits", false)
+      .action(
+        async (
+          source: string,
+          options: {
+            skill: string;
+            as?: string;
+            replace?: boolean;
+            allowUnsafe?: boolean;
+            allowUnaudited?: boolean;
+            json?: boolean;
+          },
+        ) => {
+          await runCommand(
+            {
+              command: "skill.import",
+              args: {
+                source,
+              },
+              options: {
+                skill: options.skill,
+                as: options.as,
+                replace: options.replace,
+                allowUnsafe: options.allowUnsafe,
+                allowUnaudited: options.allowUnaudited,
+              },
+            },
+            options,
+          );
+        },
+      ),
+  );
+
   const providerCommand = program.command("provider").description("Enable or disable providers");
 
   addJsonOption(

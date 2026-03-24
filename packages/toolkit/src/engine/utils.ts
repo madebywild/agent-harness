@@ -41,6 +41,10 @@ export function sortEntities(entities: AgentsManifest["entities"]): AgentsManife
 }
 
 export function validateEntityId(id: string, type: EntityType): void {
+  if (id === "." || id === "..") {
+    throw new Error(`Invalid ${type} id '${id}'. Values '.' and '..' are not allowed`);
+  }
+
   if (!/^[a-zA-Z0-9._-]+$/u.test(id)) {
     throw new Error(`Invalid ${type} id '${id}'. Allowed characters: letters, digits, '.', '_', '-'`);
   }

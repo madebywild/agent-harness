@@ -13,6 +13,7 @@ export const KEYS = {
   RIGHT: "\x1B[C",
   BACKSPACE: "\x7F",
   TAB: "\t",
+  SPACE: " ",
 } as const;
 
 export function delay(ms = 50): Promise<void> {
@@ -225,5 +226,74 @@ export function makeDoctorOutput(ok = true): CommandOutput {
     },
     diagnostics: [],
     exitCode: ok ? 0 : 1,
+  };
+}
+
+export function makeSkillsImportOutput(id = "imported-skill"): CommandOutput {
+  return {
+    family: "skills",
+    command: "skill.import",
+    ok: true,
+    data: {
+      operation: "import",
+      result: {
+        importedId: id,
+        requestedId: id,
+        replaced: false,
+        provenance: {
+          source: "vercel-labs/agent-skills",
+          resolvedSource: "https://github.com/vercel-labs/agent-skills.git",
+          upstreamSkill: id,
+          skillsCliVersion: "1.4.6",
+        },
+        metadataPath: `.harness/imports/skills/${id}.json`,
+        fileCount: 2,
+        audit: {
+          audited: true,
+          allowed: true,
+          reason: "pass",
+          allowUnsafe: false,
+          allowUnaudited: false,
+          providers: [
+            { provider: "gen", raw: "Safe", outcome: "pass" },
+            { provider: "socket", raw: "0 alerts", outcome: "pass" },
+            { provider: "snyk", raw: "Safe", outcome: "pass" },
+          ],
+        },
+        diagnostics: [],
+      },
+    },
+    diagnostics: [],
+    exitCode: 0,
+  };
+}
+
+export function makeSkillsFindOutput(
+  results?: Array<{ source: string; upstreamSkill: string; installs?: string; url?: string }>,
+): CommandOutput {
+  const effectiveResults = results ?? [
+    {
+      source: "vercel-labs/agent-skills",
+      upstreamSkill: "web-design-guidelines",
+      installs: "194.7K installs",
+      url: "https://skills.sh/vercel-labs/agent-skills/web-design-guidelines",
+    },
+  ];
+
+  return {
+    family: "skills",
+    command: "skill.find",
+    ok: true,
+    data: {
+      operation: "find",
+      query: "web design",
+      results: effectiveResults.map((result) => ({
+        ...result,
+        rawLine: `${result.source}@${result.upstreamSkill}${result.installs ? ` ${result.installs}` : ""}`,
+      })),
+      rawText: effectiveResults.map((result) => `${result.source}@${result.upstreamSkill}`).join("\n"),
+    },
+    diagnostics: [],
+    exitCode: 0,
   };
 }

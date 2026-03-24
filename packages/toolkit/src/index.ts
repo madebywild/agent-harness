@@ -42,6 +42,11 @@ export type {
   RegistryValidationOptions,
   RegistryValidationResult,
   RenderedArtifact,
+  SkillAuditDecision,
+  SkillAuditProviderResult,
+  SkillDiscoveryResult,
+  SkillImportResult,
+  SkillsFindResult,
   ValidationResult,
   VersionDiagnostic,
 } from "./types.js";
