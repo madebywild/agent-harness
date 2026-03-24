@@ -13,6 +13,8 @@ import type {
   RegistryValidationResult,
   RemoveResult,
   ResolvedPreset,
+  SkillDiscoveryResult,
+  SkillImportResult,
   ValidationResult,
 } from "../types.js";
 
@@ -30,6 +32,8 @@ export type CommandId =
   | "preset.list"
   | "preset.describe"
   | "preset.apply"
+  | "skill.find"
+  | "skill.import"
   | "add.prompt"
   | "add.skill"
   | "add.mcp"
@@ -156,6 +160,20 @@ export type RegistryOutputData =
 
 export interface RegistryOutput extends CommandOutputBase<"registry", RegistryOutputData> {}
 
+export type SkillsOutputData =
+  | {
+      operation: "find";
+      query: string;
+      results: SkillDiscoveryResult[];
+      rawText: string;
+    }
+  | {
+      operation: "import";
+      result: SkillImportResult;
+    };
+
+export interface SkillsOutput extends CommandOutputBase<"skills", SkillsOutputData> {}
+
 export interface EntityMutationOutput
   extends CommandOutputBase<
     "entity-mutation",
@@ -223,6 +241,7 @@ export type CommandOutput =
   | ProviderOutput
   | PresetOutput
   | RegistryOutput
+  | SkillsOutput
   | EntityMutationOutput
   | ValidationOutput
   | PlanOutput

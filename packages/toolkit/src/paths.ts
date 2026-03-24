@@ -5,6 +5,8 @@ export interface HarnessPaths {
   root: string;
   agentsDir: string;
   srcDir: string;
+  importsDir: string;
+  skillImportDir: string;
   presetsDir: string;
   manifestFile: string;
   lockFile: string;
@@ -23,10 +25,13 @@ export interface HarnessPaths {
 export function resolveHarnessPaths(rootDir: string): HarnessPaths {
   const harnessDir = path.join(rootDir, ".harness");
   const srcDir = path.join(harnessDir, "src");
+  const importsDir = path.join(harnessDir, "imports");
   return {
     root: rootDir,
     agentsDir: harnessDir,
     srcDir,
+    importsDir,
+    skillImportDir: path.join(importsDir, "skills"),
     presetsDir: path.join(harnessDir, "presets"),
     manifestFile: path.join(harnessDir, "manifest.json"),
     lockFile: path.join(harnessDir, "manifest.lock.json"),
@@ -55,6 +60,10 @@ export function defaultSkillSourcePath(skillId: string): string {
 
 export function defaultSkillOverridePath(skillId: string, provider: ProviderId): string {
   return `.harness/src/skills/${skillId}/OVERRIDES.${provider}.yaml`;
+}
+
+export function defaultSkillImportMetadataPath(skillId: string): string {
+  return `.harness/imports/skills/${skillId}.json`;
 }
 
 export function defaultMcpSourcePath(id: string): string {

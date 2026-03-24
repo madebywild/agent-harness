@@ -26,6 +26,7 @@ import {
   makeMissingStatus,
   makePlanOutput,
   makeProviderOutput,
+  makeSkillsImportOutput,
   makeUnhealthyStatus,
   selectCommand,
   submitAndWait,
@@ -117,6 +118,43 @@ describe("journey 3 — add skill with prompts", { timeout: 10_000 }, () => {
     assert.equal(calls[0]?.args?.skillId, "reviewer");
 
     // Dismiss and return to selector
+    await confirmAndWait(instance, (f) => f.includes("Command"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Journey 3b: Import third-party skill (prompts + collision policy)
+// ---------------------------------------------------------------------------
+describe("journey 3b — import third-party skill", { timeout: 12_000 }, () => {
+  test("user imports a skill and sets replace/audit flags in prompt flow", async () => {
+    const onExit = mock.fn((_code: number) => {});
+    const { api, calls } = createMockApi(() => makeSkillsImportOutput("web-design-guidelines"));
+    const instance = render(<App api={api} presets={TEST_PRESETS} onExit={onExit} />);
+
+    await waitForFrame(instance, (f) => f.includes("Command"));
+
+    await selectCommand(instance.stdin, "Import third-party skill");
+    await waitForFrame(instance, (f) => f.includes("Source"));
+
+    await submitAndWait(instance, "vercel-labs/agent-skills", (f) => f.includes("Upstream skill id"));
+    await submitAndWait(instance, "web-design-guidelines", (f) => f.includes("Target harness skill id"));
+    await submitAndWait(instance, "web-design-guidelines", (f) => f.includes("Replace existing skill"));
+
+    // Keep defaults (No/No/No) for replace/allowUnsafe/allowUnaudited.
+    await confirmAndWait(instance, (f) => f.includes("Allow non-pass audited skills"));
+    await confirmAndWait(instance, (f) => f.includes("Allow unaudited sources"));
+    await confirmAndWait(instance, (f) => f.includes("Run 'Import third-party skill' now?"));
+
+    await confirmAndWait(instance, (f) => f.includes("Press Enter to continue"));
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.command, "skill.import");
+    assert.equal(calls[0]?.args?.source, "vercel-labs/agent-skills");
+    assert.equal(calls[0]?.options?.skill, "web-design-guidelines");
+    assert.equal(calls[0]?.options?.as, "web-design-guidelines");
+    assert.equal(calls[0]?.options?.replace, false);
+    assert.equal(calls[0]?.options?.allowUnsafe, false);
+    assert.equal(calls[0]?.options?.allowUnaudited, false);
+
     await confirmAndWait(instance, (f) => f.includes("Command"));
   });
 });

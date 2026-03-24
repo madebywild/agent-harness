@@ -42,11 +42,21 @@ Detection uses `resolveHarnessPaths` + `exists` for the fast path and `runDoctor
 ## Notable command surface
 
 - `add prompt|skill|mcp|subagent|hook`
+- `skill find <query>`
+- `skill import <source> --skill <upstream-skill> [--as <harness-id>] [--replace] [--allow-unsafe] [--allow-unaudited]`
 - `remove <entity-type> <id>` (entity-type includes `hook`)
 - registry commands support optional entity-type filters including `hook`
 - preset commands: `preset list|describe|apply`
 - `init --preset <id>` chains workspace initialization with preset application
 - `init --delegate <provider>` auto-applies the bundled `delegate` preset and launches `claude`, `codex`, or `copilot` to finish prompt authoring
+
+Examples:
+
+- Safe discovery: `harness skill find "web design"`
+- Strict import (default audit gates): `harness skill import vercel-labs/agent-skills --skill web-design-guidelines`
+- Replace existing local skill: `harness skill import vercel-labs/agent-skills --skill web-design-guidelines --replace`
+- Explicit unsafe override: `harness skill import <source> --skill <id> --allow-unsafe`
+- Explicit unaudited override: `harness skill import <source> --skill <id> --allow-unaudited`
 
 ## JSON output contract
 
@@ -58,6 +68,9 @@ Detection uses `resolveHarnessPaths` + `exists` for the fast path and `runDoctor
 - `data: object`
 - `diagnostics: Diagnostic[]`
 - `meta: { cwd: string; durationMs: number }`
+
+`skill find` returns both parsed matches and raw text fallback in `data`.
+`skill import` returns imported id/provenance, audit decision, sidecar metadata path, and imported file count.
 
 ## Programmatic API
 

@@ -250,6 +250,57 @@ export interface RegistryPullResult {
   updatedEntities: Array<{ type: CliEntityType; id: string }>;
 }
 
+export interface SkillDiscoveryResult {
+  source: string;
+  upstreamSkill: string;
+  installs?: string;
+  url?: string;
+  rawLine: string;
+}
+
+export interface SkillsFindResult {
+  query: string;
+  results: SkillDiscoveryResult[];
+  rawText: string;
+  diagnostics: Diagnostic[];
+}
+
+export type SkillAuditOutcome = "pass" | "warn" | "fail" | "unknown";
+
+export interface SkillAuditProviderResult {
+  provider: "gen" | "socket" | "snyk";
+  raw: string;
+  outcome: SkillAuditOutcome;
+}
+
+export interface SkillAuditDecision {
+  audited: boolean;
+  allowed: boolean;
+  reason: "pass" | "non_pass" | "unaudited" | "not_evaluated";
+  allowUnsafe: boolean;
+  allowUnaudited: boolean;
+  detailsUrl?: string;
+  providers: SkillAuditProviderResult[];
+}
+
+export interface SkillImportProvenance {
+  source: string;
+  resolvedSource?: string;
+  upstreamSkill: string;
+  skillsCliVersion: string;
+}
+
+export interface SkillImportResult {
+  importedId: string;
+  requestedId: string;
+  replaced: boolean;
+  provenance: SkillImportProvenance;
+  metadataPath?: string;
+  fileCount: number;
+  audit: SkillAuditDecision;
+  diagnostics: Diagnostic[];
+}
+
 export interface RegistryValidationOptions {
   repoPath?: string;
   rootPath?: string;

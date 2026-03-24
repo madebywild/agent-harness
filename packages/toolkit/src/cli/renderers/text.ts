@@ -7,6 +7,7 @@ import type {
   PlanOutput,
   PresetOutput,
   RegistryOutput,
+  SkillsOutput,
   ValidationOutput,
 } from "../contracts.js";
 
@@ -135,6 +136,48 @@ function renderPresetOutput(output: PresetOutput, writeLine: (line: string) => v
   }
 }
 
+function renderSkillsOutput(output: SkillsOutput, writeLine: (line: string) => void): void {
+  if (output.data.operation === "find") {
+    if (output.data.results.length === 0) {
+      writeLine("No skill matches parsed from skills find output.");
+      if (output.data.rawText.length > 0) {
+        writeLine("");
+        writeLine(output.data.rawText);
+      }
+      renderDiagnosticsSection(output.diagnostics, writeLine);
+      return;
+    }
+
+    for (const result of output.data.results) {
+      const installs = result.installs ? ` ${result.installs}` : "";
+      const url = result.url ? ` ${result.url}` : "";
+      writeLine(`${result.source}@${result.upstreamSkill}${installs}${url}`);
+    }
+    renderDiagnosticsSection(output.diagnostics, writeLine);
+    return;
+  }
+
+  const result = output.data.result;
+  const status = output.ok ? "Imported" : "Import blocked";
+  const meta = result.metadataPath ? `metadata: ${result.metadataPath}` : "metadata: (not written)";
+  writeLine(`${status} skill '${result.importedId}' (${result.fileCount} file(s), ${meta}).`);
+
+  if (result.audit.audited) {
+    const providerSummary = result.audit.providers
+      .map((provider) => `${provider.provider}=${provider.raw} [${provider.outcome}]`)
+      .join(", ");
+    writeLine(`Audit: ${providerSummary}`);
+  } else {
+    writeLine("Audit: unavailable");
+  }
+
+  if (result.audit.detailsUrl) {
+    writeLine(`Audit details: ${result.audit.detailsUrl}`);
+  }
+
+  renderDiagnosticsSection(output.diagnostics, writeLine);
+}
+
 function renderValidationOutput(output: ValidationOutput, writeLine: (line: string) => void): void {
   if (output.data.result.diagnostics.length === 0) {
     writeLine("Validation passed.");
@@ -215,6 +258,10 @@ export function renderTextOutput(output: CommandOutput, writeLine: (line: string
     }
     case "preset": {
       renderPresetOutput(output, writeLine);
+      return;
+    }
+    case "skills": {
+      renderSkillsOutput(output, writeLine);
       return;
     }
     case "validation": {

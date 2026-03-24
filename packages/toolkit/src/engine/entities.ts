@@ -14,6 +14,7 @@ import {
   defaultMcpSourcePath,
   defaultPromptOverridePath,
   defaultSettingsSourcePath,
+  defaultSkillImportMetadataPath,
   defaultSkillOverridePath,
   defaultSkillSourcePath,
   defaultSubagentOverridePath,
@@ -973,6 +974,7 @@ export async function removeEntity(
 
     if (entity.type === "skill") {
       await removeIfExists(path.join(cwd, `.harness/src/skills/${entity.id}`));
+      await removeIfExists(path.join(cwd, defaultSkillImportMetadataPath(entity.id)));
     }
   }
 

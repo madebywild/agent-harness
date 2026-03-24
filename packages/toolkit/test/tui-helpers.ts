@@ -227,3 +227,42 @@ export function makeDoctorOutput(ok = true): CommandOutput {
     exitCode: ok ? 0 : 1,
   };
 }
+
+export function makeSkillsImportOutput(id = "imported-skill"): CommandOutput {
+  return {
+    family: "skills",
+    command: "skill.import",
+    ok: true,
+    data: {
+      operation: "import",
+      result: {
+        importedId: id,
+        requestedId: id,
+        replaced: false,
+        provenance: {
+          source: "vercel-labs/agent-skills",
+          resolvedSource: "https://github.com/vercel-labs/agent-skills.git",
+          upstreamSkill: id,
+          skillsCliVersion: "1.4.6",
+        },
+        metadataPath: `.harness/imports/skills/${id}.json`,
+        fileCount: 2,
+        audit: {
+          audited: true,
+          allowed: true,
+          reason: "pass",
+          allowUnsafe: false,
+          allowUnaudited: false,
+          providers: [
+            { provider: "gen", raw: "Safe", outcome: "pass" },
+            { provider: "socket", raw: "0 alerts", outcome: "pass" },
+            { provider: "snyk", raw: "Safe", outcome: "pass" },
+          ],
+        },
+        diagnostics: [],
+      },
+    },
+    diagnostics: [],
+    exitCode: 0,
+  };
+}

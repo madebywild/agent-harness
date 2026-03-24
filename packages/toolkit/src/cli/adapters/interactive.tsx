@@ -75,6 +75,8 @@ const INTERACTIVE_COMMAND_IDS: readonly CommandId[] = [
   "preset.list",
   "preset.describe",
   "preset.apply",
+  "skill.find",
+  "skill.import",
   "add.prompt",
   "add.skill",
   "add.mcp",
@@ -255,6 +257,49 @@ function buildPromptsForCommand(commandId: CommandId, presets: Array<{ id: strin
           type: "text",
           message: "Registry id",
           required: false,
+        },
+      ];
+
+    case "skill.find":
+      return [{ id: "query", type: "text", message: "Search query", required: true }];
+
+    case "skill.import":
+      return [
+        {
+          id: "source",
+          type: "text",
+          message: "Source (owner/repo, URL, or local path)",
+          required: true,
+        },
+        {
+          id: "upstreamSkill",
+          type: "text",
+          message: "Upstream skill id",
+          required: true,
+        },
+        {
+          id: "as",
+          type: "text",
+          message: "Target harness skill id",
+          required: false,
+        },
+        {
+          id: "replace",
+          type: "confirm",
+          message: "Replace existing skill if it already exists?",
+          initial: false,
+        },
+        {
+          id: "allowUnsafe",
+          type: "confirm",
+          message: "Allow non-pass audited skills?",
+          initial: false,
+        },
+        {
+          id: "allowUnaudited",
+          type: "confirm",
+          message: "Allow unaudited sources?",
+          initial: false,
         },
       ];
 
@@ -451,6 +496,25 @@ function buildCommandInput(commandId: CommandId, values: CollectedValues): Comma
         command: commandId,
         args: { presetId: str("presetId") },
         options: { registry: str("registry") },
+      };
+
+    case "skill.find":
+      return {
+        command: commandId,
+        args: { query: str("query") },
+      };
+
+    case "skill.import":
+      return {
+        command: commandId,
+        args: { source: str("source") },
+        options: {
+          skill: str("upstreamSkill"),
+          as: str("as"),
+          replace: bool("replace"),
+          allowUnsafe: bool("allowUnsafe"),
+          allowUnaudited: bool("allowUnaudited"),
+        },
       };
 
     case "add.prompt":
