@@ -94,10 +94,21 @@
       "registry": "local",
       "sourceSha256": "d90896124fc9b4020100913f259cb2c3ed12b75e34e4298d108267d9dd237323",
       "type": "skill"
+    },
+    {
+      "id": "npm-workflow-release",
+      "overrideSha256ByProvider": {
+        "claude": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847",
+        "codex": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847",
+        "copilot": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847"
+      },
+      "registry": "local",
+      "sourceSha256": "7e5b0ce5db45176fa7fc884ea617e76ac568406b8c1d3b630111a0db3c96d153",
+      "type": "skill"
     }
   ],
-  "generatedAt": "2026-03-21T20:12:27.029Z",
-  "manifestFingerprint": "006f587168b430c8248e044b75261e53c35ed04d37bd529ad80a039a1363c820",
+  "generatedAt": "2026-03-24T19:33:38.196Z",
+  "manifestFingerprint": "a2a9731fed1a5aecd1270bd8cc9b36aad66c0d39e65f923ac27273a9757bfd79",
   "outputs": [
     {
       "contentSha256": "ad1e01a8644304d236d4af8094b9d29cdcb803be660e6bf3e448a308a86945af",
@@ -148,6 +159,12 @@
       "provider": "claude"
     },
     {
+      "contentSha256": "093c789aeacc1e3b6b50f43f08fd20a58ee3765ae34802add966d75353d192d1",
+      "ownerEntityIds": ["npm-workflow-release"],
+      "path": ".claude/skills/npm-workflow-release/SKILL.md",
+      "provider": "claude"
+    },
+    {
       "contentSha256": "f0e342a294795e2d681da9c33f0f6672983676e7eb022416d3216af44701e0bd",
       "ownerEntityIds": ["harness-command"],
       "path": ".codex/skills/harness-command/SKILL.md",
@@ -187,6 +204,12 @@
       "contentSha256": "f2257941ea419eae38b3beb2e0084f423ce9a271d680e3fc0b9b9caf27850f40",
       "ownerEntityIds": ["harness-subagent"],
       "path": ".codex/skills/harness-subagent/SKILL.md",
+      "provider": "codex"
+    },
+    {
+      "contentSha256": "093c789aeacc1e3b6b50f43f08fd20a58ee3765ae34802add966d75353d192d1",
+      "ownerEntityIds": ["npm-workflow-release"],
+      "path": ".codex/skills/npm-workflow-release/SKILL.md",
       "provider": "codex"
     },
     {
@@ -235,6 +258,12 @@
       "contentSha256": "f2257941ea419eae38b3beb2e0084f423ce9a271d680e3fc0b9b9caf27850f40",
       "ownerEntityIds": ["harness-subagent"],
       "path": ".github/skills/harness-subagent/SKILL.md",
+      "provider": "copilot"
+    },
+    {
+      "contentSha256": "093c789aeacc1e3b6b50f43f08fd20a58ee3765ae34802add966d75353d192d1",
+      "ownerEntityIds": ["npm-workflow-release"],
+      "path": ".github/skills/npm-workflow-release/SKILL.md",
       "provider": "copilot"
     },
     {

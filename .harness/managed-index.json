@@ -8,6 +8,7 @@
     ".claude/skills/harness-settings/SKILL.md",
     ".claude/skills/harness-skill/SKILL.md",
     ".claude/skills/harness-subagent/SKILL.md",
+    ".claude/skills/npm-workflow-release/SKILL.md",
     ".codex/skills/harness-command/SKILL.md",
     ".codex/skills/harness-hook/SKILL.md",
     ".codex/skills/harness-mcp/SKILL.md",
@@ -15,6 +16,7 @@
     ".codex/skills/harness-settings/SKILL.md",
     ".codex/skills/harness-skill/SKILL.md",
     ".codex/skills/harness-subagent/SKILL.md",
+    ".codex/skills/npm-workflow-release/SKILL.md",
     ".github/copilot-instructions.md",
     ".github/skills/harness-command/SKILL.md",
     ".github/skills/harness-hook/SKILL.md",
@@ -23,6 +25,7 @@
     ".github/skills/harness-settings/SKILL.md",
     ".github/skills/harness-skill/SKILL.md",
     ".github/skills/harness-subagent/SKILL.md",
+    ".github/skills/npm-workflow-release/SKILL.md",
     "AGENTS.md",
     "CLAUDE.md"
   ],
@@ -59,7 +62,11 @@
     ".harness/src/skills/harness-subagent/OVERRIDES.claude.yaml",
     ".harness/src/skills/harness-subagent/OVERRIDES.codex.yaml",
     ".harness/src/skills/harness-subagent/OVERRIDES.copilot.yaml",
-    ".harness/src/skills/harness-subagent/SKILL.md"
+    ".harness/src/skills/harness-subagent/SKILL.md",
+    ".harness/src/skills/npm-workflow-release/OVERRIDES.claude.yaml",
+    ".harness/src/skills/npm-workflow-release/OVERRIDES.codex.yaml",
+    ".harness/src/skills/npm-workflow-release/OVERRIDES.copilot.yaml",
+    ".harness/src/skills/npm-workflow-release/SKILL.md"
   ],
   "version": 1
 }
