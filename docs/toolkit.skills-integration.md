@@ -27,7 +27,8 @@ Implements Harness-native integration with `skills.sh` for:
   - Requires top-level `SKILL.md`
   - Rejects symlinks
   - Rejects invalid/traversing paths
-  - Enforces UTF-8 text content and size/count limits
+  - Text files are stored as UTF-8; binary files (e.g. fonts, images) are stored as base64
+  - Enforces per-file and total payload size/count limits
 
 ## Key exports
 

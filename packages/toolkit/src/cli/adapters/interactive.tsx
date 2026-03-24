@@ -701,6 +701,7 @@ export function App({ api, presets, workspaceStatus, onExit }: AppProps) {
               isError,
             });
           }}
+          onDismiss={() => setStep({ type: "select-command" })}
         />
       );
     }
@@ -970,6 +971,7 @@ interface SkillsImportWorkflowProps {
   api: InteractiveExecutionApi;
   onCancel: () => void;
   onComplete: (lines: string[], isError: boolean) => void;
+  onDismiss: () => void;
 }
 
 interface SkillSearchState {
@@ -1000,6 +1002,14 @@ const SKILL_IMPORT_OPTION_PROMPTS: Array<{
   { key: "allowUnaudited", message: "Allow unaudited sources?" },
 ];
 
+interface SkillImportEntry {
+  skill: SkillDiscoveryResult;
+  ok: boolean;
+  fileCount: number;
+  auditSummary: string;
+  errorMessage?: string;
+}
+
 type SkillImportWorkflowStep =
   | { type: "query" }
   | { type: "searching"; query: string }
@@ -1022,11 +1032,33 @@ type SkillImportWorkflowStep =
       search: SkillSearchState;
       selected: SkillDiscoveryResult[];
       options: SkillImportOptionsState;
-    };
+    }
+  | { type: "results"; entries: SkillImportEntry[] };
 
 function formatDiagnosticLine(diagnostic: Diagnostic): string {
-  const path = diagnostic.path ? ` (${diagnostic.path})` : "";
-  return `[${diagnostic.severity}] ${diagnostic.code}: ${diagnostic.message}${path}`;
+  const p = diagnostic.path ? ` (${diagnostic.path})` : "";
+  return `[${diagnostic.severity}] ${diagnostic.code}: ${diagnostic.message}${p}`;
+}
+
+function summarizeAudit(output: CommandOutput): string {
+  if (output.family !== "skills" || output.data.operation !== "import") return "";
+  const audit = output.data.result.audit;
+  if (!audit.audited) return "";
+  return audit.providers.map((p) => `${p.provider}: ${p.raw}`).join(" · ");
+}
+
+function extractUserError(output: CommandOutput): string | undefined {
+  const errors = output.diagnostics.filter((d) => d.severity === "error");
+  if (errors.length === 0) return undefined;
+  for (const e of errors) {
+    if (e.code === "SKILL_IMPORT_SUBPROCESS_FAILED") return "Skill source not found or unavailable.";
+    if (e.code === "SKILL_IMPORT_AUDIT_BLOCKED") return "Blocked by security audit. Use --allow-unsafe to override.";
+    if (e.code === "SKILL_IMPORT_AUDIT_UNAUDITED")
+      return "No audit report available. Use --allow-unaudited to override.";
+    if (e.code === "SKILL_IMPORT_COLLISION") return "Skill already exists. Enable replace to overwrite.";
+    if (e.code?.startsWith("SKILL_IMPORT_PAYLOAD_")) return "Skill payload validation failed.";
+  }
+  return errors[0]?.message;
 }
 
 function formatSkillResultLabel(result: SkillDiscoveryResult): string {
@@ -1078,7 +1110,7 @@ function buildSkillImportInput(skill: SkillDiscoveryResult, options: SkillImport
   };
 }
 
-function SkillsImportWorkflow({ api, onCancel, onComplete }: SkillsImportWorkflowProps) {
+function SkillsImportWorkflow({ api, onCancel, onComplete, onDismiss }: SkillsImportWorkflowProps) {
   const [step, setStep] = useState<SkillImportWorkflowStep>({ type: "query" });
   const runningRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
@@ -1125,33 +1157,20 @@ function SkillsImportWorkflow({ api, onCancel, onComplete }: SkillsImportWorkflo
     if (step.type === "running") {
       runningRef.current = true;
       (async () => {
-        const lines: string[] = [];
-        let hasErrors = false;
-
-        lines.push(`Search query: ${step.search.query}`);
-        lines.push(`Importing ${step.selected.length} selected skill(s)...`);
-
+        const entries: SkillImportEntry[] = [];
         for (const skill of step.selected) {
           const output = await api.execute(buildSkillImportInput(skill, step.options));
-          const rendered: string[] = [];
-          renderTextOutput(output, (line) => rendered.push(line));
-
-          lines.push("");
-          lines.push(`${output.ok ? "IMPORTED" : "BLOCKED"} ${skill.source}@${skill.upstreamSkill}`);
-          lines.push(...rendered.map((line) => `  ${line}`));
-
-          if (output.exitCode !== 0) {
-            hasErrors = true;
-          }
+          const fileCount =
+            output.family === "skills" && output.data.operation === "import" ? output.data.result.fileCount : 0;
+          entries.push({
+            skill,
+            ok: output.ok,
+            fileCount,
+            auditSummary: summarizeAudit(output),
+            errorMessage: output.ok ? undefined : extractUserError(output),
+          });
         }
-
-        const warningDiagnostics = step.search.diagnostics.filter((diagnostic) => diagnostic.severity !== "error");
-        if (warningDiagnostics.length > 0) {
-          lines.push("", "Search diagnostics:");
-          lines.push(...warningDiagnostics.map((diagnostic) => `  ${formatDiagnosticLine(diagnostic)}`));
-        }
-
-        onCompleteRef.current(lines, hasErrors);
+        setStep({ type: "results", entries });
       })()
         .catch((error: unknown) => {
           const message = error instanceof Error ? error.message : String(error);
@@ -1304,7 +1323,44 @@ function SkillsImportWorkflow({ api, onCancel, onComplete }: SkillsImportWorkflo
     );
   }
 
+  if (step.type === "results") {
+    return <SkillImportResults entries={step.entries} onDismiss={onDismiss} />;
+  }
+
   return null;
+}
+
+function SkillImportResults({ entries, onDismiss }: { entries: SkillImportEntry[]; onDismiss: () => void }) {
+  useInput((_input, key) => {
+    if (key.return) onDismiss();
+  });
+
+  const imported = entries.filter((e) => e.ok);
+  const failed = entries.filter((e) => !e.ok);
+  const allOk = failed.length === 0;
+
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text bold color={allOk ? "green" : "yellow"}>
+        {allOk ? `✓ Imported ${imported.length} skill(s)` : `${imported.length} imported, ${failed.length} failed`}
+      </Text>
+      <Box flexDirection="column" marginTop={1}>
+        {entries.map((entry) => (
+          <Box key={`${entry.skill.source}/${entry.skill.upstreamSkill}`} flexDirection="column" marginBottom={1}>
+            <Box gap={1}>
+              <Text color={entry.ok ? "green" : "red"}>{entry.ok ? "✓" : "✗"}</Text>
+              <Text bold>{entry.skill.upstreamSkill}</Text>
+              <Text dimColor>{entry.skill.source}</Text>
+            </Box>
+            {entry.ok && entry.fileCount > 0 && <Text dimColor>{`    ${entry.fileCount} file(s) added`}</Text>}
+            {entry.ok && entry.auditSummary && <Text dimColor>{`    Audit: ${entry.auditSummary}`}</Text>}
+            {!entry.ok && entry.errorMessage && <Text color="red">{`    ${entry.errorMessage}`}</Text>}
+          </Box>
+        ))}
+      </Box>
+      <Text dimColor>Press Enter to continue...</Text>
+    </Box>
+  );
 }
 
 // ---------------------------------------------------------------------------

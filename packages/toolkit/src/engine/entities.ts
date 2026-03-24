@@ -340,7 +340,7 @@ export async function addPromptEntity(
 export async function addSkillEntity(
   cwd: string,
   skillId: string,
-  options?: { registry?: string; files?: Array<{ path: string; content: string }> },
+  options?: { registry?: string; files?: Array<{ path: string; content: string; encoding?: "utf8" | "base64" }> },
 ): Promise<void> {
   validateEntityId(skillId, "skill");
   const paths = resolveHarnessPaths(cwd);
@@ -361,12 +361,13 @@ export async function addSkillEntity(
   let registryId: string;
   let importedSourceSha256: string | undefined;
   let registryRevision: RegistryRevision | undefined;
-  let skillFiles: Array<{ path: string; content: string; sha256: string }>;
+  let skillFiles: Array<{ path: string; content: string; encoding?: "utf8" | "base64"; sha256: string }>;
 
   if (options?.files) {
     skillFiles = options.files.map((file) => ({
       path: normalizeRelativePath(file.path),
       content: file.content,
+      encoding: file.encoding,
       sha256: sha256(file.content),
     }));
     sourceSha256 = computeSkillSourceSha(skillFiles.map((file) => ({ path: file.path, sha256: file.sha256 })));
@@ -404,7 +405,11 @@ export async function addSkillEntity(
   for (const file of skillFiles) {
     const absolute = path.join(skillRootAbs, file.path);
     await ensureParentDir(absolute);
-    await fs.writeFile(absolute, file.content, "utf8");
+    if (file.encoding === "base64") {
+      await fs.writeFile(absolute, Buffer.from(file.content, "base64"));
+    } else {
+      await fs.writeFile(absolute, file.content, "utf8");
+    }
   }
 
   const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "skill", skillId);

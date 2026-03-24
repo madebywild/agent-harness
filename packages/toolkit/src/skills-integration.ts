@@ -21,6 +21,8 @@ export const SKILLS_CLI_VERSION = "1.4.6";
 export interface ImportedSkillFile {
   path: string;
   content: string;
+  /** Defaults to `"utf8"` when omitted. Binary files use `"base64"`. */
+  encoding?: "utf8" | "base64";
   sha256: string;
   sizeBytes: number;
 }
@@ -559,24 +561,18 @@ async function readImportedSkillFiles(
       }
 
       let content: string;
+      let encoding: "utf8" | "base64" = "utf8";
       try {
-        content = utf8Decoder.decode(buffer);
+        const decoded = utf8Decoder.decode(buffer);
+        if (decoded.includes("\u0000")) {
+          content = buffer.toString("base64");
+          encoding = "base64";
+        } else {
+          content = decoded;
+        }
       } catch {
-        diagnostics.push({
-          code: "SKILL_IMPORT_PAYLOAD_BINARY_FILE",
-          severity: "error",
-          message: `Imported file '${relativePath}' is not valid UTF-8 text.`,
-        });
-        continue;
-      }
-
-      if (content.includes("\u0000")) {
-        diagnostics.push({
-          code: "SKILL_IMPORT_PAYLOAD_BINARY_FILE",
-          severity: "error",
-          message: `Imported file '${relativePath}' contains null bytes and is treated as binary.`,
-        });
-        continue;
+        content = buffer.toString("base64");
+        encoding = "base64";
       }
 
       totalBytes += buffer.length;
@@ -596,6 +592,7 @@ async function readImportedSkillFiles(
       files.push({
         path: relativePath,
         content,
+        encoding,
         sha256: sha256(content),
         sizeBytes: buffer.length,
       });

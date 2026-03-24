@@ -433,6 +433,7 @@ export class HarnessEngine {
       files: prepared.files.map((file) => ({
         path: file.path,
         content: file.content,
+        encoding: file.encoding,
       })),
     });
 
