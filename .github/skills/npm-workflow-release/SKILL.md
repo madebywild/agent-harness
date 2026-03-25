@@ -15,8 +15,8 @@ Use `$ARGUMENTS` as the target version when provided (for example: `1.6.0` or `v
    - If `$ARGUMENTS` is provided, normalize it to `X.Y.Z` and `vX.Y.Z`.
    - If not provided, infer the intended version from context and confirm package files match.
 2. Validate lockstep package versions.
-   - Check `packages/manifest-schema/package.json` and `packages/toolkit/package.json`.
-   - Ensure both `version` values are identical and equal to the target version.
+   - Check `packages/manifest-schema/package.json`, `packages/tui/package.json`, and `packages/toolkit/package.json`.
+   - Ensure all `version` values are identical and equal to the target version.
 3. Confirm release workflow prerequisites.
    - Check `.github/workflows/publish-npm.yml` triggers on tag push (`v*`).
    - Run `GITHUB_REF_NAME=vX.Y.Z pnpm run release:guard` before publishing.
@@ -26,8 +26,9 @@ Use `$ARGUMENTS` as the target version when provided (for example: `1.6.0` or `v
 5. Monitor the publish run in GitHub Actions.
    - Use `gh run list --workflow publish-npm.yml`.
    - Watch the matching run with `gh run watch <run-id> --exit-status`.
-6. Verify npm publication for both packages.
+6. Verify npm publication for all packages.
    - `npm view @madebywild/agent-harness-manifest dist-tags --json`
+   - `npm view @madebywild/agent-harness-tui dist-tags --json`
    - `npm view @madebywild/agent-harness-framework dist-tags --json`
    - Confirm `latest` (or requested tag) points to `X.Y.Z`.
 7. Report outcome with concrete evidence.

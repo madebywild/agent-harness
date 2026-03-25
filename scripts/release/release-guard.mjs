@@ -5,11 +5,15 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Order matters: manifest must be published before framework (framework depends on manifest).
+// Order matters: framework depends on manifest + tui.
 const PACKAGE_CONFIGS = [
   {
     expectedName: "@madebywild/agent-harness-manifest",
     packageJsonPath: "packages/manifest-schema/package.json",
+  },
+  {
+    expectedName: "@madebywild/agent-harness-tui",
+    packageJsonPath: "packages/tui/package.json",
   },
   {
     expectedName: "@madebywild/agent-harness-framework",

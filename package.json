@@ -24,6 +24,8 @@
     "release:publish": "node scripts/release/release-guard.mjs publish",
     "release:verify-published": "node scripts/release/release-guard.mjs verify-published",
     "preview": "pnpm run build && node packages/toolkit/dist/cli.js",
+    "storybook": "pnpm --filter @madebywild/agent-harness-tui storybook",
+    "build-storybook": "pnpm --filter @madebywild/agent-harness-tui build-storybook",
     "prepare": "lefthook install"
   },
   "devDependencies": {

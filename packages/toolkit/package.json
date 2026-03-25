@@ -44,6 +44,7 @@
     "@iarna/toml": "^2.2.5",
     "@inkjs/ui": "^2.0.0",
     "@madebywild/agent-harness-manifest": "workspace:*",
+    "@madebywild/agent-harness-tui": "workspace:*",
     "chokidar": "^5.0.0",
     "commander": "^14.0.3",
     "gray-matter": "^4.0.3",
@@ -72,6 +73,7 @@
     "test": "pnpm exec tsx --test test/*.test.ts test/*.test.tsx",
     "test:e2e:containers": "pnpm exec tsx --test test/e2e/**/*.e2e.test.ts",
     "typecheck": "pnpm exec tsc -b --pretty false",
-    "preview": "pnpm run build && node dist/cli.js"
+    "preview": "pnpm run build && node dist/cli.js",
+    "storybook": "pnpm exec tsx src/cli/storybook.tsx"
   }
 }

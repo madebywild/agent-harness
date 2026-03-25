@@ -7,6 +7,6 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react"
   },
-  "references": [{ "path": "../manifest-schema" }, { "path": "../tui" }],
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["src/shims/**"]
 }

@@ -1,5 +1,13 @@
-import { Spinner, TextInput } from "@inkjs/ui";
+import { Spinner } from "@inkjs/ui";
 import { providerIdSchema } from "@madebywild/agent-harness-manifest";
+import {
+  OnboardingComplete,
+  type OnboardingCompleteProps,
+  OutputStep,
+  type OutputStepProps,
+  TextPrompt,
+  type TextPromptProps,
+} from "@madebywild/agent-harness-tui";
 import { Box, render, Static, Text, useApp, useInput } from "ink";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveHarnessPaths } from "../../paths.js";
@@ -13,6 +21,15 @@ import type { CommandId, CommandInput, CommandOutput } from "../contracts.js";
 import { renderTextOutput } from "../renderers/text.js";
 import { AutocompleteMultiSelect, AutocompleteSelect, type RenderLabelProps } from "./autocomplete-select.js";
 import { ToggleConfirm } from "./toggle-confirm.js";
+
+export {
+  OnboardingComplete,
+  type OnboardingCompleteProps,
+  OutputStep,
+  type OutputStepProps,
+  TextPrompt,
+  type TextPromptProps,
+};
 
 export interface InteractiveExecutionApi {
   execute: (input: CommandInput) => Promise<CommandOutput>;
@@ -860,76 +877,6 @@ export function App({ api, presets, workspaceStatus, onExit }: AppProps) {
 }
 
 // ---------------------------------------------------------------------------
-// TextPrompt — wraps TextInput and handles Escape via useInput
-// ---------------------------------------------------------------------------
-
-interface TextPromptProps {
-  message: string;
-  required: boolean;
-  onSubmit: (value: string) => void;
-  onCancel: () => void;
-}
-
-function TextPrompt({ message, required, onSubmit, onCancel }: TextPromptProps) {
-  const [error, setError] = useState(false);
-
-  useInput((_input, key) => {
-    if (key.escape) onCancel();
-    else if (error && !key.return) setError(false);
-  });
-
-  return (
-    <Box flexDirection="column" marginTop={1}>
-      <Box>
-        <Text dimColor>{message}: </Text>
-        <TextInput
-          placeholder={required ? "" : "optional"}
-          onSubmit={(value) => {
-            if (required && value.trim().length === 0) {
-              setError(true);
-              return;
-            }
-            onSubmit(value);
-          }}
-        />
-      </Box>
-      {error && <Text color="red">{"  This value is required"}</Text>}
-    </Box>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// OutputStep — shows command output inline, dismissed with Enter
-// ---------------------------------------------------------------------------
-
-interface OutputStepProps {
-  label: string;
-  lines: string[];
-  isError: boolean;
-  onDismiss: () => void;
-}
-
-function OutputStep({ label, lines, isError, onDismiss }: OutputStepProps) {
-  useInput((_input, key) => {
-    if (key.return) onDismiss();
-  });
-
-  return (
-    <Box flexDirection="column" marginTop={1}>
-      <Text bold color={isError ? "red" : "green"}>
-        {isError ? `✗ ${label}` : `✓ ${label}`}
-      </Text>
-      <Box flexDirection="column" marginLeft={2} marginTop={1}>
-        <Text>{lines.join("\n")}</Text>
-      </Box>
-      <Box marginTop={1}>
-        <Text dimColor>Press Enter to continue...</Text>
-      </Box>
-    </Box>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // RunningStep — fires the command once and shows a spinner
 // ---------------------------------------------------------------------------
 
@@ -941,7 +888,7 @@ interface RunningStepProps {
   onError: (message: string) => void;
 }
 
-function RunningStep({ label, input, api, onDone, onError }: RunningStepProps) {
+export function RunningStep({ label, input, api, onDone, onError }: RunningStepProps) {
   const callbacks = useRef({ onDone, onError });
   callbacks.current = { onDone, onError };
 
@@ -1730,33 +1677,6 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
   }
 
   return null;
-}
-
-function OnboardingComplete({ summary, onDismiss }: { summary: string[]; onDismiss: () => void }) {
-  useInput((_input, key) => {
-    if (key.return) onDismiss();
-  });
-
-  return (
-    <Box flexDirection="column" marginTop={1}>
-      <Text bold color="green">
-        Setup complete!
-      </Text>
-      {summary.length > 0 && (
-        <Box flexDirection="column" marginLeft={2} marginTop={1}>
-          {summary.map((line, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: static list, never reordered
-            <Text key={i} dimColor>
-              - {line}
-            </Text>
-          ))}
-        </Box>
-      )}
-      <Box marginTop={1}>
-        <Text dimColor>Press Enter to continue to the main menu...</Text>
-      </Box>
-    </Box>
-  );
 }
 
 // ---------------------------------------------------------------------------
