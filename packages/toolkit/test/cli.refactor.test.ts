@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
+import { promisify } from "node:util";
 import { runCommanderAdapter } from "../src/cli/adapters/commander.js";
 import { runCliArgv, runCliCommand } from "../src/cli/main.js";
 import { isNoArgShortcutEligible } from "../src/cli/utils/runtime.js";
 import { mkTmpRepo } from "./helpers.ts";
+
+const execFileAsync = promisify(execFile);
 
 function createCapturedContext(cwd: string, options?: { isTty?: boolean; isCi?: boolean }) {
   const stdout: string[] = [];
@@ -27,6 +31,10 @@ function createCapturedContext(cwd: string, options?: { isTty?: boolean; isCi?: 
     stdout,
     stderr,
   };
+}
+
+async function initGitRepo(cwd: string): Promise<void> {
+  await execFileAsync("git", ["init"], { cwd });
 }
 
 test("runCliArgv no-arg non-interactive path preserves default plan behavior", async () => {
@@ -166,6 +174,75 @@ test("runCliArgv init --delegate rejects json mode before launching the provider
 
   assert.equal(result.exitCode, 1);
   assert.match(capture.stderr.join("\n"), /INIT_DELEGATE_JSON_UNSUPPORTED/u);
+});
+
+test("runCliArgv init --u-haul --json returns u-haul summary payload", async () => {
+  const cwd = await mkTmpRepo();
+  await initGitRepo(cwd);
+  await fs.writeFile(path.join(cwd, "AGENTS.md"), "Legacy prompt\n", "utf8");
+  const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
+
+  const result = await runCliArgv(["init", "--u-haul", "--json"], capture.context);
+
+  assert.equal(result.exitCode, 0);
+  const payload = JSON.parse(capture.stdout[0]) as {
+    command: string;
+    ok: boolean;
+    data: {
+      uHaul?: {
+        detected: { prompt: number };
+        imported: { prompt: number };
+        precedence: string[];
+        apply: { operations: number; writtenArtifacts: number; prunedArtifacts: number };
+      };
+      message: string;
+    };
+  };
+  assert.equal(payload.command, "init");
+  assert.equal(payload.ok, true);
+  assert.ok(payload.data.uHaul);
+  assert.equal(payload.data.uHaul?.detected.prompt, 1);
+  assert.equal(payload.data.uHaul?.imported.prompt, 1);
+  assert.deepEqual(payload.data.uHaul?.precedence, ["claude", "codex", "copilot"]);
+  assert.equal(typeof payload.data.uHaul?.apply.operations, "number");
+});
+
+test("runCliArgv init --u-haul validates conflicting options", async () => {
+  const cwd = await mkTmpRepo();
+  const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
+
+  const presetConflict = await runCliArgv(["init", "--u-haul", "--preset", "starter"], capture.context);
+  assert.equal(presetConflict.exitCode, 1);
+  assert.match(capture.stderr.join("\n"), /INIT_U_HAUL_PRESET_CONFLICT/u);
+
+  capture.stderr.length = 0;
+  const delegateConflict = await runCliArgv(["init", "--u-haul", "--delegate", "claude"], capture.context);
+  assert.equal(delegateConflict.exitCode, 1);
+  assert.match(capture.stderr.join("\n"), /INIT_U_HAUL_DELEGATE_CONFLICT/u);
+
+  capture.stderr.length = 0;
+  const precedenceWithoutUHaul = await runCliArgv(["init", "--u-haul-precedence", "codex"], capture.context);
+  assert.equal(precedenceWithoutUHaul.exitCode, 1);
+  assert.match(capture.stderr.join("\n"), /INIT_U_HAUL_PRECEDENCE_REQUIRES_U_HAUL/u);
+});
+
+test("runCliArgv init --u-haul-precedence controls precedence mapping", async () => {
+  const cwd = await mkTmpRepo();
+  await initGitRepo(cwd);
+  await fs.writeFile(path.join(cwd, "AGENTS.md"), "Codex prompt\n", "utf8");
+  await fs.writeFile(path.join(cwd, "CLAUDE.md"), "Claude prompt\n", "utf8");
+  const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
+
+  const result = await runCliArgv(["init", "--u-haul", "--u-haul-precedence", "codex", "--json"], capture.context);
+  assert.equal(result.exitCode, 0);
+
+  const payload = JSON.parse(capture.stdout[0]) as {
+    data: { uHaul?: { precedence: string[] } };
+  };
+  assert.deepEqual(payload.data.uHaul?.precedence, ["codex", "claude", "copilot"]);
+
+  const prompt = await fs.readFile(path.join(cwd, ".harness/src/prompts/system.md"), "utf8");
+  assert.equal(prompt.trim(), "Codex prompt");
 });
 
 test("runCliArgv watch --json surfaces startup failures", async () => {

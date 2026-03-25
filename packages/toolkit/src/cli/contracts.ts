@@ -17,6 +17,7 @@ import type {
   SkillImportResult,
   ValidationResult,
 } from "../types.js";
+import type { UHaulSummary } from "../u-haul.js";
 
 export type CommandId =
   | "init"
@@ -95,6 +96,7 @@ export interface InitOutput
       force: boolean;
       preset?: string;
       delegateProvider?: ProviderId;
+      uHaul?: UHaulSummary;
       message: string;
     }
   > {}

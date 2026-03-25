@@ -28,6 +28,7 @@ Implements the layered CLI runtime with shared command execution for both non-in
 - `harness ui` is the explicit interactive entrypoint.
 - Interactive `init` now offers bundled preset selection with a skip option.
 - Interactive `init` can also launch delegated prompt authoring when the `delegate` preset is selected.
+- Interactive onboarding offers `u-haul` first when legacy provider assets are detected.
 - Interactive `skill.import` runs an integrated workflow: search (`skill.find`) → multi-select results → batch import (`skill.import`) in one flow.
 
 ## Workspace-aware interactive startup
@@ -35,6 +36,7 @@ Implements the layered CLI runtime with shared command execution for both non-in
 On every interactive launch, `runInteractiveAdapter` detects workspace state before rendering:
 
 - **No workspace** (`.harness/` missing): shows an animated onboarding wizard that guides the user through init (with optional preset), multi-provider enablement (pick one or more, then confirm), optional system prompt creation, and apply. The onboarding transitions to the main command menu on completion.
+  - When legacy provider files are detected (`AGENTS.md`, `CLAUDE.md`, provider skills/config/hooks/commands defaults), onboarding first offers `u-haul` legacy import and precedence selection.
 - **Unhealthy workspace** (doctor finds issues): shows a warning banner listing diagnostics and offers to run `doctor` or continue to the main menu.
 - **Healthy workspace**: shows the command menu directly (existing behavior).
 
@@ -50,6 +52,7 @@ Detection uses `resolveHarnessPaths` + `exists` for the fast path and `runDoctor
 - preset commands: `preset list|describe|apply`
 - `init --preset <id>` chains workspace initialization with preset application
 - `init --delegate <provider>` auto-applies the bundled `delegate` preset and launches `claude`, `codex`, or `copilot` to finish prompt authoring
+- `init --u-haul [--u-haul-precedence <provider>]` imports legacy provider assets into canonical `.harness/src/*`, removes imported legacy files, auto-enables contributing providers, and runs `apply`
 
 Examples:
 
@@ -73,6 +76,8 @@ Examples:
 
 `skill find` returns both parsed matches and raw text fallback in `data`.
 `skill import` returns imported id/provenance, audit decision, and imported file count; `metadataPath` is present only when a sidecar was written.
+`init --u-haul` adds `data.uHaul` with detected/imported counts, precedence order, auto-enabled providers, deleted legacy paths, precedence drops, collision remaps, and apply summary (`diagnostics` + `errorDiagnostics`).
+If `data.uHaul.apply.errorDiagnostics > 0`, init returns `ok: false` and exits non-zero.
 
 ## Programmatic API
 
@@ -89,3 +94,4 @@ Examples:
 - `init --delegate <provider>` is the intended first-run path when the user wants `claude`, `codex`, or `copilot` to author the real project-specific prompt and any related harness entities from the current repository context.
 - Delegated init is interactive-only and should not be combined with `--json`, because the selected provider CLI takes over the terminal session.
 - Provider CLIs are invoked non-interactively: `claude -p <task>`, `codex exec <task>`, `copilot -p <task>`. See [`toolkit.delegated-init.md`](./toolkit.delegated-init.md) for details.
+- `u-haul` and delegated/preset init are mutually exclusive (`--u-haul` cannot be combined with `--delegate` or `--preset`).

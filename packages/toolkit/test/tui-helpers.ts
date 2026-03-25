@@ -3,6 +3,7 @@ import type { render } from "ink-testing-library";
 import type { InteractiveExecutionApi, WorkspaceStatus } from "../src/cli/adapters/interactive.js";
 import type { CommandInput, CommandOutput, EntityMutationOutput, ProviderOutput } from "../src/cli/contracts.js";
 import type { CliEntityType, ProviderId } from "../src/types.js";
+import type { LegacyAssetsDetection } from "../src/u-haul.js";
 
 export const KEYS = {
   ENTER: "\r",
@@ -176,6 +177,17 @@ export function makeHealthyStatus(): WorkspaceStatus {
 
 export function makeMissingStatus(): WorkspaceStatus {
   return { state: "missing" };
+}
+
+export function makeMissingStatusWithLegacy(input?: Partial<LegacyAssetsDetection>): WorkspaceStatus {
+  return {
+    state: "missing",
+    legacyAssets: {
+      hasLegacyAssets: true,
+      providers: input?.providers ?? (["claude", "codex"] as ProviderId[]),
+      paths: input?.paths ?? ["AGENTS.md", ".claude/skills"],
+    },
+  };
 }
 
 export function makeUnhealthyStatus(

@@ -111,20 +111,36 @@ export async function runCommanderAdapter(
         "--delegate <provider>",
         `launch delegated prompt authoring with a provider CLI (${providerIdSchema.options.join(", ")})`,
       )
-      .action(async (options: { force: boolean; preset?: string; delegate?: string; json?: boolean }) => {
-        await runCommand(
-          {
-            command: "init",
-            options: {
-              force: options.force,
-              preset: options.preset,
-              delegate: options.delegate,
-              json: options.json,
+      .option("--u-haul", "import legacy provider assets into canonical .harness sources, then apply", false)
+      .option(
+        "--u-haul-precedence <provider>",
+        `select primary provider precedence for u-haul (${providerIdSchema.options.join(", ")})`,
+      )
+      .action(
+        async (options: {
+          force: boolean;
+          preset?: string;
+          delegate?: string;
+          uHaul?: boolean;
+          uHaulPrecedence?: string;
+          json?: boolean;
+        }) => {
+          await runCommand(
+            {
+              command: "init",
+              options: {
+                force: options.force,
+                preset: options.preset,
+                delegate: options.delegate,
+                uHaul: options.uHaul,
+                uHaulPrecedence: options.uHaulPrecedence,
+                json: options.json,
+              },
             },
-          },
-          options,
-        );
-      }),
+            options,
+          );
+        },
+      ),
   );
 
   const presetCommand = program.command("preset").description("List, inspect, and apply presets");
