@@ -14,7 +14,8 @@ import {
   TextPrompt,
   ToggleConfirm,
 } from "@madebywild/agent-harness-tui";
-import { Box, render, Text, useApp } from "ink";
+import { Box, render, Text, useApp, useInput } from "ink";
+import type { ReactNode } from "react";
 import { useState } from "react";
 
 // ---------------------------------------------------------------------------
@@ -24,7 +25,7 @@ import { useState } from "react";
 interface Story {
   label: string;
   value: string;
-  render: (onBack: () => void) => React.ReactNode;
+  render: (onBack: () => void) => ReactNode;
 }
 
 const SAMPLE_OPTIONS = [
@@ -50,108 +51,171 @@ const SAMPLE_OPTIONS = [
   { label: "Exit", value: "exit" },
 ];
 
+const PROVIDER_OPTIONS = [
+  { label: "claude", value: "claude" },
+  { label: "codex", value: "codex" },
+  { label: "copilot", value: "copilot" },
+];
+
+function StoryValue({ label, value }: { label: string; value: string | null }) {
+  if (value === null) {
+    return null;
+  }
+
+  return (
+    <Box marginTop={1}>
+      <Text dimColor>{`${label}: ${value}`}</Text>
+    </Box>
+  );
+}
+
+function AutocompleteDefaultStory({ onBack }: { onBack: () => void }) {
+  const [lastSelected, setLastSelected] = useState<string | null>(null);
+
+  return (
+    <StoryFrame title="AutocompleteSelect">
+      <AutocompleteSelect options={SAMPLE_OPTIONS} onChange={setLastSelected} onCancel={onBack} />
+      <StoryValue label="Last selected" value={lastSelected} />
+    </StoryFrame>
+  );
+}
+
+function AutocompleteFewStory({ onBack }: { onBack: () => void }) {
+  const [lastSelected, setLastSelected] = useState<string | null>(null);
+
+  return (
+    <StoryFrame title="AutocompleteSelect (few options)">
+      <AutocompleteSelect options={PROVIDER_OPTIONS} label="Provider" onChange={setLastSelected} onCancel={onBack} />
+      <StoryValue label="Last selected" value={lastSelected} />
+    </StoryFrame>
+  );
+}
+
+function AutocompleteVisibleCountStory({ onBack }: { onBack: () => void }) {
+  const [lastSelected, setLastSelected] = useState<string | null>(null);
+
+  return (
+    <StoryFrame title="AutocompleteSelect (visibleOptionCount=4)">
+      <AutocompleteSelect
+        options={SAMPLE_OPTIONS}
+        visibleOptionCount={4}
+        onChange={setLastSelected}
+        onCancel={onBack}
+      />
+      <StoryValue label="Last selected" value={lastSelected} />
+    </StoryFrame>
+  );
+}
+
+function ToggleConfirmStory({
+  defaultValue,
+  message,
+  onBack,
+  title,
+}: {
+  defaultValue: boolean;
+  message: string;
+  onBack: () => void;
+  title: string;
+}) {
+  const [lastSubmitted, setLastSubmitted] = useState<string | null>(null);
+
+  return (
+    <StoryFrame title={title}>
+      <ToggleConfirm
+        message={message}
+        defaultValue={defaultValue}
+        onSubmit={(value) => setLastSubmitted(value ? "Yes" : "No")}
+        onEscape={onBack}
+      />
+      <StoryValue label="Last submitted" value={lastSubmitted} />
+    </StoryFrame>
+  );
+}
+
+function TextPromptStory({
+  onBack,
+  required,
+  title,
+  message,
+}: {
+  onBack: () => void;
+  required: boolean;
+  title: string;
+  message: string;
+}) {
+  const [lastSubmitted, setLastSubmitted] = useState<string | null>(null);
+
+  return (
+    <StoryFrame title={title}>
+      <TextPrompt
+        message={message}
+        required={required}
+        onSubmit={(value) => setLastSubmitted(value.length > 0 ? value : "(empty)")}
+        onCancel={onBack}
+      />
+      <StoryValue label="Last submitted" value={lastSubmitted} />
+    </StoryFrame>
+  );
+}
+
 const STORIES: Story[] = [
   {
     label: "AutocompleteSelect (default)",
     value: "autocomplete-default",
-    render: (onBack) => (
-      <StoryFrame title="AutocompleteSelect">
-        <AutocompleteSelect
-          options={SAMPLE_OPTIONS}
-          onChange={(v) => console.log(`Selected: ${v}`)}
-          onCancel={onBack}
-        />
-      </StoryFrame>
-    ),
+    render: (onBack) => <AutocompleteDefaultStory onBack={onBack} />,
   },
   {
     label: "AutocompleteSelect (few options)",
     value: "autocomplete-few",
-    render: (onBack) => (
-      <StoryFrame title="AutocompleteSelect (few options)">
-        <AutocompleteSelect
-          options={[
-            { label: "claude", value: "claude" },
-            { label: "codex", value: "codex" },
-            { label: "copilot", value: "copilot" },
-          ]}
-          label="Provider"
-          onChange={(v) => console.log(`Selected: ${v}`)}
-          onCancel={onBack}
-        />
-      </StoryFrame>
-    ),
+    render: (onBack) => <AutocompleteFewStory onBack={onBack} />,
   },
   {
     label: "AutocompleteSelect (custom visible count)",
     value: "autocomplete-visible",
-    render: (onBack) => (
-      <StoryFrame title="AutocompleteSelect (visibleOptionCount=4)">
-        <AutocompleteSelect
-          options={SAMPLE_OPTIONS}
-          visibleOptionCount={4}
-          onChange={(v) => console.log(`Selected: ${v}`)}
-          onCancel={onBack}
-        />
-      </StoryFrame>
-    ),
+    render: (onBack) => <AutocompleteVisibleCountStory onBack={onBack} />,
   },
   {
     label: "ToggleConfirm (default=false)",
     value: "toggle-default-no",
     render: (onBack) => (
-      <StoryFrame title="ToggleConfirm (default No)">
-        <ToggleConfirm
-          message="Overwrite existing workspace?"
-          defaultValue={false}
-          onSubmit={(v) => console.log(`Submitted: ${v}`)}
-          onEscape={onBack}
-        />
-      </StoryFrame>
+      <ToggleConfirmStory
+        title="ToggleConfirm (default No)"
+        message="Overwrite existing workspace?"
+        defaultValue={false}
+        onBack={onBack}
+      />
     ),
   },
   {
     label: "ToggleConfirm (default=true)",
     value: "toggle-default-yes",
     render: (onBack) => (
-      <StoryFrame title="ToggleConfirm (default Yes)">
-        <ToggleConfirm
-          message="Add a system prompt entity?"
-          defaultValue
-          onSubmit={(v) => console.log(`Submitted: ${v}`)}
-          onEscape={onBack}
-        />
-      </StoryFrame>
+      <ToggleConfirmStory
+        title="ToggleConfirm (default Yes)"
+        message="Add a system prompt entity?"
+        defaultValue
+        onBack={onBack}
+      />
     ),
   },
   {
     label: "TextPrompt (required)",
     value: "text-required",
-    render: (onBack) => (
-      <StoryFrame title="TextPrompt (required)">
-        <TextPrompt message="Skill id" required onSubmit={(v) => console.log(`Submitted: ${v}`)} onCancel={onBack} />
-      </StoryFrame>
-    ),
+    render: (onBack) => <TextPromptStory title="TextPrompt (required)" message="Skill id" required onBack={onBack} />,
   },
   {
     label: "TextPrompt (optional)",
     value: "text-optional",
     render: (onBack) => (
-      <StoryFrame title="TextPrompt (optional)">
-        <TextPrompt
-          message="Registry id"
-          required={false}
-          onSubmit={(v) => console.log(`Submitted: ${v}`)}
-          onCancel={onBack}
-        />
-      </StoryFrame>
+      <TextPromptStory title="TextPrompt (optional)" message="Registry id" required={false} onBack={onBack} />
     ),
   },
   {
     label: "OutputStep (success)",
     value: "output-success",
     render: (onBack) => (
-      <StoryFrame title="OutputStep (success)">
+      <StoryFrame title="OutputStep (success)" onBack={onBack}>
         <OutputStep
           label="Apply"
           lines={[
@@ -170,7 +234,7 @@ const STORIES: Story[] = [
     label: "OutputStep (error)",
     value: "output-error",
     render: (onBack) => (
-      <StoryFrame title="OutputStep (error)">
+      <StoryFrame title="OutputStep (error)" onBack={onBack}>
         <OutputStep
           label="Apply"
           lines={[
@@ -187,8 +251,8 @@ const STORIES: Story[] = [
   {
     label: "Spinner",
     value: "spinner",
-    render: () => (
-      <StoryFrame title="Spinner">
+    render: (onBack) => (
+      <StoryFrame title="Spinner" onBack={onBack}>
         <Box marginTop={1}>
           <Spinner label="Running apply..." />
         </Box>
@@ -199,7 +263,7 @@ const STORIES: Story[] = [
     label: "OnboardingComplete",
     value: "onboarding-complete",
     render: (onBack) => (
-      <StoryFrame title="OnboardingComplete">
+      <StoryFrame title="OnboardingComplete" onBack={onBack}>
         <OnboardingComplete
           summary={[
             "Initialized .harness/ workspace",
@@ -216,14 +280,14 @@ const STORIES: Story[] = [
   {
     label: "Welcome screen (logo)",
     value: "welcome",
-    render: () => {
+    render: (onBack) => {
       const logo = `   __ __
   / // /__ ________  ___ ___ ___
  / _  / _ \`/ __/ _ \\/ -_|_-<(_-<
 /_//_/\\_,_/_/ /_//_/\\__/___/___/`;
       const tagline = "Configure your AI coding agents from a single source of truth.";
       return (
-        <StoryFrame title="Welcome Screen">
+        <StoryFrame title="Welcome Screen" onBack={onBack}>
           <Box flexDirection="column" marginTop={1}>
             <Text color="cyan">{logo}</Text>
             <Box marginTop={1}>
@@ -246,7 +310,16 @@ const STORIES: Story[] = [
 // StoryFrame — wraps each story with a title bar and back hint
 // ---------------------------------------------------------------------------
 
-function StoryFrame({ title, children }: { title: string; children: React.ReactNode }) {
+function StoryFrame({ title, children, onBack }: { title: string; children: ReactNode; onBack?: () => void }) {
+  useInput(
+    (_input, key) => {
+      if (key.escape) {
+        onBack?.();
+      }
+    },
+    { isActive: onBack !== undefined },
+  );
+
   return (
     <Box flexDirection="column">
       <Box borderStyle="single" borderColor="cyan" paddingX={1}>

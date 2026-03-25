@@ -1,6 +1,7 @@
 # npm Release Workflow
 
-This repository publishes `@madebywild/agent-harness-manifest` and `@madebywild/agent-harness-framework` from a single tag-triggered GitHub Actions workflow.
+This repository publishes `@madebywild/agent-harness-manifest`, `@madebywild/agent-harness-tui`, and
+`@madebywild/agent-harness-framework` from a single tag-triggered GitHub Actions workflow.
 
 ## Trigger Model
 
@@ -13,8 +14,9 @@ This repository publishes `@madebywild/agent-harness-manifest` and `@madebywild/
 1. Bump versions in lockstep.
    - Update `version` in:
      - `packages/manifest-schema/package.json`
+     - `packages/tui/package.json`
      - `packages/toolkit/package.json`
-   - Both must be identical (`X.Y.Z`).
+   - All three must be identical (`X.Y.Z`).
 2. Commit the version bump on the branch that will land in `main`.
 3. Ensure the release commit is in `main` (or your release base branch).
 4. Create and push the release tag:
@@ -35,6 +37,7 @@ gh run watch <run-id> --exit-status
 
 ```bash
 npm view @madebywild/agent-harness-manifest dist-tags --json
+npm view @madebywild/agent-harness-tui dist-tags --json
 npm view @madebywild/agent-harness-framework dist-tags --json
 ```
 
@@ -51,7 +54,7 @@ Implemented in `scripts/release/release-guard.mjs`.
 Key checks:
 
 - Package names and versions are valid.
-- Both publishable packages share one version.
+- All publishable packages share one version.
 - `GITHUB_REF_NAME` tag matches package version.
 - Existing npm versions are skipped (idempotent publish).
 - Published version visibility is retried to handle npm propagation delay.

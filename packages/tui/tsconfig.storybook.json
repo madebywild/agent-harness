@@ -7,5 +7,6 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "outDir": "storybook-static"
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "stories/**/*.tsx", ".storybook/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "stories/**/*.tsx", ".storybook/**/*.ts"],
+  "exclude": ["node_modules", "dist", "storybook-static"]
 }
