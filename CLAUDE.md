@@ -127,6 +127,8 @@ Global options: `--cwd <path>`, `--json`, `--no-interactive`.
 ```bash
 npx harness init              # scaffold .harness/ workspace
 npx harness init --force      # overwrite existing workspace
+npx harness init --u-haul     # import legacy provider configs into .harness/
+npx harness init --u-haul --u-haul-precedence codex  # override default precedence
 ```
 
 ### Providers

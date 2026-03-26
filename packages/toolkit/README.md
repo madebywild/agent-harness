@@ -27,6 +27,17 @@ npx harness apply
 
 Or simply run `npx harness` with no arguments to launch the interactive TUI.
 
+### Migrating existing provider configs
+
+Already have `CLAUDE.md`, `AGENTS.md`, or other provider-specific files? U-Haul imports them into canonical `.harness/src/` entities:
+
+```bash
+npx harness init --u-haul
+npx harness init --u-haul --u-haul-precedence codex  # override default precedence (claude > codex > copilot)
+```
+
+U-Haul detects legacy assets across all three providers, resolves conflicts via provider precedence, materializes canonical entities, auto-enables contributing providers, removes imported legacy files, and runs `apply`. The interactive TUI also offers U-Haul automatically when it detects legacy provider files.
+
 ## Interactive mode (TUI)
 
 The primary way to use Agent Harness is through its interactive terminal UI. Run `npx harness` with no arguments (or with `--interactive`) and you'll get a menu-driven interface that walks you through every operation — initializing workspaces, adding entities, enabling providers, and applying changes — with prompts, validation, and confirmation at each step.
@@ -54,11 +65,12 @@ All operations are also available as direct CLI commands, useful for CI pipeline
 ### Workspace lifecycle
 
 ```bash
-npx harness init [--force]       # Initialize .harness/ workspace
-npx harness plan                 # Preview planned file operations (default command)
-npx harness apply                # Generate provider outputs and update lock
-npx harness validate             # Validate manifest, ownership, and constraints
-npx harness watch [--debounceMs] # Watch .harness/src/ and auto-apply on changes
+npx harness init [--force]                                   # Initialize .harness/ workspace
+npx harness init --u-haul [--u-haul-precedence <provider>]   # Import legacy provider configs into .harness/
+npx harness plan                                             # Preview planned file operations (default command)
+npx harness apply                                            # Generate provider outputs and update lock
+npx harness validate                                         # Validate manifest, ownership, and constraints
+npx harness watch [--debounceMs]                             # Watch .harness/src/ and auto-apply on changes
 ```
 
 ### Entity management
