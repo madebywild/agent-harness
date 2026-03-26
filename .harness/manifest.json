@@ -110,6 +110,66 @@
     },
     {
       "enabled": true,
+      "id": "api-docs-reviewer",
+      "overrides": {
+        "claude": ".harness/src/subagents/api-docs-reviewer.overrides.claude.yaml",
+        "codex": ".harness/src/subagents/api-docs-reviewer.overrides.codex.yaml",
+        "copilot": ".harness/src/subagents/api-docs-reviewer.overrides.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/subagents/api-docs-reviewer.md",
+      "type": "subagent"
+    },
+    {
+      "enabled": true,
+      "id": "cli-integration-reviewer",
+      "overrides": {
+        "claude": ".harness/src/subagents/cli-integration-reviewer.overrides.claude.yaml",
+        "codex": ".harness/src/subagents/cli-integration-reviewer.overrides.codex.yaml",
+        "copilot": ".harness/src/subagents/cli-integration-reviewer.overrides.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/subagents/cli-integration-reviewer.md",
+      "type": "subagent"
+    },
+    {
+      "enabled": true,
+      "id": "core-logic-reviewer",
+      "overrides": {
+        "claude": ".harness/src/subagents/core-logic-reviewer.overrides.claude.yaml",
+        "codex": ".harness/src/subagents/core-logic-reviewer.overrides.codex.yaml",
+        "copilot": ".harness/src/subagents/core-logic-reviewer.overrides.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/subagents/core-logic-reviewer.md",
+      "type": "subagent"
+    },
+    {
+      "enabled": true,
+      "id": "security-reviewer",
+      "overrides": {
+        "claude": ".harness/src/subagents/security-reviewer.overrides.claude.yaml",
+        "codex": ".harness/src/subagents/security-reviewer.overrides.codex.yaml",
+        "copilot": ".harness/src/subagents/security-reviewer.overrides.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/subagents/security-reviewer.md",
+      "type": "subagent"
+    },
+    {
+      "enabled": true,
+      "id": "test-reviewer",
+      "overrides": {
+        "claude": ".harness/src/subagents/test-reviewer.overrides.claude.yaml",
+        "codex": ".harness/src/subagents/test-reviewer.overrides.codex.yaml",
+        "copilot": ".harness/src/subagents/test-reviewer.overrides.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/subagents/test-reviewer.md",
+      "type": "subagent"
+    },
+    {
+      "enabled": true,
       "id": "claude",
       "registry": "local",
       "sourcePath": ".harness/src/settings/claude.json",
