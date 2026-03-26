@@ -3,7 +3,32 @@ version = 1
 name = "agent-harness"
 
 [setup]
-script = "pnpm i"
+script = '''
+set -e
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "Node.js is required (>=22). Install Node 22+ and retry." >&2
+  exit 1
+fi
+
+NODE_MAJOR="$(node -p "Number(process.versions.node.split('.')[0])")"
+if [ "$NODE_MAJOR" -lt 22 ]; then
+  echo "Node.js >=22 is required, found $(node -v)." >&2
+  exit 1
+fi
+
+if command -v corepack >/dev/null 2>&1; then
+  corepack enable
+  corepack prepare pnpm@10.2.0 --activate
+fi
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "pnpm is required. Install pnpm 10.2.0 (or enable corepack) and retry." >&2
+  exit 1
+fi
+
+pnpm install
+'''
 
 [[actions]]
 name = "test:e2e:containers"

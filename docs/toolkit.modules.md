@@ -20,6 +20,7 @@ This set documents source files under `packages/toolkit/src`.
 - `repository.ts`: [`toolkit.repository.md`](./toolkit.repository.md)
 - `skills-integration.ts`: [`toolkit.skills-integration.md`](./toolkit.skills-integration.md)
 - `types.ts`: [`toolkit.types.md`](./toolkit.types.md)
+- `u-haul.ts`: [`toolkit.u-haul.md`](./toolkit.u-haul.md)
 - `utils.ts`: [`toolkit.utils.md`](./toolkit.utils.md)
 
 ## CLI submodules

@@ -135,3 +135,63 @@ test("handleInit rejects delegated init without an interactive tty", async () =>
     /INIT_DELEGATE_REQUIRES_TTY/u,
   );
 });
+
+test("handleInit --u-haul returns non-zero when apply reports errors", async () => {
+  const cwd = await mkTmpRepo();
+
+  const output = await handleInit(
+    {
+      force: false,
+      uHaul: true,
+    },
+    {
+      cwd,
+      env: {},
+      stdout: () => {},
+      stderr: () => {},
+      now: () => 0,
+      isTty: false,
+      isCi: false,
+    },
+    {
+      runUHaul: async () => ({
+        noOp: false,
+        precedence: ["claude", "codex", "copilot"],
+        detected: {
+          prompt: 1,
+          skill: 0,
+          mcp: 0,
+          subagent: 0,
+          hook: 0,
+          settings: 0,
+          command: 0,
+        },
+        imported: {
+          prompt: 1,
+          skill: 0,
+          mcp: 0,
+          subagent: 0,
+          hook: 0,
+          settings: 0,
+          command: 0,
+        },
+        autoEnabledProviders: ["claude"],
+        deletedLegacyPaths: ["AGENTS.md"],
+        precedenceDrops: [],
+        collisionRemaps: [],
+        apply: {
+          operations: 1,
+          writtenArtifacts: 0,
+          prunedArtifacts: 0,
+          diagnostics: 1,
+          errorDiagnostics: 1,
+        },
+      }),
+    },
+  );
+
+  assert.equal(output.ok, false);
+  assert.equal(output.exitCode, 1);
+  assert.match(output.data.message, /apply reported errors/u);
+  assert.ok(output.diagnostics.some((diagnostic) => diagnostic.code === "INIT_U_HAUL_APPLY_FAILED"));
+});

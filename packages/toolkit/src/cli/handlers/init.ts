@@ -1,15 +1,74 @@
 import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { DELEGATED_INIT_PRESET_ID, launchDelegatedInit } from "../../delegated-init.js";
 import { HarnessEngine } from "../../engine.js";
+import { parseUHaulPrecedencePrimary, runUHaulInitFlow } from "../../u-haul.js";
 import type { CliResolvedContext, InitOutput } from "../contracts.js";
 
 export async function handleInit(
-  input: { force: boolean; preset?: string; delegate?: string; json?: boolean },
+  input: {
+    force: boolean;
+    preset?: string;
+    delegate?: string;
+    json?: boolean;
+    uHaul?: boolean;
+    uHaulPrecedence?: string;
+  },
   context: CliResolvedContext,
   dependencies?: {
     launchDelegate?: typeof launchDelegatedInit;
+    runUHaul?: typeof runUHaulInitFlow;
   },
 ): Promise<InitOutput> {
+  if (input.uHaulPrecedence && !input.uHaul) {
+    throw new Error("INIT_U_HAUL_PRECEDENCE_REQUIRES_U_HAUL: --u-haul-precedence requires --u-haul");
+  }
+
+  if (input.uHaul && input.preset) {
+    throw new Error("INIT_U_HAUL_PRESET_CONFLICT: --u-haul cannot be combined with --preset");
+  }
+
+  if (input.uHaul && input.delegate) {
+    throw new Error("INIT_U_HAUL_DELEGATE_CONFLICT: --u-haul cannot be combined with --delegate");
+  }
+
+  const uHaulPrecedence = parseUHaulPrecedencePrimary(input.uHaulPrecedence);
+
+  if (input.uHaul) {
+    const uHaul = await (dependencies?.runUHaul ?? runUHaulInitFlow)({
+      cwd: context.cwd,
+      force: input.force,
+      precedencePrimary: uHaulPrecedence,
+    });
+    const hasApplyErrors = uHaul.apply.errorDiagnostics > 0;
+
+    return {
+      family: "init",
+      command: "init",
+      ok: !hasApplyErrors,
+      diagnostics: hasApplyErrors
+        ? [
+            {
+              code: "INIT_U_HAUL_APPLY_FAILED",
+              severity: "error",
+              message: "U-Haul imported sources, but apply reported error diagnostics.",
+            },
+          ]
+        : [],
+      exitCode: hasApplyErrors ? 1 : 0,
+      data: {
+        force: input.force,
+        uHaul,
+        message: hasApplyErrors
+          ? uHaul.noOp
+            ? "Initialized .harness workspace. U-Haul found no legacy assets to import, but apply reported errors."
+            : "Initialized .harness workspace and completed U-Haul legacy import, but apply reported errors."
+          : uHaul.noOp
+            ? "Initialized .harness workspace. U-Haul found no legacy assets to import."
+            : "Initialized .harness workspace and completed U-Haul legacy import.",
+      },
+    };
+  }
+
   let delegateProvider: ReturnType<typeof providerIdSchema.parse> | undefined;
   if (input.delegate) {
     const parsed = providerIdSchema.safeParse(input.delegate);

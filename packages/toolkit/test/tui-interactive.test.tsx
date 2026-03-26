@@ -24,6 +24,7 @@ import {
   makeHealthyStatus,
   makeInitOutput,
   makeMissingStatus,
+  makeMissingStatusWithLegacy,
   makePlanOutput,
   makeProviderOutput,
   makeSkillsFindOutput,
@@ -418,6 +419,54 @@ describe("journey 9 — onboarding full flow", { timeout: 15_000 }, () => {
 
     // Dismiss → main menu
     await confirmAndWait(instance, (f) => f.includes("Command"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Journey 9b: Onboarding u-haul offer + precedence wiring
+// ---------------------------------------------------------------------------
+describe("journey 9b — onboarding u-haul path", { timeout: 15_000 }, () => {
+  test("legacy detection adds u-haul offer and forwards precedence into init options", async () => {
+    const onExit = mock.fn((_code: number) => {});
+    const { api, calls } = createMockApi((input) => {
+      if (input.command === "init") return makeInitOutput();
+      return makePlanOutput();
+    });
+    const instance = render(
+      <App api={api} presets={TEST_PRESETS} workspaceStatus={makeMissingStatusWithLegacy()} onExit={onExit} />,
+    );
+
+    await waitForFrame(instance, (f) => f.includes("get started"), 5000);
+    await confirmAndWait(instance, (f) => f.includes("Legacy import"));
+
+    // Accept u-haul (default yes) -> precedence picker
+    await confirmAndWait(instance, (f) => f.includes("U-Haul precedence"));
+
+    // Choose codex precedence and run init
+    await submitAndWait(
+      instance,
+      "codex",
+      (f) => f.includes("Initializing workspace...") || f.includes("Setup complete"),
+    );
+    await waitForFrame(instance, (f) => f.includes("Setup complete"), 5000);
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.command, "init");
+    assert.equal(calls[0]?.options?.uHaul, true);
+    assert.equal(calls[0]?.options?.uHaulPrecedence, "codex");
+  });
+
+  test("onboarding without legacy assets keeps existing preset-first flow", async () => {
+    const onExit = mock.fn((_code: number) => {});
+    const { api } = createMockApi(() => makePlanOutput());
+    const instance = render(
+      <App api={api} presets={TEST_PRESETS} workspaceStatus={makeMissingStatus()} onExit={onExit} />,
+    );
+
+    await waitForFrame(instance, (f) => f.includes("get started"), 5000);
+    await confirmAndWait(instance, (f) => f.includes("Step 1/4"));
+    const frame = instance.lastFrame();
+    assert.ok(!frame.includes("Legacy import"), `Unexpected legacy prompt in frame:\\n${frame}`);
   });
 });
 

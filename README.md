@@ -62,6 +62,17 @@ npx harness init --delegate copilot
 
 This path auto-applies the bundled `delegate` preset, seeds `.harness/src/prompts/system.md` with one shared bootstrap prompt for all providers, and then launches the selected agent CLI so it can inspect the repository and finish setup through non-interactive `pnpm harness` or `npx harness` commands.
 
+### Migrating from existing provider configs (U-Haul)
+
+Already have `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, or other provider-specific files? U-Haul imports them into canonical `.harness/src/` entities in one step:
+
+```bash
+npx harness init --u-haul
+npx harness init --u-haul --u-haul-precedence codex  # override default precedence
+```
+
+U-Haul detects legacy assets across all three providers, resolves conflicts via provider precedence (default: `claude > codex > copilot`), materializes canonical entities, auto-enables contributing providers, removes imported legacy files, and runs `apply`. See [docs/toolkit.u-haul.md](docs/toolkit.u-haul.md) for the full behavior specification.
+
 Then configure your workspace:
 
 ```bash
@@ -132,6 +143,7 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | Command                                                                 | Description                                                                                                   |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `npx harness init [--force] [--preset <id>] [--delegate <provider>]`    | Initialize `.harness/` structure, optionally apply a preset, and optionally launch delegated prompt authoring |
+| `npx harness init --u-haul [--u-haul-precedence <provider>]`            | Import legacy provider configs into `.harness/`, resolve conflicts, and run apply                            |
 | `npx harness`                                                           | Interactive TUI on TTY, `plan` on non-TTY/CI                                                                  |
 | `npx harness --interactive`                                             | Force interactive mode                                                                                        |
 | `npx harness --version`                                                 | Print CLI version                                                                                             |

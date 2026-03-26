@@ -3,6 +3,7 @@ import type {
   ApplyOutput,
   CommandOutput,
   DoctorOutput,
+  InitOutput,
   MigrateOutput,
   PlanOutput,
   PresetOutput,
@@ -242,9 +243,55 @@ function renderApplyOutput(output: ApplyOutput, writeLine: (line: string) => voi
   );
 }
 
+function renderInitOutput(output: InitOutput, writeLine: (line: string) => void): void {
+  writeLine(output.data.message);
+  renderDiagnosticsSection(output.diagnostics, writeLine);
+  const summary = output.data.uHaul;
+  if (!summary) {
+    return;
+  }
+
+  const detected = [
+    `prompt=${summary.detected.prompt}`,
+    `skill=${summary.detected.skill}`,
+    `mcp=${summary.detected.mcp}`,
+    `subagent=${summary.detected.subagent}`,
+    `hook=${summary.detected.hook}`,
+    `settings=${summary.detected.settings}`,
+    `command=${summary.detected.command}`,
+  ].join(", ");
+  const imported = [
+    `prompt=${summary.imported.prompt}`,
+    `skill=${summary.imported.skill}`,
+    `mcp=${summary.imported.mcp}`,
+    `subagent=${summary.imported.subagent}`,
+    `hook=${summary.imported.hook}`,
+    `settings=${summary.imported.settings}`,
+    `command=${summary.imported.command}`,
+  ].join(", ");
+  writeLine(`U-Haul precedence: ${summary.precedence.join(" > ")}`);
+  writeLine(`U-Haul detected: ${detected}`);
+  writeLine(`U-Haul imported: ${imported}`);
+  writeLine(`U-Haul providers: ${summary.autoEnabledProviders.join(", ") || "(none)"}`);
+  writeLine(`U-Haul deleted paths: ${summary.deletedLegacyPaths.length}`);
+  writeLine(`U-Haul precedence drops: ${summary.precedenceDrops.length}`);
+  writeLine(`U-Haul collision remaps: ${summary.collisionRemaps.length}`);
+  const applySummary = [
+    `operations=${summary.apply.operations}`,
+    `written=${summary.apply.writtenArtifacts}`,
+    `removed=${summary.apply.prunedArtifacts}`,
+    `diagnostics=${summary.apply.diagnostics}`,
+    `errors=${summary.apply.errorDiagnostics}`,
+  ].join(", ");
+  writeLine(`U-Haul apply: ${applySummary}`);
+}
+
 export function renderTextOutput(output: CommandOutput, writeLine: (line: string) => void): void {
   switch (output.family) {
-    case "init":
+    case "init": {
+      renderInitOutput(output, writeLine);
+      return;
+    }
     case "provider":
     case "entity-mutation": {
       if ("message" in output.data && typeof output.data.message === "string") {

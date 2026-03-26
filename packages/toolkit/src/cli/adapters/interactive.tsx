@@ -14,6 +14,8 @@ import { resolveHarnessPaths } from "../../paths.js";
 import { listBuiltinPresets, summarizePreset } from "../../presets.js";
 import type { Diagnostic, SkillDiscoveryResult } from "../../types.js";
 import { CLI_ENTITY_TYPES } from "../../types.js";
+import type { LegacyAssetsDetection } from "../../u-haul.js";
+import { detectLegacyAssets } from "../../u-haul.js";
 import { exists } from "../../utils.js";
 import { runDoctor } from "../../versioning/doctor.js";
 import { getCommandDefinition } from "../command-registry.js";
@@ -40,7 +42,7 @@ export interface InteractiveExecutionApi {
 // ---------------------------------------------------------------------------
 
 export type WorkspaceStatus =
-  | { state: "missing" }
+  | { state: "missing"; legacyAssets?: LegacyAssetsDetection }
   | { state: "unhealthy"; diagnostics: Diagnostic[] }
   | { state: "healthy" };
 
@@ -48,7 +50,8 @@ export async function detectWorkspaceStatus(cwd: string): Promise<WorkspaceStatu
   const paths = resolveHarnessPaths(cwd);
   const [dirExists, manifestExists] = await Promise.all([exists(paths.agentsDir), exists(paths.manifestFile)]);
   if (!dirExists || !manifestExists) {
-    return { state: "missing" };
+    const legacyAssets = await detectLegacyAssets(cwd);
+    return legacyAssets.hasLegacyAssets ? { state: "missing", legacyAssets } : { state: "missing" };
   }
   try {
     const doctor = await runDoctor(paths);
@@ -654,6 +657,7 @@ export function App({ api, presets, workspaceStatus, onExit }: AppProps) {
         <OnboardingWizard
           api={api}
           presets={presets}
+          legacyAssets={workspaceStatus?.state === "missing" ? workspaceStatus.legacyAssets : undefined}
           onComplete={() => {
             addPastLine("Onboarding complete.");
             setStep({ type: "select-command" });
@@ -1323,10 +1327,19 @@ const HARNESS_TAGLINE = "Configure your AI coding agents from a single source of
 
 type OnboardingSubStep =
   | { type: "welcome" }
+  | { type: "u-haul-offer" }
+  | { type: "u-haul-precedence" }
   | { type: "preset" }
   | { type: "delegate-provider" }
-  | { type: "running-init"; preset?: string; delegate?: string }
-  | { type: "init-error"; message: string; preset?: string; delegate?: string }
+  | { type: "running-init"; preset?: string; delegate?: string; uHaul?: boolean; uHaulPrecedence?: string }
+  | {
+      type: "init-error";
+      message: string;
+      preset?: string;
+      delegate?: string;
+      uHaul?: boolean;
+      uHaulPrecedence?: string;
+    }
   | { type: "providers"; selected: string[] }
   | { type: "running-providers"; selected: string[] }
   | { type: "add-prompt" }
@@ -1337,10 +1350,11 @@ type OnboardingSubStep =
 interface OnboardingWizardProps {
   api: InteractiveExecutionApi;
   presets: Array<{ id: string; name: string }>;
+  legacyAssets?: LegacyAssetsDetection;
   onComplete: () => void;
 }
 
-function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
+function OnboardingWizard({ api, presets, legacyAssets, onComplete }: OnboardingWizardProps) {
   const [subStep, setSubStep] = useState<OnboardingSubStep>({
     type: "welcome",
   });
@@ -1368,7 +1382,7 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
         setRevealIndex(fullText.length);
         setAnimationDone(true);
       } else {
-        setSubStep({ type: "preset" });
+        setSubStep(legacyAssets?.hasLegacyAssets ? { type: "u-haul-offer" } : { type: "preset" });
       }
     }
   });
@@ -1387,6 +1401,8 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
             force: false,
             preset: subStep.preset,
             delegate: subStep.delegate,
+            uHaul: subStep.uHaul,
+            uHaulPrecedence: subStep.uHaulPrecedence,
           },
         })
         .then((output) => {
@@ -1398,10 +1414,17 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
               message: lines.join("\n"),
               preset: subStep.preset,
               delegate: subStep.delegate,
+              uHaul: subStep.uHaul,
+              uHaulPrecedence: subStep.uHaulPrecedence,
             });
             return;
           }
           summaryRef.current.push("Initialized .harness/ workspace");
+          if (subStep.uHaul) {
+            summaryRef.current.push("Imported legacy assets via u-haul");
+            setSubStep({ type: "complete", summary: summaryRef.current });
+            return;
+          }
           if (subStep.preset) summaryRef.current.push(`Applied preset: ${subStep.preset}`);
           setSubStep({ type: "providers", selected: [] });
         })
@@ -1411,6 +1434,8 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
             message: err instanceof Error ? err.message : String(err),
             preset: subStep.preset,
             delegate: subStep.delegate,
+            uHaul: subStep.uHaul,
+            uHaulPrecedence: subStep.uHaulPrecedence,
           });
         })
         .finally(() => {
@@ -1479,6 +1504,53 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
             <Text dimColor>Press Enter to get started...</Text>
           </Box>
         )}
+      </Box>
+    );
+  }
+
+  if (subStep.type === "u-haul-offer") {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Step 1/2 — Legacy import</Text>
+        <Text dimColor>Detected legacy provider assets in: {(legacyAssets?.paths ?? []).join(", ")}</Text>
+        <ToggleConfirm
+          message="Run u-haul legacy import now?"
+          defaultValue
+          onSubmit={(yes) => {
+            if (yes) {
+              setSubStep({ type: "u-haul-precedence" });
+            } else {
+              setSubStep({ type: "preset" });
+            }
+          }}
+        />
+      </Box>
+    );
+  }
+
+  if (subStep.type === "u-haul-precedence") {
+    const options = [
+      { label: "claude (default)", value: "claude" },
+      { label: "codex", value: "codex" },
+      { label: "copilot", value: "copilot" },
+    ];
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Step 2/2 — U-Haul precedence</Text>
+        <Box marginTop={1}>
+          <AutocompleteSelect
+            key="onboarding-u-haul-precedence"
+            label="Primary provider"
+            options={options}
+            onChange={(value) => {
+              setSubStep({
+                type: "running-init",
+                uHaul: true,
+                uHaulPrecedence: value,
+              });
+            }}
+          />
+        </Box>
       </Box>
     );
   }
@@ -1573,10 +1645,16 @@ function OnboardingWizard({ api, presets, onComplete }: OnboardingWizardProps) {
                   type: "running-init",
                   preset: subStep.preset,
                   delegate: subStep.delegate,
+                  uHaul: subStep.uHaul,
+                  uHaulPrecedence: subStep.uHaulPrecedence,
                 });
                 return;
               }
               if (value === "back") {
+                if (subStep.uHaul) {
+                  setSubStep({ type: "u-haul-precedence" });
+                  return;
+                }
                 if (subStep.preset === "delegate") {
                   setSubStep({ type: "delegate-provider" });
                 } else {
