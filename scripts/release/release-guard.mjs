@@ -26,8 +26,8 @@ const dryRun = args.includes("--dry-run");
 const tagFlagIndex = args.indexOf("--tag");
 const tagFlagValue = tagFlagIndex !== -1 ? args[tagFlagIndex + 1] : undefined;
 const mode = args.find((a) => !a.startsWith("--") && (tagFlagIndex === -1 || a !== tagFlagValue)) ?? "prepublish";
-const verifyMaxAttempts = parsePositiveInt(process.env.RELEASE_VERIFY_MAX_ATTEMPTS, 6);
-const verifyRetryDelayMs = parsePositiveInt(process.env.RELEASE_VERIFY_RETRY_DELAY_MS, 5000);
+const verifyMaxAttempts = parsePositiveInt(process.env.RELEASE_VERIFY_MAX_ATTEMPTS, 10);
+const verifyRetryDelayMs = parsePositiveInt(process.env.RELEASE_VERIFY_RETRY_DELAY_MS, 10000);
 
 if (mode !== "prepublish" && mode !== "publish" && mode !== "verify-published") {
   fail(`Unknown mode '${mode}'. Use 'prepublish', 'publish', or 'verify-published'.`);
