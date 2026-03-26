@@ -10,15 +10,11 @@
  */
 
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, test } from "node:test";
-import { promisify } from "node:util";
-import { mkTmpRepo } from "../../helpers.ts";
+import { initGitRepo, mkTmpRepo } from "../../helpers.ts";
 import { readWorkspaceJson, readWorkspaceText, runHarnessCli, runHarnessCliExpectFailure } from "../cli-helpers.ts";
-
-const execFileAsync = promisify(execFile);
 
 interface InitJsonOutput {
   ok: boolean;
@@ -66,10 +62,6 @@ async function fileExists(filePath: string): Promise<boolean> {
     .stat(filePath)
     .then(() => true)
     .catch(() => false);
-}
-
-async function initGitRepo(cwd: string): Promise<void> {
-  await execFileAsync("git", ["init"], { cwd });
 }
 
 describe("u-haul workflow journey", { timeout: 120_000 }, () => {

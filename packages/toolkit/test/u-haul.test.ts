@@ -1,17 +1,9 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { promisify } from "node:util";
 import { detectLegacyAssets, runUHaulInitFlow } from "../src/u-haul.ts";
-import { mkTmpRepo } from "./helpers.ts";
-
-const execFileAsync = promisify(execFile);
-
-async function initGitRepo(cwd: string): Promise<void> {
-  await execFileAsync("git", ["init"], { cwd });
-}
+import { initGitRepo, mkTmpRepo } from "./helpers.ts";
 
 test("detectLegacyAssets identifies default legacy paths", async () => {
   const cwd = await mkTmpRepo();

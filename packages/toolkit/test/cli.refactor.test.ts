@@ -1,15 +1,11 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
-import { promisify } from "node:util";
 import { runCommanderAdapter } from "../src/cli/adapters/commander.js";
 import { runCliArgv, runCliCommand } from "../src/cli/main.js";
 import { isNoArgShortcutEligible } from "../src/cli/utils/runtime.js";
-import { mkTmpRepo } from "./helpers.ts";
-
-const execFileAsync = promisify(execFile);
+import { initGitRepo, mkTmpRepo } from "./helpers.ts";
 
 function createCapturedContext(cwd: string, options?: { isTty?: boolean; isCi?: boolean }) {
   const stdout: string[] = [];
@@ -31,10 +27,6 @@ function createCapturedContext(cwd: string, options?: { isTty?: boolean; isCi?: 
     stdout,
     stderr,
   };
-}
-
-async function initGitRepo(cwd: string): Promise<void> {
-  await execFileAsync("git", ["init"], { cwd });
 }
 
 test("runCliArgv no-arg non-interactive path preserves default plan behavior", async () => {

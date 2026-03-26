@@ -1511,7 +1511,7 @@ function OnboardingWizard({ api, presets, legacyAssets, onComplete }: Onboarding
   if (subStep.type === "u-haul-offer") {
     return (
       <Box flexDirection="column" marginTop={1}>
-        <Text bold>Step 1/5 — Legacy import</Text>
+        <Text bold>Step 1/2 — Legacy import</Text>
         <Text dimColor>Detected legacy provider assets in: {(legacyAssets?.paths ?? []).join(", ")}</Text>
         <ToggleConfirm
           message="Run u-haul legacy import now?"
@@ -1536,7 +1536,7 @@ function OnboardingWizard({ api, presets, legacyAssets, onComplete }: Onboarding
     ];
     return (
       <Box flexDirection="column" marginTop={1}>
-        <Text bold>Step 2/5 — U-Haul precedence</Text>
+        <Text bold>Step 2/2 — U-Haul precedence</Text>
         <Box marginTop={1}>
           <AutocompleteSelect
             key="onboarding-u-haul-precedence"

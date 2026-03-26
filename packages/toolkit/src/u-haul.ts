@@ -55,16 +55,6 @@ const U_HAUL_TYPE_ORDER: readonly CliEntityType[] = [
   "command",
 ];
 
-const TYPE_SUFFIX: Record<CliEntityType, string> = {
-  prompt: "prompt",
-  skill: "skill",
-  mcp: "mcp",
-  subagent: "subagent",
-  hook: "hook",
-  settings: "settings",
-  command: "command",
-};
-
 const CLAUDE_EVENT_FROM_PROVIDER: Record<string, CanonicalHookEvent> = {
   SessionStart: "session_start",
   SessionEnd: "session_end",
@@ -1409,7 +1399,7 @@ function assignCanonicalIds(
 
     let assignedId = candidate.id;
     if (usedIds.has(assignedId)) {
-      const base = `${candidate.id}-${TYPE_SUFFIX[candidate.type]}`;
+      const base = `${candidate.id}-${candidate.type}`;
       assignedId = base;
       let suffix = 2;
       while (usedIds.has(assignedId)) {
