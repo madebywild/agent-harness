@@ -17,12 +17,13 @@ Implements `init --u-haul`, a legacy import flow that migrates provider-owned fi
    - Abort before mutation if any parse/validation error exists.
 
 2. **Phase B (mutation)**
-   - Require git safety gate (git executable + inside worktree) before deletion.
+   - Require git safety gate (git executable + inside worktree, with `GIT_DIR`/`GIT_WORK_TREE` env sanitized) before deletion.
    - Run workspace init.
    - Materialize canonical entities into `.harness/src/*`.
    - Auto-enable providers that contributed imported entities.
-   - Delete imported legacy files/directories.
-   - Run `apply`.
+   - Symlink-safe delete of imported legacy files/directories (rejects paths whose `realpath` escapes the workspace).
+   - Run `apply`. On apply failure, attempt `git checkout` restore of deleted legacy files.
+   - Binary files in skill directories are preserved via base64 encoding.
 
 ## Detection scope
 

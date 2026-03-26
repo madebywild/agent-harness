@@ -151,6 +151,7 @@ type ExecFileRunner = (
   args: readonly string[],
   options?: {
     cwd?: string;
+    env?: NodeJS.ProcessEnv;
   },
 ) => Promise<{ stdout: string; stderr: string }>;
 
@@ -253,53 +254,80 @@ export async function detectLegacyAssets(cwd: string): Promise<LegacyAssetsDetec
     providers.add(provider);
   };
 
-  const checks = await Promise.all([
-    pathExists(cwd, "AGENTS.md"),
-    pathExists(cwd, "CLAUDE.md"),
-    pathExists(cwd, ".github/copilot-instructions.md"),
-    directoryHasMatchingFiles(cwd, ".codex/skills", (_base, relative) => relative.endsWith("/SKILL.md")),
-    directoryHasMatchingFiles(cwd, ".claude/skills", (_base, relative) => relative.endsWith("/SKILL.md")),
-    directoryHasMatchingFiles(cwd, ".github/skills", (_base, relative) => relative.endsWith("/SKILL.md")),
-    pathExists(cwd, ".codex/config.toml"),
-    pathExists(cwd, ".mcp.json"),
-    pathExists(cwd, ".vscode/mcp.json"),
-    directoryHasMatchingFiles(cwd, ".claude/agents", (base, relative) => {
-      const absolute = path.join(base, relative);
-      return relative.endsWith(".md") && path.dirname(absolute) === base;
-    }),
-    directoryHasMatchingFiles(cwd, ".github/agents", (base, relative) => {
-      const absolute = path.join(base, relative);
-      return relative.endsWith(".agent.md") && path.dirname(absolute) === base;
-    }),
-    pathExists(cwd, ".claude/settings.json"),
-    pathExists(cwd, ".github/hooks/harness.generated.json"),
-    pathExists(cwd, ".vscode/settings.json"),
-    directoryHasMatchingFiles(cwd, ".claude/commands", (base, relative) => {
-      const absolute = path.join(base, relative);
-      return relative.endsWith(".md") && path.dirname(absolute) === base;
-    }),
-    directoryHasMatchingFiles(cwd, ".github/prompts", (base, relative) => {
-      const absolute = path.join(base, relative);
-      return relative.endsWith(".prompt.md") && path.dirname(absolute) === base;
-    }),
-  ]);
+  const legacyChecks: Array<{ provider: ProviderId; legacyPath: string; check: Promise<boolean> }> = [
+    { provider: "codex", legacyPath: "AGENTS.md", check: pathExists(cwd, "AGENTS.md") },
+    { provider: "claude", legacyPath: "CLAUDE.md", check: pathExists(cwd, "CLAUDE.md") },
+    {
+      provider: "copilot",
+      legacyPath: ".github/copilot-instructions.md",
+      check: pathExists(cwd, ".github/copilot-instructions.md"),
+    },
+    {
+      provider: "codex",
+      legacyPath: ".codex/skills",
+      check: directoryHasMatchingFiles(cwd, ".codex/skills", (_base, relative) => relative.endsWith("/SKILL.md")),
+    },
+    {
+      provider: "claude",
+      legacyPath: ".claude/skills",
+      check: directoryHasMatchingFiles(cwd, ".claude/skills", (_base, relative) => relative.endsWith("/SKILL.md")),
+    },
+    {
+      provider: "copilot",
+      legacyPath: ".github/skills",
+      check: directoryHasMatchingFiles(cwd, ".github/skills", (_base, relative) => relative.endsWith("/SKILL.md")),
+    },
+    { provider: "codex", legacyPath: ".codex/config.toml", check: pathExists(cwd, ".codex/config.toml") },
+    { provider: "claude", legacyPath: ".mcp.json", check: pathExists(cwd, ".mcp.json") },
+    { provider: "copilot", legacyPath: ".vscode/mcp.json", check: pathExists(cwd, ".vscode/mcp.json") },
+    {
+      provider: "claude",
+      legacyPath: ".claude/agents",
+      check: directoryHasMatchingFiles(cwd, ".claude/agents", (base, relative) => {
+        const absolute = path.join(base, relative);
+        return relative.endsWith(".md") && path.dirname(absolute) === base;
+      }),
+    },
+    {
+      provider: "copilot",
+      legacyPath: ".github/agents",
+      check: directoryHasMatchingFiles(cwd, ".github/agents", (base, relative) => {
+        const absolute = path.join(base, relative);
+        return relative.endsWith(".agent.md") && path.dirname(absolute) === base;
+      }),
+    },
+    { provider: "claude", legacyPath: ".claude/settings.json", check: pathExists(cwd, ".claude/settings.json") },
+    {
+      provider: "copilot",
+      legacyPath: ".github/hooks/harness.generated.json",
+      check: pathExists(cwd, ".github/hooks/harness.generated.json"),
+    },
+    { provider: "copilot", legacyPath: ".vscode/settings.json", check: pathExists(cwd, ".vscode/settings.json") },
+    {
+      provider: "claude",
+      legacyPath: ".claude/commands",
+      check: directoryHasMatchingFiles(cwd, ".claude/commands", (base, relative) => {
+        const absolute = path.join(base, relative);
+        return relative.endsWith(".md") && path.dirname(absolute) === base;
+      }),
+    },
+    {
+      provider: "copilot",
+      legacyPath: ".github/prompts",
+      check: directoryHasMatchingFiles(cwd, ".github/prompts", (base, relative) => {
+        const absolute = path.join(base, relative);
+        return relative.endsWith(".prompt.md") && path.dirname(absolute) === base;
+      }),
+    },
+  ];
 
-  if (checks[0]) mark("codex", "AGENTS.md");
-  if (checks[1]) mark("claude", "CLAUDE.md");
-  if (checks[2]) mark("copilot", ".github/copilot-instructions.md");
-  if (checks[3]) mark("codex", ".codex/skills");
-  if (checks[4]) mark("claude", ".claude/skills");
-  if (checks[5]) mark("copilot", ".github/skills");
-  if (checks[6]) mark("codex", ".codex/config.toml");
-  if (checks[7]) mark("claude", ".mcp.json");
-  if (checks[8]) mark("copilot", ".vscode/mcp.json");
-  if (checks[9]) mark("claude", ".claude/agents");
-  if (checks[10]) mark("copilot", ".github/agents");
-  if (checks[11]) mark("claude", ".claude/settings.json");
-  if (checks[12]) mark("copilot", ".github/hooks/harness.generated.json");
-  if (checks[13]) mark("copilot", ".vscode/settings.json");
-  if (checks[14]) mark("claude", ".claude/commands");
-  if (checks[15]) mark("copilot", ".github/prompts");
+  const results = await Promise.all(legacyChecks.map((entry) => entry.check));
+  for (let i = 0; i < legacyChecks.length; i++) {
+    if (results[i]) {
+      const entry = legacyChecks[i];
+      if (entry) mark(entry.provider, entry.legacyPath);
+    }
+  }
 
   const orderedProviders = U_HAUL_DEFAULT_PRECEDENCE.filter((provider) => providers.has(provider));
 
@@ -336,11 +364,28 @@ export async function runUHaulInitFlow(
     await engine.enableProvider(provider);
   }
 
+  const realCwd = await fs.realpath(input.cwd);
   for (const legacyPath of plan.deletionPaths) {
-    await fs.rm(path.join(input.cwd, legacyPath), { recursive: true, force: true });
+    const targetAbs = path.join(input.cwd, legacyPath);
+    const realTarget = await fs.realpath(targetAbs).catch(() => null);
+    if (realTarget === null) continue;
+    if (realTarget !== realCwd && !realTarget.startsWith(realCwd + path.sep)) {
+      throw new Error(
+        `U_HAUL_SYMLINK_ESCAPE: refusing to delete '${legacyPath}' because its real path '${realTarget}' is outside the workspace`,
+      );
+    }
+    await fs.rm(targetAbs, { recursive: true, force: true });
   }
 
-  const applyResult = await engine.apply();
+  let applyResult: ApplyResult;
+  try {
+    applyResult = await engine.apply();
+  } catch (error) {
+    // Restore deleted legacy files from git so the user doesn't lose pre-migration state
+    const execFileRunner = dependencies?.execFile ?? DEFAULT_EXEC_FILE_RUNNER;
+    await execFileRunner("git", ["checkout", "--", ...plan.deletionPaths], { cwd: input.cwd }).catch(() => {});
+    throw error;
+  }
 
   return {
     noOp: sumCounts(plan.detected) === 0,
@@ -518,8 +563,12 @@ async function parseSkillDirectory(
     for (const fileAbs of filesAbs) {
       const relativeInSkill = normalizeRelativePath(path.relative(skillRootAbs, fileAbs).replace(/\\/g, "/"));
       try {
-        const content = await fs.readFile(fileAbs, "utf8");
-        files.push({ path: relativeInSkill, content });
+        const buffer = await fs.readFile(fileAbs);
+        if (buffer.includes(0)) {
+          files.push({ path: relativeInSkill, content: buffer.toString("base64"), encoding: "base64" });
+        } else {
+          files.push({ path: relativeInSkill, content: buffer.toString("utf8") });
+        }
       } catch (error) {
         const sourcePath = `${relativeDir}/${entry.name}/${relativeInSkill}`;
         pushParseError(collection, sourcePath, `failed to read skill file: ${toErrorMessage(error)}`);
@@ -539,7 +588,7 @@ async function parseSkillDirectory(
       id: skillId,
       sourcePath: `${relativeDir}/${entry.name}`,
       files,
-      compareValue: files.map((file) => ({ path: file.path, content: file.content })),
+      compareValue: files.map((file) => ({ path: file.path, content: file.content, encoding: file.encoding })),
     });
     importedAny = true;
   }
@@ -1488,15 +1537,21 @@ function typeOrder(type: CliEntityType): number {
 }
 
 async function assertGitSafetyGate(cwd: string, execFileRunner: ExecFileRunner): Promise<void> {
+  // Sanitize env to prevent GIT_DIR / GIT_WORK_TREE from spoofing the worktree check
+  const sanitizedEnv = { ...process.env };
+  delete sanitizedEnv.GIT_DIR;
+  delete sanitizedEnv.GIT_WORK_TREE;
+  delete sanitizedEnv.GIT_WORKTREE;
+
   try {
-    await execFileRunner("git", ["--version"]);
+    await execFileRunner("git", ["--version"], { env: sanitizedEnv });
   } catch (error) {
     throw new Error(`U_HAUL_GIT_REQUIRED: git executable not found (${toErrorMessage(error)})`);
   }
 
   let insideWorktree = "";
   try {
-    const result = await execFileRunner("git", ["rev-parse", "--is-inside-work-tree"], { cwd });
+    const result = await execFileRunner("git", ["rev-parse", "--is-inside-work-tree"], { cwd, env: sanitizedEnv });
     insideWorktree = result.stdout.trim().toLowerCase();
   } catch (error) {
     throw new Error(`U_HAUL_GIT_WORKTREE_REQUIRED: unable to verify git worktree (${toErrorMessage(error)})`);
