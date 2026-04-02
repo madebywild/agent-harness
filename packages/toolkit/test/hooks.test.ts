@@ -4,6 +4,7 @@ import { parseCanonicalHookDocument } from "../src/hooks.ts";
 import {
   renderClaudeHookSettings,
   renderCopilotHookConfig,
+  renderCursorHookConfig,
   resolveCodexNotifyCommand,
   resolveHookTargetPath,
 } from "../src/provider-adapters/hooks.ts";
@@ -182,6 +183,79 @@ test("renderCopilotHookConfig throws for matcher usage in strict mode", () => {
   ];
 
   assert.throws(() => renderCopilotHookConfig(hooks), /HOOK_EVENT_UNSUPPORTED/u);
+});
+
+test("renderCursorHookConfig maps canonical events and supports matcher/timeout", () => {
+  const hooks: CanonicalHook[] = [
+    {
+      id: "guard",
+      mode: "strict",
+      events: {
+        pre_tool_use: [
+          {
+            type: "command",
+            command: "echo pre-tool",
+            matcher: "Bash",
+            timeoutSec: 10,
+          },
+        ],
+        prompt_submit: [
+          {
+            type: "command",
+            command: "echo submit",
+          },
+        ],
+      },
+    },
+  ];
+
+  const rendered = JSON.parse(renderCursorHookConfig(hooks)) as {
+    version: number;
+    hooks: Record<string, Array<Record<string, unknown>>>;
+  };
+
+  assert.equal(rendered.version, 1);
+  assert.ok(rendered.hooks.preToolUse);
+  assert.ok(rendered.hooks.beforeSubmitPrompt);
+  assert.equal(rendered.hooks.preToolUse?.[0]?.matcher, "Bash");
+  assert.equal(rendered.hooks.preToolUse?.[0]?.timeout, 10);
+});
+
+test("renderCursorHookConfig enforces strict vs best_effort for unsupported capabilities", () => {
+  const strictHooks: CanonicalHook[] = [
+    {
+      id: "strict",
+      mode: "strict",
+      events: {
+        pre_tool_use: [
+          {
+            type: "command",
+            command: "echo pre-tool",
+            cwd: ".",
+          },
+        ],
+      },
+    },
+  ];
+  assert.throws(() => renderCursorHookConfig(strictHooks), /HOOK_EVENT_UNSUPPORTED/u);
+
+  const bestEffortHooks: CanonicalHook[] = [
+    {
+      id: "best",
+      mode: "best_effort",
+      events: {
+        pre_tool_use: [
+          {
+            type: "notify",
+            command: ["python3", "notify.py"],
+          },
+        ],
+      },
+    },
+  ];
+
+  const rendered = JSON.parse(renderCursorHookConfig(bestEffortHooks)) as { hooks: Record<string, unknown> };
+  assert.deepEqual(rendered.hooks, {});
 });
 
 test("resolveCodexNotifyCommand ignores unsupported events in best_effort mode", () => {

@@ -536,7 +536,7 @@ describe("local lifecycle journey", { timeout: 120_000 }, () => {
     // Clean it up to test validate on a truly healthy workspace.
     await fs.rm(path.join(workspace, ".harness/src/hooks/notify-slack.json"), { force: true });
     // Also remove associated override files
-    for (const provider of ["claude", "codex", "copilot"]) {
+    for (const provider of ["claude", "codex", "copilot", "cursor"]) {
       await fs.rm(path.join(workspace, `.harness/src/hooks/notify-slack.overrides.${provider}.yaml`), { force: true });
     }
 

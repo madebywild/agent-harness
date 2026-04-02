@@ -2,6 +2,7 @@ import type { ProviderAdapter, ProviderId } from "../types.js";
 import { buildClaudeAdapter } from "./claude.js";
 import { buildCodexAdapter } from "./codex.js";
 import { buildCopilotAdapter } from "./copilot.js";
+import { buildCursorAdapter } from "./cursor.js";
 import type { SkillFileIndex } from "./types.js";
 
 export function buildProviderAdapters(skillFilesByEntityId: SkillFileIndex): Record<ProviderId, ProviderAdapter> {
@@ -9,5 +10,6 @@ export function buildProviderAdapters(skillFilesByEntityId: SkillFileIndex): Rec
     codex: buildCodexAdapter(skillFilesByEntityId),
     claude: buildClaudeAdapter(skillFilesByEntityId),
     copilot: buildCopilotAdapter(skillFilesByEntityId),
+    cursor: buildCursorAdapter(skillFilesByEntityId),
   };
 }

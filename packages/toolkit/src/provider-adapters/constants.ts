@@ -22,6 +22,13 @@ export const PROVIDER_DEFAULTS = {
     hookTarget: ".github/hooks/harness.generated.json",
     commandRoot: ".github/prompts",
   },
+  cursor: {
+    promptTarget: ".cursor/prompt.md",
+    skillRoot: ".cursor/skills",
+    mcpTarget: ".cursor/mcp.json",
+    hookTarget: ".cursor/hooks.json",
+    commandRoot: ".cursor/commands",
+  },
 } as const satisfies Record<ProviderId, ProviderDefaults>;
 
 export function getProviderDefaults(provider: ProviderId): ProviderDefaults {

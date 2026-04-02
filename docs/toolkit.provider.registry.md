@@ -15,5 +15,6 @@ Returns a `Record<ProviderId, ProviderAdapter>` with entries for:
 - `codex`
 - `claude`
 - `copilot`
+- `cursor`
 
 Each adapter is built with the same skill-file index for deterministic multi-provider render cycles. Returned adapters include hook-capable renderers (`renderHooks` and/or hook-aware `renderProviderState`) where supported.

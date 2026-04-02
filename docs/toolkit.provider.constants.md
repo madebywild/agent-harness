@@ -26,3 +26,8 @@ Stores default generated output locations for each provider.
   - skills: `.github/skills`
   - MCP: `.vscode/mcp.json`
   - hooks: `.github/hooks/harness.generated.json`
+- `cursor`
+  - prompt: `.cursor/prompt.md` (placeholder only; Cursor prompt projection is disabled in v1)
+  - skills: `.cursor/skills`
+  - MCP: `.cursor/mcp.json`
+  - hooks: `.cursor/hooks.json`

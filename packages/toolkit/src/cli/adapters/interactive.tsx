@@ -1533,6 +1533,7 @@ function OnboardingWizard({ api, presets, legacyAssets, onComplete }: Onboarding
       { label: "claude (default)", value: "claude" },
       { label: "codex", value: "codex" },
       { label: "copilot", value: "copilot" },
+      { label: "cursor", value: "cursor" },
     ];
     return (
       <Box flexDirection="column" marginTop={1}>

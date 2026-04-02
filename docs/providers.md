@@ -11,16 +11,19 @@ Supported providers:
 - OpenAI Codex (`codex`)
 - Anthropic Claude Code (`claude`)
 - GitHub Copilot (`copilot`)
+- Cursor (`cursor`)
 
 ## Canonical entity coverage
 
-| Entity Type | Codex | Claude | Copilot |
-| --- | --- | --- | --- |
-| `prompt` | Yes | Yes | Yes |
-| `skill` | Yes | Yes | Yes |
-| `mcp_config` | Yes | Yes | Yes |
-| `subagent` | Yes | Yes | Yes |
-| `hook` | Partial (`notify` projection) | Yes | Yes |
+| Entity Type | Codex | Claude | Copilot | Cursor |
+| --- | --- | --- | --- | --- |
+| `prompt` | Yes | Yes | Yes | No (v1) |
+| `skill` | Yes | Yes | Yes | Yes |
+| `mcp_config` | Yes | Yes | Yes | Yes |
+| `subagent` | Yes | Yes | Yes | Yes |
+| `hook` | Partial (`notify` projection) | Yes | Yes | Yes |
+| `settings` | Yes | Yes | Yes | No (v1) |
+| `command` | No | Yes | Yes | No (v1) |
 
 Authoring examples: [Hook Authoring Guide](./hook-authoring.md)
 
@@ -100,6 +103,37 @@ Authoring examples: [Hook Authoring Guide](./hook-authoring.md)
 - Supports canonical `command` handlers only.
 - Matcher is unsupported for Copilot projection and fails in strict mode.
 
+## 4. Cursor
+
+### Native configuration locations
+
+- Skills: `.cursor/skills/<skill-id>/`
+- Subagents: `.cursor/agents/<id>.md`
+- MCP: `.cursor/mcp.json`
+- Hooks: `.cursor/hooks.json`
+
+### Harness mapping
+
+| Entity Type | Default Output Path | Format |
+| --- | --- | --- |
+| Skills | `.cursor/skills/<skill-id>/` | Markdown/JSON |
+| MCP Config | `.cursor/mcp.json` (`mcpServers`) | JSON |
+| Subagents | `.cursor/agents/<id>.md` | Markdown |
+| Hooks | `.cursor/hooks.json` (`version: 1`) | JSON |
+
+### Hook notes
+
+- Uses Cursor lifecycle event names (for example `preToolUse`, `postToolUse`, `beforeSubmitPrompt`).
+- Supports canonical `command` handlers only.
+- Supports optional `matcher` and `timeout`.
+- `cwd`/`env` command fields are unsupported and fail in strict mode.
+
+### Subagent notes
+
+- Frontmatter always includes `name` and `description`.
+- Cursor-specific frontmatter fields: `model`, `readonly`, `is_background`.
+- Value precedence: provider override `options` first, then canonical subagent frontmatter metadata.
+
 ## Provider defaults
 
 ```ts
@@ -122,6 +156,12 @@ const PROVIDER_DEFAULTS = {
     mcpTarget: ".vscode/mcp.json",
     hookTarget: ".github/hooks/harness.generated.json",
   },
+  cursor: {
+    promptTarget: ".cursor/prompt.md", // placeholder only; prompt projection is disabled in v1
+    skillRoot: ".cursor/skills",
+    mcpTarget: ".cursor/mcp.json",
+    hookTarget: ".cursor/hooks.json",
+  },
 };
 ```
 
@@ -139,6 +179,7 @@ const PROVIDER_DEFAULTS = {
 npx harness provider enable codex
 npx harness provider enable claude
 npx harness provider enable copilot
+npx harness provider enable cursor
 ```
 
 Only enabled providers generate artifacts.
@@ -164,3 +205,7 @@ For hook entities the default sidecar path is:
 - [Claude Code Hooks](https://code.claude.com/docs/en/hooks)
 - [GitHub Copilot Hooks Configuration](https://docs.github.com/en/copilot/reference/hooks-configuration)
 - [VS Code Copilot Hooks](https://code.visualstudio.com/docs/copilot/customization/hooks)
+- [Cursor MCP](https://docs.cursor.com/context/model-context-protocol)
+- [Cursor Skills](https://docs.cursor.com/agent/skills)
+- [Cursor Subagents](https://docs.cursor.com/agent/subagents)
+- [Cursor Hooks](https://docs.cursor.com/agent/hooks)

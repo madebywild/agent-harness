@@ -9,6 +9,7 @@ Shared hook projection utilities for provider adapters.
 - `resolveHookTargetPath(provider, defaultTargetPath, hookIds, overrideByEntity?)`
 - `renderClaudeHookSettings(hooks)`
 - `renderCopilotHookConfig(hooks)`
+- `renderCursorHookConfig(hooks)`
 - `resolveCodexNotifyCommand(hooks)`
 
 ## Provider projections
@@ -26,6 +27,16 @@ Shared hook projection utilities for provider adapters.
 - Maps canonical events to Copilot CLI event names (for example `pre_tool_use -> preToolUse`).
 - Supports canonical `command` handlers.
 - Matcher is unsupported.
+- Emits JSON shape:
+  - `{ "version": 1, "hooks": { "<eventName>": [...] } }`
+
+### Cursor
+
+- Maps canonical events to Cursor hook event names (for example `pre_tool_use -> preToolUse` and
+  `prompt_submit -> beforeSubmitPrompt`).
+- Supports canonical `command` handlers.
+- Supports optional `matcher` and `timeout`.
+- Treats `cwd` and `env` as unsupported command fields.
 - Emits JSON shape:
   - `{ "version": 1, "hooks": { "<eventName>": [...] } }`
 

@@ -21,6 +21,12 @@ export interface CopilotSubagentOptions {
   handoffs?: string[];
 }
 
+export interface CursorSubagentOptions {
+  model?: string;
+  readonly?: boolean;
+  isBackground?: boolean;
+}
+
 export function parseCodexSubagentOptions(override?: ProviderOverride): CodexSubagentOptions {
   const options = readOptionsObject(override);
   return {
@@ -46,11 +52,20 @@ export function parseCopilotSubagentOptions(override?: ProviderOverride): Copilo
   };
 }
 
+export function parseCursorSubagentOptions(override?: ProviderOverride): CursorSubagentOptions {
+  const options = readOptionsObject(override);
+  return {
+    model: asString(options.model),
+    readonly: asBoolean(options.readonly),
+    isBackground: asBoolean(options.is_background),
+  };
+}
+
 export function renderSubagentMarkdown(
   input: CanonicalSubagent,
-  extraFrontmatter: Record<string, string | string[] | undefined>,
+  extraFrontmatter: Record<string, string | string[] | boolean | undefined>,
 ): string {
-  const entries: Array<[string, string | string[]]> = [
+  const entries: Array<[string, string | string[] | boolean]> = [
     ["name", input.name],
     ["description", input.description],
   ];
@@ -86,6 +101,10 @@ function asStringArray(value: unknown): string[] | undefined {
   return output.length > 0 ? output : undefined;
 }
 
-function serializeYamlPrimitive(value: string | string[]): string {
+function asBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function serializeYamlPrimitive(value: string | string[] | boolean): string {
   return JSON.stringify(value);
 }

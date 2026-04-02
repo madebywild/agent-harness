@@ -11,7 +11,7 @@ import {
   VersionError,
 } from "./versioning.js";
 
-export const PROVIDERS = ["codex", "claude", "copilot"] as const;
+export const PROVIDERS = ["codex", "claude", "copilot", "cursor"] as const;
 
 export const providerIdSchema = z.enum(PROVIDERS);
 export type ProviderId = z.infer<typeof providerIdSchema>;
@@ -71,6 +71,7 @@ const providerRelativePathMapSchema = z
     codex: relativePathSchema.optional(),
     claude: relativePathSchema.optional(),
     copilot: relativePathSchema.optional(),
+    cursor: relativePathSchema.optional(),
   })
   .strict();
 
@@ -154,6 +155,7 @@ const providerShaMapSchema = z
     codex: sha256Schema.optional(),
     claude: sha256Schema.optional(),
     copilot: sha256Schema.optional(),
+    cursor: sha256Schema.optional(),
   })
   .strict();
 
