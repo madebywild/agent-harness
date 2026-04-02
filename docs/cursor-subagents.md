@@ -40,7 +40,12 @@ You don't need to configure these subagents. Agent uses them automatically when 
 
 ## When to use subagents
 
-Use subagents when...Use skills when...You need context isolation for long research tasksThe task is single-purpose (generate changelog, format)Running multiple workstreams in parallelYou want a quick, repeatable actionThe task requires specialized expertise across many stepsThe task completes in one shotYou want an independent verification of workYou don't need a separate context window
+| Use subagents when... | Use skills when... |
+|-----------------------|--------------------|
+| You need context isolation for long research tasks | The task is single-purpose (generate changelog, format) |
+| Running multiple workstreams in parallel | You want a quick, repeatable action |
+| The task requires specialized expertise across many steps | The task completes in one shot |
+| You want an independent verification of work | You don't need a separate context window |
 If you find yourself creating a subagent for a simple, single-purpose task like "generate a changelog" or "format imports," consider using a [skill](/docs/skills) instead.
 
 ## Quick start
@@ -58,7 +63,14 @@ Define custom subagents to encode specialized knowledge, enforce team standards,
 
 ### File locations
 
-TypeLocationScope**Project subagents**`.cursor/agents/`Current project only`.claude/agents/`Current project only (Claude compatibility)`.codex/agents/`Current project only (Codex compatibility)**User subagents**`~/.cursor/agents/`All projects for current user`~/.claude/agents/`All projects for current user (Claude compatibility)`~/.codex/agents/`All projects for current user (Codex compatibility)
+| Type | Location | Scope |
+|------|----------|-------|
+| **Project subagents** | `.cursor/agents/` | Current project only |
+| | `.claude/agents/` | Current project only (Claude compatibility) |
+| | `.codex/agents/` | Current project only (Codex compatibility) |
+| **User subagents** | `~/.cursor/agents/` | All projects for current user |
+| | `~/.claude/agents/` | All projects for current user (Claude compatibility) |
+| | `~/.codex/agents/` | All projects for current user (Codex compatibility) |
 Project subagents take precedence when names conflict. When multiple locations contain subagents with the same name, `.cursor/` takes precedence over `.claude/` or `.codex/`.
 
 ### File format
@@ -89,13 +101,23 @@ Report findings by severity:
 
 ### Configuration fields
 
-FieldTypeRequiredDefaultDescription`name`stringNoDerived from filenameDisplay name and identifier. Use lowercase letters and hyphens.`description`stringNo—Short description shown in Task tool hints. Agent reads this to decide delegation.`model`stringNo`inherit`Model to use: `fast`, `inherit`, or a specific model ID. See [model configuration](#model-configuration).`readonly`booleanNo`false`If `true`, the subagent runs with restricted write permissions (no file edits, no state-changing shell commands).`is_background`booleanNo`false`If `true`, the subagent runs in the background without blocking the parent.
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | string | No | Derived from filename | Display name and identifier. Use lowercase letters and hyphens. |
+| `description` | string | No | — | Short description shown in Task tool hints. Agent reads this to decide delegation. |
+| `model` | string | No | `inherit` | Model to use: `fast`, `inherit`, or a specific model ID. See [model configuration](#model-configuration). |
+| `readonly` | boolean | No | `false` | If `true`, the subagent runs with restricted write permissions (no file edits, no state-changing shell commands). |
+| `is_background` | boolean | No | `false` | If `true`, the subagent runs in the background without blocking the parent. |
 
 ### Model configuration
 
 The `model` field controls which model a subagent uses. There are three options:
 
-ValueBehavior`inherit`Uses the same model as the parent agent. This is the default.`fast`Uses a smaller, faster model optimized for speed and cost. Good for high-volume tasks like search, verification, or test execution.A specific model IDUses the exact model you specify, such as `claude-4-sonnet` or `gpt-5-mini`. See the [models reference](/docs/models-and-pricing) for available IDs.
+| Value | Behavior |
+|-------|----------|
+| `inherit` | Uses the same model as the parent agent. This is the default. |
+| `fast` | Uses a smaller, faster model optimized for speed and cost. Good for high-volume tasks like search, verification, or test execution. |
+| A specific model ID | Uses the exact model you specify, such as `claude-4-sonnet` or `gpt-5-mini`. See the [models reference](/docs/models-and-pricing) for available IDs. |
 Choose `inherit` when the subagent needs the same reasoning power as the parent. Choose `fast` for tasks where speed and cost matter more than depth. Use a specific model ID when you need a particular model's capabilities regardless of what the parent uses.
 
 #### When the configured model won't be used
@@ -335,7 +357,11 @@ Agent includes all custom subagents in its available tools. You can see which su
 
 Subagents have trade-offs. Understanding them helps you decide when to use them.
 
-BenefitTrade-offContext isolationStartup overhead (each subagent gathers its own context)Parallel executionHigher token usage (multiple contexts running simultaneously)Specialized focusLatency (may be slower than main agent for simple tasks)
+| Benefit | Trade-off |
+|---------|-----------|
+| Context isolation | Startup overhead (each subagent gathers its own context) |
+| Parallel execution | Higher token usage (multiple contexts running simultaneously) |
+| Specialized focus | Latency (may be slower than main agent for simple tasks) |
 
 ### Token and cost considerations
 

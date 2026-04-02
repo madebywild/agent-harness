@@ -4,7 +4,7 @@ import { PROVIDER_DEFAULTS } from "./constants.js";
 import { createProviderAdapter } from "./create-adapter.js";
 import { renderCursorHookConfig, resolveHookTargetPath } from "./hooks.js";
 import { createJsonMcpRenderer } from "./renderers.js";
-import { parseCursorSubagentOptions, renderSubagentMarkdown } from "./subagents.js";
+import { asBoolean, asString, parseCursorSubagentOptions, renderSubagentMarkdown } from "./subagents.js";
 import type { ProviderDefinition, SkillFileIndex } from "./types.js";
 
 const CURSOR_DEFINITION: ProviderDefinition = {
@@ -82,12 +82,4 @@ function parseCursorSubagentMetadata(input: CanonicalSubagent): CursorSubagentMe
     readonly: asBoolean(metadata.readonly),
     isBackground: asBoolean(metadata.is_background),
   };
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
-}
-
-function asBoolean(value: unknown): boolean | undefined {
-  return typeof value === "boolean" ? value : undefined;
 }

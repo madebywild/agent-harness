@@ -21,7 +21,11 @@ Skills can also be manually invoked by typing `/` in Agent chat and searching fo
 
 Skills are automatically loaded from these locations:
 
-LocationScope`.agents/skills/`Project-level`.cursor/skills/`Project-level`~/.cursor/skills/`User-level (global)
+| Location | Scope |
+|----------|-------|
+| `.agents/skills/` | Project-level |
+| `.cursor/skills/` | Project-level |
+| `~/.cursor/skills/` | User-level (global) |
 For compatibility, Cursor also loads skills from Claude and Codex directories: `.claude/skills/`, `.codex/skills/`, `~/.claude/skills/`, and `~/.codex/skills/`.
 
 Each skill should be a folder containing a `SKILL.md` file:
@@ -78,7 +82,14 @@ Detailed instructions for the agent.
 
 ### Frontmatter fields
 
-FieldRequiredDescription`name`YesSkill identifier. Lowercase letters, numbers, and hyphens only. Must match the parent folder name.`description`YesDescribes what the skill does and when to use it. Used by the agent to determine relevance.`license`NoLicense name or reference to a bundled license file.`compatibility`NoEnvironment requirements (system packages, network access, etc.).`metadata`NoArbitrary key-value mapping for additional metadata.`disable-model-invocation`NoWhen `true`, the skill is only included when explicitly invoked via `/skill-name`. The agent will not automatically apply it based on context.
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Skill identifier. Lowercase letters, numbers, and hyphens only. Must match the parent folder name. |
+| `description` | Yes | Describes what the skill does and when to use it. Used by the agent to determine relevance. |
+| `license` | No | License name or reference to a bundled license file. |
+| `compatibility` | No | Environment requirements (system packages, network access, etc.). |
+| `metadata` | No | Arbitrary key-value mapping for additional metadata. |
+| `disable-model-invocation` | No | When `true`, the skill is only included when explicitly invoked via `/skill-name`. The agent will not automatically apply it based on context. |
 
 ## Disabling automatic invocation
 
@@ -117,7 +128,11 @@ Scripts should be self-contained, include helpful error messages, and handle edg
 
 Skills support these optional directories:
 
-DirectoryPurpose`scripts/`Executable code that agents can run`references/`Additional documentation loaded on demand`assets/`Static resources like templates, images, or data files
+| Directory | Purpose |
+|-----------|---------|
+| `scripts/` | Executable code that agents can run |
+| `references/` | Additional documentation loaded on demand |
+| `assets/` | Static resources like templates, images, or data files |
 Keep your main `SKILL.md` focused and move detailed reference material to separate files. This keeps context usage efficient since agents load resources progressively—only when needed.
 
 ## Viewing skills

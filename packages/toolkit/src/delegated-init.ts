@@ -13,7 +13,7 @@ export const DELEGATED_INIT_PRESET_ID = "delegate";
  * - claude: `claude -p --dangerously-skip-permissions <task>`
  * - codex:  `codex exec --full-auto <task>`
  * - copilot: `copilot -p <task>` (no known permission flag yet)
- * - cursor: `cursor-agent -p <task>` (no known permission flag yet)
+ * - cursor: `cursor-agent -p <task>` (provisional — binary name and flags unconfirmed)
  */
 const DELEGATED_INIT_COMMANDS: Record<ProviderId, { binary: string; buildArgs: (task: string) => string[] }> = {
   claude: { binary: "claude", buildArgs: (task) => ["-p", "--dangerously-skip-permissions", task] },

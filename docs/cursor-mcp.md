@@ -18,7 +18,11 @@ MCP servers expose capabilities through the protocol, connecting Cursor to exter
 
 Cursor supports three transport methods:
 
-TransportExecution environmentDeploymentUsersInputAuth**`stdio`**LocalCursor managesSingle userShell commandManual**`SSE`**Local/RemoteDeploy as serverMultiple usersURL to an SSE endpointOAuth**`Streamable HTTP`**Local/RemoteDeploy as serverMultiple usersURL to an HTTP endpointOAuth
+| Transport | Execution environment | Deployment | Users | Input | Auth |
+|-----------|----------------------|------------|-------|-------|------|
+| **`stdio`** | Local | Cursor manages | Single user | Shell command | Manual |
+| **`SSE`** | Local/Remote | Deploy as server | Multiple users | URL to an SSE endpoint | OAuth |
+| **`Streamable HTTP`** | Local/Remote | Deploy as server | Multiple users | URL to an HTTP endpoint | OAuth |
 
 ### Protocol and extension support
 

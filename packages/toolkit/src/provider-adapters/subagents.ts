@@ -89,7 +89,7 @@ function readOptionsObject(override?: ProviderOverride): SubagentOptionsObject {
   return candidate;
 }
 
-function asString(value: unknown): string | undefined {
+export function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value : undefined;
 }
 
@@ -101,7 +101,7 @@ function asStringArray(value: unknown): string[] | undefined {
   return output.length > 0 ? output : undefined;
 }
 
-function asBoolean(value: unknown): boolean | undefined {
+export function asBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
 }
 

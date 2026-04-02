@@ -45,6 +45,9 @@ const COPILOT_EVENT_MAP: Partial<Record<CanonicalHookEvent, string>> = {
   error: "errorOccurred",
 };
 
+// Cursor also supports beforeShellExecution, afterShellExecution, beforeMCPExecution,
+// afterMCPExecution, beforeReadFile, afterFileEdit, afterAgentResponse, afterAgentThought,
+// beforeTabFileRead, and afterTabFileEdit — these have no canonical equivalents yet.
 const CURSOR_EVENT_MAP: Partial<Record<CanonicalHookEvent, string>> = {
   session_start: "sessionStart",
   session_end: "sessionEnd",
@@ -235,9 +238,8 @@ export function renderCursorHookConfig(hooks: ReadonlyArray<CanonicalHook>): str
           continue;
         }
 
-        const rendered = renderCursorCommand(handler);
+        const rendered = renderCursorCommand(hook, handler);
         if (!rendered) {
-          handleUnsupported(hook, "cursor", "command fields");
           continue;
         }
 
@@ -370,13 +372,22 @@ function renderCopilotCommand(handler: CanonicalHookCommandHandler): Record<stri
   return output;
 }
 
-function renderCursorCommand(handler: CanonicalHookCommandHandler): Record<string, unknown> | undefined {
-  if (handler.cwd || handler.env) {
+function renderCursorCommand(
+  hook: CanonicalHook,
+  handler: CanonicalHookCommandHandler,
+): Record<string, unknown> | undefined {
+  if (handler.cwd) {
+    handleUnsupported(hook, "cursor", "'cwd' on command handler");
+    return undefined;
+  }
+  if (handler.env) {
+    handleUnsupported(hook, "cursor", "'env' on command handler");
     return undefined;
   }
 
   const command = resolveGenericCommand(handler);
   if (!command) {
+    handleUnsupported(hook, "cursor", "command fields");
     return undefined;
   }
 

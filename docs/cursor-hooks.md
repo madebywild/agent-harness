@@ -43,7 +43,9 @@ These separate hooks allow different policies for autonomous Tab operations vers
 
 Create a `hooks.json` file. You can create it at the project level (`<project>/.cursor/hooks.json`) or in your home directory (`~/.cursor/hooks.json`). Project-level hooks apply only to that specific project, while home directory hooks apply globally.
 
-User hooks (~/.cursor/)Project hooks (.cursor/)For user-level hooks that apply globally, create `~/.cursor/hooks.json`:
+**User hooks** (`~/.cursor/`) | **Project hooks** (`.cursor/`)
+
+For user-level hooks that apply globally, create `~/.cursor/hooks.json`:
 
 ```
 {
@@ -129,7 +131,9 @@ Prompt hooks use an LLM to evaluate a natural language condition. They're useful
 
 The examples below use `./hooks/...` paths, which work for **user hooks** (`~/.cursor/hooks.json`) where scripts run from `~/.cursor/`. For **project hooks** (`<project>/.cursor/hooks.json`), use `.cursor/hooks/...` paths instead since scripts run from the project root.
 
-hooks.jsonaudit.shblock-git.sh```
+**hooks.json** | **audit.sh** | **block-git.sh**
+
+```
 {
 "version": 1,
 "hooks": {
@@ -205,7 +209,9 @@ hooks.jsonaudit.shblock-git.sh```
 
 Choose TypeScript when you need typed JSON, durable file I/O, and HTTP calls in the same hook. This Bun-powered `stop` hook tracks per-conversation failure counts on disk, forwards structured telemetry to an internal API, and can automatically schedule a retry when the agent fails twice in a row.
 
-hooks.json.cursor/hooks/track-stop.ts```
+**hooks.json** | **.cursor/hooks/track-stop.ts**
+
+```
 {
   "version": 1,
   "hooks": {
@@ -224,7 +230,9 @@ Set `AGENT_TELEMETRY_URL` to the internal endpoint that should receive run summa
 
 Python shines when you need rich parsing libraries. This hook uses `pyyaml` to inspect Kubernetes manifests before `kubectl apply` runs; Bash would struggle to parse multi-document YAML safely.
 
-hooks.json.cursor/hooks/kube_guard.py```
+**hooks.json** | **.cursor/hooks/kube_guard.py**
+
+```
 {
 "version": 1,
 "hooks": {
@@ -246,19 +254,36 @@ We partner with ecosystem vendors who have built hooks support with Cursor. Thes
 
 ### MCP governance and visibility
 
-PartnerDescription[MintMCP](https://www.mintmcp.com/blog/mcp-governance-cursor-hooks)Build a complete inventory of MCP servers, monitor tool usage patterns, and scan responses for sensitive data before it reaches the AI model.[Oasis Security](https://www.oasis.security/blog/cursor-oasis-governing-agentic-access)Enforce least-privilege policies on AI agent actions and maintain full audit trails across enterprise systems.[Runlayer](https://www.runlayer.com/blog/cursor-hooks)Wrap MCP tools and integrate with their MCP broker for centralized control and visibility over agent-to-tool interactions.
+| Partner | Description |
+|---------|-------------|
+| [MintMCP](https://www.mintmcp.com/blog/mcp-governance-cursor-hooks) | Build a complete inventory of MCP servers, monitor tool usage patterns, and scan responses for sensitive data before it reaches the AI model. |
+| [Oasis Security](https://www.oasis.security/blog/cursor-oasis-governing-agentic-access) | Enforce least-privilege policies on AI agent actions and maintain full audit trails across enterprise systems. |
+| [Runlayer](https://www.runlayer.com/blog/cursor-hooks) | Wrap MCP tools and integrate with their MCP broker for centralized control and visibility over agent-to-tool interactions. |
+
 ### Code security and best practices
 
-PartnerDescription[Corridor](https://corridor.dev/blog/corridor-cursor-hooks/)Get real-time feedback on code implementation and security design decisions as code is being written.[Semgrep](https://semgrep.dev/blog/2025/cursor-hooks-mcp-server)Automatically scan AI-generated code for vulnerabilities with real-time feedback to regenerate code until security issues are resolved.
+| Partner | Description |
+|---------|-------------|
+| [Corridor](https://corridor.dev/blog/corridor-cursor-hooks/) | Get real-time feedback on code implementation and security design decisions as code is being written. |
+| [Semgrep](https://semgrep.dev/blog/2025/cursor-hooks-mcp-server) | Automatically scan AI-generated code for vulnerabilities with real-time feedback to regenerate code until security issues are resolved. |
+
 ### Dependency security
 
-PartnerDescription[Endor Labs](https://www.endorlabs.com/learn/bringing-malware-detection-into-ai-coding-workflows-with-cursor-hooks)Intercept package installations and scan for malicious dependencies, preventing supply chain attacks before they enter your codebase.
+| Partner | Description |
+|---------|-------------|
+| [Endor Labs](https://www.endorlabs.com/learn/bringing-malware-detection-into-ai-coding-workflows-with-cursor-hooks) | Intercept package installations and scan for malicious dependencies, preventing supply chain attacks before they enter your codebase. |
+
 ### Agent security and safety
 
-PartnerDescription[Snyk](https://snyk.io/blog/evo-agent-guard-cursor-integration/)Review agent actions in real-time with Evo Agent Guard, detecting and preventing issues like prompt injection and dangerous tool calls.
+| Partner | Description |
+|---------|-------------|
+| [Snyk](https://snyk.io/blog/evo-agent-guard-cursor-integration/) | Review agent actions in real-time with Evo Agent Guard, detecting and preventing issues like prompt injection and dangerous tool calls. |
+
 ### Secrets management
 
-PartnerDescription[1Password](https://marketplace.1password.com/integration/cursor-hooks)Validate that environment files from 1Password Environments are properly mounted before shell commands execute, enabling just-in-time secrets access without writing credentials to disk.
+| Partner | Description |
+|---------|-------------|
+| [1Password](https://marketplace.1password.com/integration/cursor-hooks) | Validate that environment files from 1Password Environments are properly mounted before shell commands execute, enabling just-in-time secrets access without writing credentials to disk. |
 For more details about our hooks partners, see the [Hooks for security and platform teams](/blog/hooks-partners) blog post.
 
 ## Configuration
@@ -335,10 +360,20 @@ The Agent hooks (`sessionStart`, `sessionEnd`, `preToolUse`, `postToolUse`, `pos
 
 ### Global Configuration Options
 
-OptionTypeDefaultDescription`version`number`1`Config schema version
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `version` | number | `1` | Config schema version |
+
 ### Per-Script Configuration Options
 
-OptionTypeDefaultDescription`command`stringrequiredScript path or command`type``"command"` | `"prompt"``"command"`Hook execution type`timeout`numberplatform defaultExecution timeout in seconds`loop_limit`number | null`5`Per-script loop limit for stop/subagentStop hooks. `null` means no limit. Default is `5` for Cursor hooks, `null` for Claude Code hooks.`failClosed`boolean`false`When `true`, hook failures (crash, timeout, invalid JSON) block the action instead of allowing it through. Useful for security-critical hooks.`matcher`object-Filter criteria for when hook runs
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `command` | string | required | Script path or command |
+| `type` | `"command"` \| `"prompt"` | `"command"` | Hook execution type |
+| `timeout` | number | platform default | Execution timeout in seconds |
+| `loop_limit` | number \| null | `5` | Per-script loop limit for stop/subagentStop hooks. `null` means no limit. Default is `5` for Cursor hooks, `null` for Claude Code hooks. |
+| `failClosed` | boolean | `false` | When `true`, hook failures (crash, timeout, invalid JSON) block the action instead of allowing it through. Useful for security-critical hooks. |
+| `matcher` | object | - | Filter criteria for when hook runs |
 ### Matcher Configuration
 
 Matchers let you filter when a hook runs. Which field the matcher applies to depends on the hook:
@@ -454,7 +489,16 @@ All hooks receive a base set of fields in addition to their hook-specific fields
 
 ```
 
-FieldTypeDescription`conversation_id`stringStable ID of the conversation across many turns`generation_id`stringThe current generation that changes with every user message`model`stringThe model configured for the composer that triggered the hook`hook_event_name`stringWhich hook is being run`cursor_version`stringCursor application version (e.g. "1.7.2")`workspace_roots`string[]The list of root folders in the workspace (normally just one, but multiroot workspaces can have multiple)`user_email`string | nullEmail address of the authenticated user, if available`transcript_path`string | nullPath to the main conversation transcript file (null if transcripts disabled)
+| Field | Type | Description |
+|-------|------|-------------|
+| `conversation_id` | string | Stable ID of the conversation across many turns |
+| `generation_id` | string | The current generation that changes with every user message |
+| `model` | string | The model configured for the composer that triggered the hook |
+| `hook_event_name` | string | Which hook is being run |
+| `cursor_version` | string | Cursor application version (e.g. "1.7.2") |
+| `workspace_roots` | string[] | The list of root folders in the workspace (normally just one, but multiroot workspaces can have multiple) |
+| `user_email` | string \| null | Email address of the authenticated user, if available |
+| `transcript_path` | string \| null | Path to the main conversation transcript file (null if transcripts disabled) |
 ### Hook events
 
 #### preToolUse
@@ -483,7 +527,12 @@ Called before any tool execution. This is a generic hook that fires for all tool
 
 ```
 
-Output FieldTypeDescription`permission`string`"allow"` to proceed, `"deny"` to block. `"ask"` is accepted by the schema but not enforced for `preToolUse` today.`user_message`string (optional)Message shown to the user when the action is denied`agent_message`string (optional)Message fed back to the agent when the action is denied`updated_input`object (optional)Modified tool input to use instead
+| Output Field | Type | Description |
+|--------------|------|-------------|
+| `permission` | string | `"allow"` to proceed, `"deny"` to block. `"ask"` is accepted by the schema but not enforced for `preToolUse` today. |
+| `user_message` | string (optional) | Message shown to the user when the action is denied |
+| `agent_message` | string (optional) | Message fed back to the agent when the action is denied |
+| `updated_input` | object (optional) | Modified tool input to use instead |
 #### postToolUse
 
 Called after successful tool execution. Useful for auditing, analytics, and injecting context.
@@ -509,8 +558,15 @@ Called after successful tool execution. Useful for auditing, analytics, and inje
 
 ```
 
-Input FieldTypeDescription`duration`numberExecution time in milliseconds`tool_output`stringJSON-stringified result payload from the tool (not raw terminal text)
-Output FieldTypeDescription`updated_mcp_tool_output`object (optional)For MCP tools only: replaces the tool output seen by the model`additional_context`string (optional)Extra context injected into the conversation after the tool result
+| Input Field | Type | Description |
+|-------------|------|-------------|
+| `duration` | number | Execution time in milliseconds |
+| `tool_output` | string | JSON-stringified result payload from the tool (not raw terminal text) |
+
+| Output Field | Type | Description |
+|--------------|------|-------------|
+| `updated_mcp_tool_output` | object (optional) | For MCP tools only: replaces the tool output seen by the model |
+| `additional_context` | string (optional) | Extra context injected into the conversation after the tool result |
 #### postToolUseFailure
 
 Called when a tool fails, times out, or is denied. Useful for error tracking and recovery logic.
@@ -536,7 +592,12 @@ Called when a tool fails, times out, or is denied. Useful for error tracking and
 
 ```
 
-Input FieldTypeDescription`error_message`stringDescription of the failure`failure_type`stringType of failure: `"error"`, `"timeout"`, or `"permission_denied"``duration`numberTime in milliseconds until the failure occurred`is_interrupt`booleanWhether this failure was caused by a user interrupt/cancellation
+| Input Field | Type | Description |
+|-------------|------|-------------|
+| `error_message` | string | Description of the failure |
+| `failure_type` | string | Type of failure: `"error"`, `"timeout"`, or `"permission_denied"` |
+| `duration` | number | Time in milliseconds until the failure occurred |
+| `is_interrupt` | boolean | Whether this failure was caused by a user interrupt/cancellation |
 #### subagentStart
 
 Called before spawning a subagent (Task tool). Can allow or deny subagent creation.
@@ -563,8 +624,21 @@ Called before spawning a subagent (Task tool). Can allow or deny subagent creati
 
 ```
 
-Input FieldTypeDescription`subagent_id`stringUnique identifier for this subagent instance`subagent_type`stringType of subagent: `generalPurpose`, `explore`, `shell`, etc.`task`stringThe task description given to the subagent`parent_conversation_id`stringConversation ID of the parent agent session`tool_call_id`stringID of the tool call that triggered the subagent`subagent_model`stringModel the subagent will use`is_parallel_worker`booleanWhether this subagent is running as a parallel worker`git_branch`string (optional)Git branch the subagent will operate on, if applicable
-Output FieldTypeDescription`permission`string`"allow"` to proceed, `"deny"` to block. `"ask"` is not supported for `subagentStart` and is treated as `"deny"`.`user_message`string (optional)Message shown to the user when the subagent is denied
+| Input Field | Type | Description |
+|-------------|------|-------------|
+| `subagent_id` | string | Unique identifier for this subagent instance |
+| `subagent_type` | string | Type of subagent: `generalPurpose`, `explore`, `shell`, etc. |
+| `task` | string | The task description given to the subagent |
+| `parent_conversation_id` | string | Conversation ID of the parent agent session |
+| `tool_call_id` | string | ID of the tool call that triggered the subagent |
+| `subagent_model` | string | Model the subagent will use |
+| `is_parallel_worker` | boolean | Whether this subagent is running as a parallel worker |
+| `git_branch` | string (optional) | Git branch the subagent will operate on, if applicable |
+
+| Output Field | Type | Description |
+|--------------|------|-------------|
+| `permission` | string | `"allow"` to proceed, `"deny"` to block. `"ask"` is not supported for `subagentStart` and is treated as `"deny"`. |
+| `user_message` | string (optional) | Message shown to the user when the subagent is denied |
 #### subagentStop
 
 Called when a subagent completes, errors, or is aborted. Can trigger follow-up actions.
@@ -593,8 +667,23 @@ Called when a subagent completes, errors, or is aborted. Can trigger follow-up a
 
 ```
 
-Input FieldTypeDescription`subagent_type`stringType of subagent: `generalPurpose`, `explore`, `shell`, etc.`status`string`"completed"`, `"error"`, or `"aborted"``task`stringThe task description given to the subagent`description`stringShort description of the subagent's purpose`summary`stringOutput summary from the subagent`duration_ms`numberExecution time in milliseconds`message_count`numberNumber of messages exchanged during the subagent session`tool_call_count`numberNumber of tool calls the subagent made`loop_count`numberNumber of times a `subagentStop` follow-up has already triggered for this subagent (starts at 0)`modified_files`string[]Files the subagent modified`agent_transcript_path`string | nullPath to the subagent's own transcript file (separate from the parent conversation)
-Output FieldTypeDescription`followup_message`string (optional)Auto-continue with this message. Only consumed when `status` is `"completed"`.
+| Input Field | Type | Description |
+|-------------|------|-------------|
+| `subagent_type` | string | Type of subagent: `generalPurpose`, `explore`, `shell`, etc. |
+| `status` | string | `"completed"`, `"error"`, or `"aborted"` |
+| `task` | string | The task description given to the subagent |
+| `description` | string | Short description of the subagent's purpose |
+| `summary` | string | Output summary from the subagent |
+| `duration_ms` | number | Execution time in milliseconds |
+| `message_count` | number | Number of messages exchanged during the subagent session |
+| `tool_call_count` | number | Number of tool calls the subagent made |
+| `loop_count` | number | Number of times a `subagentStop` follow-up has already triggered for this subagent (starts at 0) |
+| `modified_files` | string[] | Files the subagent modified |
+| `agent_transcript_path` | string \| null | Path to the subagent's own transcript file (separate from the parent conversation) |
+
+| Output Field | Type | Description |
+|--------------|------|-------------|
+| `followup_message` | string (optional) | Auto-continue with this message. Only consumed when `status` is `"completed"`. |
 The `followup_message` field enables loop-style flows where subagent completion triggers the next iteration. Follow-ups are subject to the same configurable loop limit as the `stop` hook (default 5, configurable via `loop_limit`).
 
 #### beforeShellExecution / beforeMCPExecution
@@ -647,7 +736,12 @@ Fires after a shell command executes; useful for auditing or collecting metrics 
 
 ```
 
-FieldTypeDescription`command`stringThe full terminal command that was executed`output`stringFull output captured from the terminal`duration`numberDuration in milliseconds spent executing the shell command (excludes approval wait time)`sandbox`booleanWhether the command ran in a sandboxed environment
+| Field | Type | Description |
+|-------|------|-------------|
+| `command` | string | The full terminal command that was executed |
+| `output` | string | Full output captured from the terminal |
+| `duration` | number | Duration in milliseconds spent executing the shell command (excludes approval wait time) |
+| `sandbox` | boolean | Whether the command ran in a sandboxed environment |
 #### afterMCPExecution
 
 Fires after an MCP tool executes; includes the tool's input parameters and full JSON result.
@@ -664,7 +758,12 @@ Fires after an MCP tool executes; includes the tool's input parameters and full 
 
 ```
 
-FieldTypeDescription`tool_name`stringName of the MCP tool that was executed`tool_input`stringJSON params string passed to the tool`result_json`stringJSON string of the tool response`duration`numberDuration in milliseconds spent executing the MCP tool (excludes approval wait time)
+| Field | Type | Description |
+|-------|------|-------------|
+| `tool_name` | string | Name of the MCP tool that was executed |
+| `tool_input` | string | JSON params string passed to the tool |
+| `result_json` | string | JSON string of the tool response |
+| `duration` | number | Duration in milliseconds spent executing the MCP tool (excludes approval wait time) |
 #### afterFileEdit
 
 Fires after the Agent edits a file; useful for formatters or accounting of agent-written code.
@@ -707,8 +806,16 @@ By default, `beforeReadFile` hook failures (crash, timeout, invalid JSON) are lo
 
 ```
 
-Input FieldTypeDescription`file_path`stringAbsolute path to the file being read`content`stringFull contents of the file`attachments`arrayContext attachments associated with the prompt. Each entry has a `type` (`"file"` or `"rule"`) and a `file_path`.
-Output FieldTypeDescription`permission`string`"allow"` to proceed, `"deny"` to block`user_message`string (optional)Message shown to user when denied
+| Input Field | Type | Description |
+|-------------|------|-------------|
+| `file_path` | string | Absolute path to the file being read |
+| `content` | string | Full contents of the file |
+| `attachments` | array | Context attachments associated with the prompt. Each entry has a `type` (`"file"` or `"rule"`) and a `file_path`. |
+
+| Output Field | Type | Description |
+|--------------|------|-------------|
+| `permission` | string | `"allow"` to proceed, `"deny"` to block |
+| `user_message` | string (optional) | Message shown to user when denied |
 #### beforeTabFileRead
 
 Called before Tab (inline completions) reads a file. Enable redaction or access control before Tab accesses file contents.
@@ -797,7 +904,10 @@ Called right after user hits send but before backend request. Can prevent submis
 
 ```
 
-Output FieldTypeDescription`continue`booleanWhether to allow the prompt submission to proceed`user_message`string (optional)Message shown to the user when the prompt is blocked
+| Output Field | Type | Description |
+|--------------|------|-------------|
+| `continue` | boolean | Whether to allow the prompt submission to proceed |
+| `user_message` | string (optional) | Message shown to the user when the prompt is blocked |
 #### afterAgentResponse
 
 Called after the agent has completed an assistant message.
@@ -830,7 +940,10 @@ Called after the agent completes a thinking block. Useful for observing the agen
 
 ```
 
-FieldTypeDescription`text`stringFully aggregated thinking text for the completed block`duration_ms`number (optional)Duration in milliseconds for the thinking block
+| Field | Type | Description |
+|-------|------|-------------|
+| `text` | string | Fully aggregated thinking text for the completed block |
+| `duration_ms` | number (optional) | Duration in milliseconds for the thinking block |
 #### stop
 
 Called when the agent loop ends. Can optionally auto-submit a follow-up user message to keep iterating.
@@ -882,8 +995,16 @@ Called when a new composer conversation is created. This hook runs as fire-and-f
 
 ```
 
-Input FieldTypeDescription`session_id`stringUnique identifier for this session (same as `conversation_id`)`is_background_agent`booleanWhether this is a background agent session vs interactive session`composer_mode`string (optional)The mode the composer is starting in (e.g., "agent", "ask", "edit")
-Output FieldTypeDescription`env`object (optional)Environment variables to set for this session. Available to all subsequent hook executions`additional_context`string (optional)Additional context to add to the conversation's initial system context
+| Input Field | Type | Description |
+|-------------|------|-------------|
+| `session_id` | string | Unique identifier for this session (same as `conversation_id`) |
+| `is_background_agent` | boolean | Whether this is a background agent session vs interactive session |
+| `composer_mode` | string (optional) | The mode the composer is starting in (e.g., "agent", "ask", "edit") |
+
+| Output Field | Type | Description |
+|--------------|------|-------------|
+| `env` | object (optional) | Environment variables to set for this session. Available to all subsequent hook executions |
+| `additional_context` | string (optional) | Additional context to add to the conversation's initial system context |
 The schema also accepts `continue` and `user_message` fields, but current callers do not enforce them. Session creation is not blocked even when `continue` is `false`.
 
 #### sessionEnd
@@ -913,7 +1034,14 @@ Called when a composer conversation ends. This is a fire-and-forget hook useful 
 
 ```
 
-Input FieldTypeDescription`session_id`stringUnique identifier for the session that is ending`reason`stringHow the session ended: "completed", "aborted", "error", "window_close", or "user_close"`duration_ms`numberTotal duration of the session in milliseconds`is_background_agent`booleanWhether this was a background agent session`final_status`stringFinal status of the session`error_message`string (optional)Error message if reason is "error"
+| Input Field | Type | Description |
+|-------------|------|-------------|
+| `session_id` | string | Unique identifier for the session that is ending |
+| `reason` | string | How the session ended: `"completed"`, `"aborted"`, `"error"`, `"window_close"`, or `"user_close"` |
+| `duration_ms` | number | Total duration of the session in milliseconds |
+| `is_background_agent` | boolean | Whether this was a background agent session |
+| `final_status` | string | Final status of the session |
+| `error_message` | string (optional) | Error message if reason is `"error"` |
 #### preCompact
 
 Called before context window compaction/summarization occurs. This is an observational hook that cannot block or modify the compaction behavior. Useful for logging when compaction happens or notifying users.
@@ -942,13 +1070,31 @@ Called before context window compaction/summarization occurs. This is an observa
 
 ```
 
-Input FieldTypeDescription`trigger`stringWhat triggered the compaction: "auto" or "manual"`context_usage_percent`numberCurrent context window usage as a percentage (0-100)`context_tokens`numberCurrent context window token count`context_window_size`numberMaximum context window size in tokens`message_count`numberNumber of messages in the conversation`messages_to_compact`numberNumber of messages that will be summarized`is_first_compaction`booleanWhether this is the first compaction for this conversation
-Output FieldTypeDescription`user_message`string (optional)Message to show to the user when compaction occurs
+| Input Field | Type | Description |
+|-------------|------|-------------|
+| `trigger` | string | What triggered the compaction: `"auto"` or `"manual"` |
+| `context_usage_percent` | number | Current context window usage as a percentage (0-100) |
+| `context_tokens` | number | Current context window token count |
+| `context_window_size` | number | Maximum context window size in tokens |
+| `message_count` | number | Number of messages in the conversation |
+| `messages_to_compact` | number | Number of messages that will be summarized |
+| `is_first_compaction` | boolean | Whether this is the first compaction for this conversation |
+
+| Output Field | Type | Description |
+|--------------|------|-------------|
+| `user_message` | string (optional) | Message to show to the user when compaction occurs |
 ## Environment Variables
 
 Hook scripts receive environment variables when executed:
 
-VariableDescriptionAlways Present`CURSOR_PROJECT_DIR`Workspace root directoryYes`CURSOR_VERSION`Cursor version stringYes`CURSOR_USER_EMAIL`Authenticated user emailIf logged in`CURSOR_TRANSCRIPT_PATH`Path to the conversation transcript fileIf transcripts enabled`CURSOR_CODE_REMOTE`Set to the string `"true"` when running in a remote workspaceFor remote workspaces`CLAUDE_PROJECT_DIR`Alias for project dir (Claude compatibility)Yes
+| Variable | Description | Always Present |
+|----------|-------------|----------------|
+| `CURSOR_PROJECT_DIR` | Workspace root directory | Yes |
+| `CURSOR_VERSION` | Cursor version string | Yes |
+| `CURSOR_USER_EMAIL` | Authenticated user email | If logged in |
+| `CURSOR_TRANSCRIPT_PATH` | Path to the conversation transcript file | If transcripts enabled |
+| `CURSOR_CODE_REMOTE` | Set to the string `"true"` when running in a remote workspace | For remote workspaces |
+| `CLAUDE_PROJECT_DIR` | Alias for project dir (Claude compatibility) | Yes |
 Session-scoped environment variables from `sessionStart` hooks are passed to all subsequent hook executions within that session.
 
 ## Troubleshooting
