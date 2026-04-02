@@ -4,10 +4,10 @@ Subagents are specialized AI assistants that Cursor's agent can delegate tasks t
 
 You can use subagents in the editor, CLI, and [Cloud Agents](/docs/cloud-agent).
 
-- [Context isolation](): Each subagent has its own context window. Long research or exploration tasks don't consume space in your main conversation.
-- [Parallel execution](): Launch multiple subagents simultaneously. Work on different parts of your codebase without waiting for sequential completion.
-- [Specialized expertise](): Configure subagents with custom prompts, tool access, and models for domain-specific tasks.
-- [Reusability](): Define custom subagents and use them across projects.
+- **Context isolation**: Each subagent has its own context window. Long research or exploration tasks don't consume space in your main conversation.
+- **Parallel execution**: Launch multiple subagents simultaneously. Work on different parts of your codebase without waiting for sequential completion.
+- **Specialized expertise**: Configure subagents with custom prompts, tool access, and models for domain-specific tasks.
+- **Reusability**: Define custom subagents and use them across projects.
 
 ## How subagents work
 
@@ -19,13 +19,20 @@ Subagents start with a clean context. The parent agent includes relevant informa
 
 Subagents run in one of two modes:
 
-ModeBehaviorBest for**Foreground**Blocks until the subagent completes. Returns the result immediately.Sequential tasks where you need the output.**Background**Returns immediately. The subagent works independently.Long-running tasks or parallel workstreams.
+| Mode | Behavior | Best for |
+|------|----------|----------|
+| **Foreground** | Blocks until the subagent completes. Returns the result immediately. | Sequential tasks where you need the output. |
+| **Background** | Returns immediately. The subagent works independently. | Long-running tasks or parallel workstreams. |
 
 ## Built-in subagents
 
 Cursor includes three built-in subagents that handle context-heavy operations automatically. These subagents were designed based on analysis of agent conversations where context window limits were hit.
 
-SubagentPurposeWhy it's a subagent**Explore**Searches and analyzes codebasesCodebase exploration generates large intermediate output that would bloat the main context. Uses a faster model to run many parallel searches.**Bash**Runs series of shell commandsCommand output is often verbose. Isolating it keeps the parent focused on decisions, not logs.**Browser**Controls browser via MCP toolsBrowser interactions produce noisy DOM snapshots and screenshots. The subagent filters this down to relevant results.
+| Subagent | Purpose | Why it's a subagent |
+|----------|---------|---------------------|
+| **Explore** | Searches and analyzes codebases | Codebase exploration generates large intermediate output that would bloat the main context. Uses a faster model to run many parallel searches. |
+| **Bash** | Runs series of shell commands | Command output is often verbose. Isolating it keeps the parent focused on decisions, not logs. |
+| **Browser** | Controls browser via MCP tools | Browser interactions produce noisy DOM snapshots and screenshots. The subagent filters this down to relevant results. |
 
 ### Why these subagents exist
 

@@ -6,10 +6,10 @@ Agent Skills is an open standard for extending AI agents with specialized capabi
 
 A skill is a portable, version-controlled package that teaches agents how to perform domain-specific tasks. Skills can include scripts, templates, and references that agents may act on using their tools.
 
-- [Portable](): Skills work across any agent that supports the Agent Skills standard.
-- [Version-controlled](): Skills are stored as files and can be tracked in your repository, or installed via GitHub repository links.
-- [Actionable](): Skills can include scripts, templates, and references that agents act on using their tools.
-- [Progressive](): Skills load resources on demand, keeping context usage efficient.
+- Portable: Skills work across any agent that supports the Agent Skills standard.
+- Version-controlled: Skills are stored as files and can be tracked in your repository, or installed via GitHub repository links.
+- Actionable: Skills can include scripts, templates, and references that agents act on using their tools.
+- Progressive: Skills load resources on demand, keeping context usage efficient.
 
 ## How skills work
 

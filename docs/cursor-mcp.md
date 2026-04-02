@@ -28,7 +28,14 @@ Cursor supports three transport methods:
 
 Cursor supports these MCP protocol capabilities and extensions:
 
-FeatureSupportDescription**Tools**SupportedFunctions for the AI model to execute**Prompts**SupportedTemplated messages and workflows for users**Resources**SupportedStructured data sources that can be read and referenced**Roots**SupportedServer-initiated inquiries into URI or filesystem boundaries**Elicitation**SupportedServer-initiated requests for additional information from users**Apps (extension)**SupportedInteractive UI views returned by MCP tools
+| Feature | Support | Description |
+|---------|---------|-------------|
+| **Tools** | Supported | Functions for the AI model to execute |
+| **Prompts** | Supported | Templated messages and workflows for users |
+| **Resources** | Supported | Structured data sources that can be read and referenced |
+| **Roots** | Supported | Server-initiated inquiries into URI or filesystem boundaries |
+| **Elicitation** | Supported | Server-initiated requests for additional information from users |
+| **Apps (extension)** | Supported | Interactive UI views returned by MCP tools |
 
 ### MCP apps
 
@@ -46,7 +53,9 @@ Browse the [Cursor Marketplace](/marketplace) for official plugins with one-clic
 
 Configure custom MCP servers with a JSON file:
 
-CLI Server - Node.js```
+CLI Server - Node.js
+
+```json
 {
 "mcpServers": {
 "server-name": {
@@ -58,10 +67,11 @@ CLI Server - Node.js```
 }
 }
 }
+```
 
-````
+CLI Server - Python
 
-CLI Server - Python```
+```json
 {
   "mcpServers": {
     "server-name": {
@@ -73,9 +83,11 @@ CLI Server - Python```
     }
   }
 }
-````
+```
 
-Remote Server```
+Remote Server
+
+```json
 // MCP server using HTTP or SSE - runs on a server
 {
 "mcpServers": {
@@ -87,8 +99,7 @@ Remote Server```
 }
 }
 }
-
-````
+```
 
 ### Static OAuth for remote servers
 
@@ -100,7 +111,9 @@ For MCP servers that use OAuth, you can provide **static OAuth client credential
 
 Add an `auth` object to remote server entries that use `url`:
 
-Remote Server with Static OAuth```
+Remote Server with Static OAuth
+
+```json
 {
   "mcpServers": {
     "oauth-server": {
@@ -113,9 +126,13 @@ Remote Server with Static OAuth```
     }
   }
 }
-````
+```
 
-FieldRequiredDescription**CLIENT_ID**YesOAuth 2.0 Client ID from the MCP provider**CLIENT_SECRET**NoOAuth 2.0 Client Secret (if the provider uses confidential clients)**scopes**NoOAuth scopes to request. If omitted, Cursor will use `/.well-known/oauth-authorization-server` to discover `scopes_supported`
+| Field | Required | Description |
+|-------|----------|-------------|
+| **CLIENT_ID** | Yes | OAuth 2.0 Client ID from the MCP provider |
+| **CLIENT_SECRET** | No | OAuth 2.0 Client Secret (if the provider uses confidential clients) |
+| **scopes** | No | OAuth scopes to request. If omitted, Cursor will use `/.well-known/oauth-authorization-server` to discover `scopes_supported` |
 
 #### Static redirect URL
 
@@ -151,7 +168,13 @@ Use environment variables for Client ID and Client Secret instead of hardcoding 
 
 For STDIO servers (local command-line servers), configure these fields in your `mcp.json`:
 
-FieldRequiredDescriptionExamples**type**YesServer connection type`"stdio"`**command**YesCommand to start the server executable. Must be available on your system path or contain its full path.`"npx"`, `"node"`, `"python"`, `"docker"`**args**NoArray of arguments passed to the command`["server.py", "--port", "3000"]`**env**NoEnvironment variables for the server`{"API_KEY": "${env:api-key}"}`**envFile**NoPath to an environment file to load more variables`".env"`, `"${workspaceFolder}/.env"`
+| Field | Required | Description | Examples |
+|-------|----------|-------------|----------|
+| **type** | Yes | Server connection type | `"stdio"` |
+| **command** | Yes | Command to start the server executable. Must be available on your system path or contain its full path. | `"npx"`, `"node"`, `"python"`, `"docker"` |
+| **args** | No | Array of arguments passed to the command | `["server.py", "--port", "3000"]` |
+| **env** | No | Environment variables for the server | `{"API_KEY": "${env:api-key}"}` |
+| **envFile** | No | Path to an environment file to load more variables | `".env"`, `"${workspaceFolder}/.env"` |
 The `envFile` option is only available for STDIO servers. Remote servers (HTTP/SSE) do not support `envFile`. For remote servers, use [config interpolation](#config-interpolation) with environment variables set in your shell profile or system environment instead.
 
 ### Using the Extension API
@@ -165,8 +188,8 @@ Learn how to register MCP servers programmatically using
 
 ### Configuration locations
 
-- [Project Configuration](): Create .cursor/mcp.json in your project for project-specific tools.
-- [Global Configuration](): Create ~/.cursor/mcp.json in your home directory for tools available everywhere.
+- Project configuration: Create `.cursor/mcp.json` in your project for project-specific tools.
+- Global configuration: Create `~/.cursor/mcp.json` in your home directory for tools available everywhere.
 
 ### Config interpolation
 
