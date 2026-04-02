@@ -7,9 +7,9 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/madebywild/agent-harness)
 
-Unified AI agent configuration management for Codex, Claude, and Copilot. The Shadcn for agent harnesses.
+Unified AI agent configuration management for Codex, Claude, Copilot, and Cursor. The Shadcn for agent harnesses.
 
-Agent Harness is a TypeScript CLI tool and library that manages AI agent configurations (prompts, skills, MCP server configs, and subagents) from a single source of truth, generating provider-specific outputs for OpenAI Codex, Anthropic Claude Code, and GitHub Copilot.
+Agent Harness is a TypeScript CLI tool and library that manages AI agent configurations (prompts, skills, MCP server configs, and subagents) from a single source of truth, generating provider-specific outputs for OpenAI Codex, Anthropic Claude Code, GitHub Copilot, and Cursor.
 
 Like [shadcn/ui](https://ui.shadcn.com/) does for UI components, Agent Harness gives you full ownership of your agent configuration. Pull shared entities from external git registries into your project as full source code — not as opaque library imports. You can inspect, modify, and version every file. The CLI manages the plumbing; you own the content.
 
@@ -18,7 +18,7 @@ Like [shadcn/ui](https://ui.shadcn.com/) does for UI components, Agent Harness g
 ### Unified agent config
 
 - Single source of truth for all agent configurations in the `.harness/` directory
-- Multi-provider support with simultaneous output generation for Codex, Claude, and Copilot
+- Multi-provider support with simultaneous output generation for Codex, Claude, Copilot, and Cursor
 - System prompt management with provider-specific overrides
 - Reusable skill management synchronized across providers
 - Third-party skill discovery and import via [skills.sh](https://skills.sh) with audit gating
@@ -149,7 +149,7 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | `npx harness --version`                                                 | Print CLI version                                                                                             |
 | `npx harness doctor`                                                    | Report schema version health and migration blockers                                                           |
 | `npx harness migrate [--dryRun]`                                        | Upgrade schema files to latest supported version                                                              |
-| `npx harness provider enable <id>`                                      | Enable a provider (codex/claude/copilot)                                                                      |
+| `npx harness provider enable <id>`                                      | Enable a provider (codex/claude/copilot/cursor)                                                               |
 | `npx harness provider disable <id>`                                     | Disable a provider                                                                                            |
 | `npx harness registry list`                                             | List configured registries                                                                                    |
 | `npx harness registry add <name> --gitUrl <url> [--ref <branch>]`       | Add a Git registry entry                                                                                      |
@@ -236,19 +236,19 @@ Presets are bootstrap macros, not manifest entities.
 - Local presets live under `.harness/presets/<id>/`.
 - Registry presets live under `presets/<id>/` in a git registry.
 
-The bundled `delegate` preset seeds one shared bootstrap prompt for Claude, Codex, and Copilot and enables all three providers. `init --delegate <provider>` uses that preset and then launches the selected agent CLI to replace the bootstrap content with the real project-specific prompt.
+The bundled `delegate` preset seeds one shared bootstrap prompt for Claude, Codex, Copilot, and Cursor and enables all providers. `init --delegate <provider>` uses that preset and then launches the selected agent CLI to replace the bootstrap content with the real project-specific prompt.
 
 Applying a preset materializes normal harness state such as enabled providers, prompt/skill/subagent sources, settings, and commands. After that, the usual `validate`, `plan`, and `apply` workflow remains unchanged.
 
 ## Generated Outputs
 
-| Entity    | Codex                                    | Claude                   | Copilot                           |
-| --------- | ---------------------------------------- | ------------------------ | --------------------------------- |
-| Prompt    | `AGENTS.md`                              | `.claude/CLAUDE.md`      | `.github/copilot-instructions.md` |
-| Skills    | `.codex/skills/`                         | `.claude/skills/`        | `.github/skills/`                 |
-| MCP       | `.codex/config.toml`                     | `.mcp.json`              | `.vscode/mcp.json`                |
-| Subagents | `.codex/config.toml` (merged `agents.*`) | `.claude/agents/<id>.md` | `.github/agents/<id>.agent.md`    |
-| Hooks     | `.codex/config.toml`                     | `.claude/settings.json`  | `.github/hooks/...`               |
+| Entity    | Codex                                    | Claude                   | Copilot                           | Cursor                     |
+| --------- | ---------------------------------------- | ------------------------ | --------------------------------- | -------------------------- |
+| Prompt    | `AGENTS.md`                              | `.claude/CLAUDE.md`      | `.github/copilot-instructions.md` | —                          |
+| Skills    | `.codex/skills/`                         | `.claude/skills/`        | `.github/skills/`                 | `.cursor/skills/`          |
+| MCP       | `.codex/config.toml`                     | `.mcp.json`              | `.vscode/mcp.json`                | `.cursor/mcp.json`         |
+| Subagents | `.codex/config.toml` (merged `agents.*`) | `.claude/agents/<id>.md` | `.github/agents/<id>.agent.md`    | `.cursor/agents/<id>.md`   |
+| Hooks     | `.codex/config.toml`                     | `.claude/settings.json`  | `.github/hooks/...`               | `.cursor/hooks.json`       |
 
 ## Monorepo Packages
 
@@ -326,6 +326,7 @@ See [docs/architecture.md](docs/architecture.md) for detailed design documentati
 - **OpenAI Codex** - AGENTS.md and .codex/ configuration
 - **Anthropic Claude Code** - CLAUDE.md and .claude/ configuration
 - **GitHub Copilot** - .github/ copilot-instructions and skills
+- **Cursor** - .cursor/ skills, agents, MCP, and hooks
 
 ## License
 
