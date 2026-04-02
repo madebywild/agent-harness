@@ -13,11 +13,13 @@ export const DELEGATED_INIT_PRESET_ID = "delegate";
  * - claude: `claude -p --dangerously-skip-permissions <task>`
  * - codex:  `codex exec --full-auto <task>`
  * - copilot: `copilot -p <task>` (no known permission flag yet)
+ * - cursor: `cursor-agent -p <task>` (provisional — binary name and flags unconfirmed)
  */
 const DELEGATED_INIT_COMMANDS: Record<ProviderId, { binary: string; buildArgs: (task: string) => string[] }> = {
   claude: { binary: "claude", buildArgs: (task) => ["-p", "--dangerously-skip-permissions", task] },
   codex: { binary: "codex", buildArgs: (task) => ["exec", "--full-auto", task] },
   copilot: { binary: "copilot", buildArgs: (task) => ["-p", task] },
+  cursor: { binary: "cursor-agent", buildArgs: (task) => ["-p", task] },
 };
 
 export function buildDelegatedBootstrapPrompt(): string {

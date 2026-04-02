@@ -15,7 +15,10 @@ import { collectSourceCandidates } from "../repository.js";
 import type { Diagnostic, DoctorResult, ProviderId, VersionDiagnostic, VersionStatus } from "../types.js";
 import { readTextIfExists } from "../utils.js";
 
-const OVERRIDE_PROVIDER_PATTERN = /(?:\.overrides\.|OVERRIDES\.)(codex|claude|copilot)\.ya?ml$/u;
+const OVERRIDE_PROVIDER_PATTERN = new RegExp(
+  `(?:\\.overrides\\.|OVERRIDES\\.)(${providerIdSchema.options.map(escapeRegex).join("|")})\\.ya?ml$`,
+  "u",
+);
 
 export async function runDoctor(paths: HarnessPaths): Promise<DoctorResult> {
   const files: VersionDiagnostic[] = [];
@@ -355,4 +358,8 @@ function codeFromVersionError(error: VersionError): "OUTDATED" | "NEWER_THAN_CLI
     case "invalid_version_type":
       return "INVALID";
   }
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

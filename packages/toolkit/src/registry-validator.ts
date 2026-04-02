@@ -389,7 +389,7 @@ export async function validateRegistryRepo(options: RegistryValidationOptions = 
         continue;
       }
 
-      if (entry.name === "claude.json" || entry.name === "copilot.json") {
+      if (entry.name === "claude.json" || entry.name === "copilot.json" || entry.name === "cursor.json") {
         const id = entry.name.replace(".json", "");
         await readJsonObject(
           settingsPath,
@@ -404,7 +404,7 @@ export async function validateRegistryRepo(options: RegistryValidationOptions = 
       diagnostics.push(
         error(
           "REGISTRY_SETTINGS_INVALID",
-          "settings/ may only contain codex.toml, claude.json, and copilot.json",
+          "settings/ may only contain codex.toml, claude.json, copilot.json, and cursor.json",
           settingsPathRel,
         ),
       );

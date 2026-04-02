@@ -23,10 +23,12 @@ test("add settings scaffolds provider-specific sources and enforces one entity p
   await engine.addSettings("codex");
   await engine.addSettings("claude");
   await engine.addSettings("copilot");
+  await engine.addSettings("cursor");
 
   await assert.doesNotReject(() => fs.stat(path.join(cwd, ".harness/src/settings/codex.toml")));
   await assert.doesNotReject(() => fs.stat(path.join(cwd, ".harness/src/settings/claude.json")));
   await assert.doesNotReject(() => fs.stat(path.join(cwd, ".harness/src/settings/copilot.json")));
+  await assert.doesNotReject(() => fs.stat(path.join(cwd, ".harness/src/settings/cursor.json")));
 
   const manifest = JSON.parse(await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8")) as {
     entities: Array<{ type: string; id: string; sourcePath: string }>;
@@ -36,6 +38,7 @@ test("add settings scaffolds provider-specific sources and enforces one entity p
     "claude:.harness/src/settings/claude.json",
     "codex:.harness/src/settings/codex.toml",
     "copilot:.harness/src/settings/copilot.json",
+    "cursor:.harness/src/settings/cursor.json",
   ]);
 
   await assert.rejects(() => engine.addSettings("codex"), /already exists/u);
@@ -475,6 +478,10 @@ test("registry import/pull and validation support settings entities", async () =
 
   const validRegistry = await validateRegistryRepo({ repoPath: registry });
   assert.equal(validRegistry.valid, true);
+
+  await fs.writeFile(path.join(registry, "settings/cursor.json"), '{\n  "cursor.experimental": true\n}\n', "utf8");
+  const validWithCursor = await validateRegistryRepo({ repoPath: registry });
+  assert.equal(validWithCursor.valid, true);
 
   await fs.writeFile(path.join(registry, "settings/invalid.json"), "{}\n", "utf8");
   const invalidRegistry = await validateRegistryRepo({ repoPath: registry });

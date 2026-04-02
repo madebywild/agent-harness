@@ -164,7 +164,7 @@ function buildProviderEnablementDiagnostics(manifest: AgentsManifest): Diagnosti
       severity: "warning",
       message: "No providers are enabled, so apply will not generate any artifacts.",
       path: ".harness/manifest.json",
-      hint: "Run 'harness provider enable <codex|claude|copilot>' before running apply.",
+      hint: `Run 'harness provider enable <${providerIdSchema.options.join("|")}>' before running apply.`,
     },
   ];
 }
@@ -1092,7 +1092,9 @@ function validateSubagentOverrideOptions(
       ? ["model", "tools"]
       : provider === "claude"
         ? ["model", "tools"]
-        : ["model", "tools", "handoffs"],
+        : provider === "copilot"
+          ? ["model", "tools", "handoffs"]
+          : ["model", "readonly", "is_background"],
   );
 
   const unknown = Object.keys(options).filter((key) => !allowed.has(key));

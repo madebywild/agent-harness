@@ -135,6 +135,31 @@ test("parseManifest accepts settings entities", () => {
   );
 });
 
+test("parseManifest accepts cursor provider and cursor settings entities", () => {
+  assert.doesNotThrow(() =>
+    parseManifest({
+      version: 1,
+      providers: {
+        enabled: ["cursor"],
+      },
+      registries: {
+        default: "local",
+        entries: {
+          local: { type: "local" },
+        },
+      },
+      entities: [
+        {
+          id: "cursor",
+          type: "settings",
+          registry: "local",
+          sourcePath: ".harness/src/settings/cursor.json",
+        },
+      ],
+    }),
+  );
+});
+
 test("parseProviderOverride throws VersionError for missing version", () => {
   assert.throws(
     () => parseProviderOverride({ enabled: true }),

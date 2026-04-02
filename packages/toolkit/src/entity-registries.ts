@@ -13,7 +13,7 @@ import {
 } from "@madebywild/agent-harness-manifest";
 import { readPresetPackageFromDir } from "./preset-packages.js";
 import { listFilesRecursively } from "./repository.js";
-import type { EntityType, RegistryId, ResolvedPresetSource } from "./types.js";
+import type { EntityType, ProviderId, RegistryId, ResolvedPresetSource } from "./types.js";
 import { normalizeRelativePath, parseJsonAsRecord, parseTomlAsRecord, sha256, stableStringify } from "./utils.js";
 
 const execFileAsync = promisify(execFile);
@@ -81,7 +81,7 @@ export interface FetchedCommandEntity extends FetchedEntityBase {
 
 export interface FetchedSettingsEntity extends FetchedEntityBase {
   readonly type: "settings";
-  readonly provider: "codex" | "claude" | "copilot";
+  readonly provider: ProviderId;
   readonly sourcePayload: Record<string, unknown>;
 }
 

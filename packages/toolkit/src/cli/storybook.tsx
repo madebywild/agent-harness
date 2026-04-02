@@ -55,6 +55,7 @@ const PROVIDER_OPTIONS = [
   { label: "claude", value: "claude" },
   { label: "codex", value: "codex" },
   { label: "copilot", value: "copilot" },
+  { label: "cursor", value: "cursor" },
 ];
 
 function StoryValue({ label, value }: { label: string; value: string | null }) {

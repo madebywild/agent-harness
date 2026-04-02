@@ -143,6 +143,65 @@ test("copilot provider generates correct output files", async () => {
   await assert.rejects(async () => fs.stat(path.join(cwd, "CLAUDE.md")));
 });
 
+test("cursor provider generates only supported native outputs", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addPrompt();
+  await engine.addSkill("reviewer");
+  await engine.addMcp("playwright");
+  await engine.addSubagent("researcher");
+  await engine.addHook("guard");
+  await engine.addCommand("fix-issue");
+  await engine.addSettings("cursor");
+  await engine.enableProvider("cursor");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/mcp/playwright.json"),
+    JSON.stringify(
+      {
+        servers: {
+          playwright: {
+            command: "npx",
+            args: ["@modelcontextprotocol/server-playwright"],
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/settings/cursor.json"),
+    JSON.stringify(
+      {
+        "cursor.experimental": true,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+    JSON.stringify(apply.diagnostics),
+  );
+
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".cursor/skills/reviewer/SKILL.md")));
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".cursor/mcp.json")));
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".cursor/agents/researcher.md")));
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".cursor/hooks.json")));
+
+  await assert.rejects(async () => fs.stat(path.join(cwd, ".cursor/prompt.md")));
+  await assert.rejects(async () => fs.stat(path.join(cwd, ".cursor/commands/fix-issue.md")));
+  await assert.rejects(async () => fs.stat(path.join(cwd, ".cursor/settings.json")));
+});
+
 test("multiple providers generate all expected outputs", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);
@@ -282,6 +341,51 @@ test("copilot subagent renders .agent.md with handoffs", async () => {
   assert.match(rendered, /model: "gpt-5"/u);
   assert.match(rendered, /tools: \["code_search"\]/u);
   assert.match(rendered, /handoffs: \["planner"\]/u);
+});
+
+test("cursor subagent uses override options first, then canonical metadata", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addSubagent("validator");
+  await engine.enableProvider("cursor");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/subagents/validator.md"),
+    [
+      "---",
+      "name: validator",
+      "description: Validates work completion.",
+      "model: gpt-5-mini",
+      "readonly: true",
+      "is_background: false",
+      "---",
+      "",
+      "You validate implementation details.",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/subagents/validator.overrides.cursor.yaml"),
+    "version: 1\noptions:\n  model: gpt-5\n  is_background: true\n",
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+    JSON.stringify(apply.diagnostics),
+  );
+
+  const rendered = await fs.readFile(path.join(cwd, ".cursor/agents/validator.md"), "utf8");
+  assert.match(rendered, /name: "validator"/u);
+  assert.match(rendered, /description: "Validates work completion\."/u);
+  assert.match(rendered, /model: "gpt-5"/u);
+  assert.match(rendered, /readonly: true/u);
+  assert.match(rendered, /is_background: true/u);
 });
 
 test("codex merges MCP and subagents into shared config", async () => {
@@ -469,6 +573,99 @@ test("copilot provider renders hook configuration from hook entities", async () 
   assert.equal(rendered.version, 1);
   assert.ok(rendered.hooks?.preToolUse);
   assert.equal(rendered.hooks?.preToolUse?.[0]?.type, "command");
+});
+
+test("cursor provider renders hooks.json with canonical event mapping", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addHook("guard");
+  await engine.enableProvider("cursor");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/hooks/guard.json"),
+    JSON.stringify(
+      {
+        mode: "strict",
+        events: {
+          pre_tool_use: [
+            {
+              type: "command",
+              command: "echo pre-tool",
+              matcher: "Bash",
+              timeoutSec: 12,
+            },
+          ],
+          prompt_submit: [
+            {
+              type: "command",
+              command: "echo prompt-submit",
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+    JSON.stringify(apply.diagnostics),
+  );
+
+  const rendered = JSON.parse(await fs.readFile(path.join(cwd, ".cursor/hooks.json"), "utf8")) as {
+    version?: number;
+    hooks?: Record<string, Array<Record<string, unknown>>>;
+  };
+  assert.equal(rendered.version, 1);
+  assert.ok(rendered.hooks?.preToolUse);
+  assert.ok(rendered.hooks?.beforeSubmitPrompt);
+  assert.equal(rendered.hooks?.preToolUse?.[0]?.command, "echo pre-tool");
+  assert.equal(rendered.hooks?.preToolUse?.[0]?.matcher, "Bash");
+  assert.equal(rendered.hooks?.preToolUse?.[0]?.timeout, 12);
+});
+
+test("cursor hooks strict mode rejects unsupported command fields, best_effort skips", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addHook("strict-hook");
+  await engine.addHook("best-hook");
+  await engine.enableProvider("cursor");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/hooks/strict-hook.json"),
+    JSON.stringify({
+      mode: "strict",
+      events: {
+        pre_tool_use: [{ type: "command", command: "echo strict", cwd: ".harness" }],
+      },
+    }),
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/hooks/best-hook.json"),
+    JSON.stringify({
+      mode: "best_effort",
+      events: {
+        post_tool_use: [{ type: "command", command: "echo best", env: { FOO: "bar" } }],
+      },
+    }),
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.ok(apply.diagnostics.some((diagnostic) => diagnostic.code === "HOOK_EVENT_UNSUPPORTED"));
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    true,
+  );
 });
 
 test("codex provider maps turn_complete hook to notify command", async () => {

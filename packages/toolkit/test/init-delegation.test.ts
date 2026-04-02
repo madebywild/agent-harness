@@ -44,6 +44,28 @@ test("launchDelegatedInit uses the selected provider CLI with the shared bootstr
   assert.deepEqual(calls[0]?.args, ["exec", "--full-auto", buildDelegatedInitTask()]);
 });
 
+test("launchDelegatedInit supports cursor provider invocation", async () => {
+  const calls: Array<{ command: string; args: readonly string[] }> = [];
+
+  await launchDelegatedInit(
+    {
+      cwd: "/tmp/project",
+      env: {},
+      provider: "cursor",
+    },
+    (command, args) => {
+      calls.push({ command, args });
+      const child = new FakeChildProcess();
+      queueMicrotask(() => child.emitExit(0));
+      return child;
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.command, "cursor-agent");
+  assert.deepEqual(calls[0]?.args, ["-p", buildDelegatedInitTask()]);
+});
+
 test("handleInit auto-applies the delegate preset and launches the selected provider", async () => {
   const cwd = await mkTmpRepo();
   let launchedProvider: string | undefined;
