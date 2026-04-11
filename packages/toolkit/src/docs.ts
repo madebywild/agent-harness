@@ -108,7 +108,7 @@ export function searchDocs(topics: readonly DocTopic[], query: string): DocsSear
     // Check body lines, avoiding overlapping excerpts
     let lastEmitted = -1;
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i]!.toLowerCase().includes(lower) && i > lastEmitted) {
+      if (lines[i]?.toLowerCase().includes(lower) && i > lastEmitted) {
         const start = Math.max(0, i - 1);
         const end = Math.min(lines.length, i + 2);
         excerpts.push(lines.slice(start, end).join("\n"));

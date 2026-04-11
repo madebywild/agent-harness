@@ -63,7 +63,7 @@ test("loadDocTopics handles subdirectories with dot notation", async () => {
   const { topics } = await loadDocTopics(docsDir);
 
   assert.equal(topics.length, 1);
-  assert.equal(topics[0]!.id, "architecture.versioning");
+  assert.equal(topics[0]?.id, "architecture.versioning");
 
   await fs.rm(tmp, { recursive: true });
 });
@@ -73,7 +73,7 @@ test("loadDocTopics returns diagnostic when docs dir missing", async () => {
 
   assert.equal(topics.length, 0);
   assert.equal(diagnostics.length, 1);
-  assert.equal(diagnostics[0]!.code, "DOCS_DIR_NOT_FOUND");
+  assert.equal(diagnostics[0]?.code, "DOCS_DIR_NOT_FOUND");
 });
 
 test("findTopic matches by exact id", async () => {
@@ -114,8 +114,8 @@ test("searchDocs finds matches in title and body", async () => {
   const results = searchDocs(topics, "CLI");
 
   assert.equal(results.length, 1);
-  assert.equal(results[0]!.id, "cli");
-  assert.ok(results[0]!.excerpts.length > 0);
+  assert.equal(results[0]?.id, "cli");
+  assert.ok(results[0]?.excerpts.length > 0);
 });
 
 test("searchDocs returns empty for empty query", async () => {
@@ -139,5 +139,5 @@ test("searchDocs avoids overlapping excerpts", async () => {
 
   assert.equal(results.length, 1);
   // Should have title + limited body excerpts, not one per line
-  assert.ok(results[0]!.excerpts.length <= 5);
+  assert.ok(results[0]?.excerpts.length <= 5);
 });
