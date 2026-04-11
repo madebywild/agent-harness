@@ -222,26 +222,33 @@ function renderDocsOutput(output: DocsOutput, writeLine: (line: string) => void)
       if (output.data.topics.length === 0) {
         writeLine("No documentation topics found.");
       }
-      return;
+      break;
     }
     case "show": {
-      writeLine(output.data.topic.content);
-      return;
+      if (output.data.topic) {
+        writeLine(output.data.topic.content);
+      } else {
+        writeLine("Topic not found.");
+      }
+      break;
     }
     case "search": {
       if (output.data.results.length === 0) {
         writeLine(`No results for '${output.data.query}'.`);
-        return;
+        break;
       }
-      for (const result of output.data.results) {
-        writeLine(`\n## ${result.id} — ${result.title}`);
+      for (const [i, result] of output.data.results.entries()) {
+        if (i > 0) writeLine("");
+        writeLine(`## ${result.id} — ${result.title}`);
         for (const excerpt of result.excerpts) {
           writeLine(`  ${excerpt.replaceAll("\n", "\n  ")}`);
         }
       }
-      return;
+      break;
     }
   }
+
+  renderDiagnosticsSection(output.diagnostics, writeLine);
 }
 
 function renderPlanOutput(output: PlanOutput, writeLine: (line: string) => void): void {

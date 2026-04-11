@@ -1,5 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Diagnostic } from "./types.js";
 
@@ -9,6 +9,11 @@ export interface DocTopic {
   content: string;
 }
 
+export interface DocTopicSummary {
+  id: string;
+  title: string;
+}
+
 export interface DocsSearchResult {
   id: string;
   title: string;
@@ -16,9 +21,11 @@ export interface DocsSearchResult {
 }
 
 const TOOLKIT_PREFIX = "toolkit.";
+const MAX_TRAVERSAL_DEPTH = 10;
 
-function fileToTopicId(relativePath: string): string {
+export function fileToTopicId(relativePath: string): string {
   const stem = relativePath.replace(/\.md$/, "").replaceAll("/", ".");
+  if (!stem || stem === "toolkit") return stem;
   return stem.startsWith(TOOLKIT_PREFIX) ? stem.slice(TOOLKIT_PREFIX.length) : stem;
 }
 
@@ -27,6 +34,15 @@ function extractTitle(content: string): string {
   return match?.[1]?.trim() ?? "(untitled)";
 }
 
+export function toTopicSummaries(topics: readonly DocTopic[]): DocTopicSummary[] {
+  return topics.map((t) => ({ id: t.id, title: t.title }));
+}
+
+/**
+ * Resolves the docs/ directory relative to this module's location.
+ * Intended for monorepo/development use — performs no I/O.
+ * Directory existence is validated by `loadDocTopics`.
+ */
 export function resolveDocsDir(): string {
   const thisFile = fileURLToPath(import.meta.url);
   // From src/docs.ts or dist/docs.js → packages/toolkit/ → packages/ → repo root → docs/
@@ -37,10 +53,11 @@ export function resolveDocsDir(): string {
 
 export async function loadDocTopics(docsDir: string): Promise<{ topics: DocTopic[]; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
+  const resolvedDocsDir = resolve(docsDir);
 
   let entries: string[];
   try {
-    entries = await collectMarkdownFiles(docsDir, "");
+    entries = await collectMarkdownFiles(resolvedDocsDir, "", 0);
   } catch {
     diagnostics.push({
       code: "DOCS_DIR_NOT_FOUND",
@@ -52,25 +69,44 @@ export async function loadDocTopics(docsDir: string): Promise<{ topics: DocTopic
 
   const topics: DocTopic[] = [];
   for (const relativePath of entries.sort()) {
-    const content = await readFile(join(docsDir, relativePath), "utf-8");
-    topics.push({
-      id: fileToTopicId(relativePath),
-      title: extractTitle(content),
-      content,
-    });
+    const fullPath = resolve(resolvedDocsDir, relativePath);
+    // Defense-in-depth: ensure resolved path stays under docsDir
+    if (!fullPath.startsWith(`${resolvedDocsDir}/`)) continue;
+    const id = fileToTopicId(relativePath);
+    if (!id) continue;
+
+    let content: string;
+    try {
+      content = await readFile(fullPath, "utf-8");
+    } catch {
+      diagnostics.push({
+        code: "DOCS_FILE_UNREADABLE",
+        severity: "warning",
+        message: `Skipping unreadable file: ${relativePath}`,
+        path: fullPath,
+      });
+      continue;
+    }
+
+    topics.push({ id, title: extractTitle(content), content });
   }
 
   return { topics, diagnostics };
 }
 
-async function collectMarkdownFiles(baseDir: string, prefix: string): Promise<string[]> {
+async function collectMarkdownFiles(baseDir: string, prefix: string, depth: number): Promise<string[]> {
+  if (depth > MAX_TRAVERSAL_DEPTH) return [];
+
   const dirEntries = await readdir(join(baseDir, prefix), { withFileTypes: true });
   const results: string[] = [];
 
   for (const entry of dirEntries) {
+    // Skip symlinks to prevent reading files outside the docs directory
+    if (entry.isSymbolicLink()) continue;
+
     const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
-      results.push(...(await collectMarkdownFiles(baseDir, relative)));
+      results.push(...(await collectMarkdownFiles(baseDir, relative, depth + 1)));
     } else if (entry.name.endsWith(".md")) {
       results.push(relative);
     }
@@ -80,12 +116,12 @@ async function collectMarkdownFiles(baseDir: string, prefix: string): Promise<st
 }
 
 export function findTopic(topics: readonly DocTopic[], query: string): DocTopic | undefined {
-  const lower = query.toLowerCase();
-  // Exact id match (e.g. "cli", "hook-authoring")
-  const exact = topics.find((t) => t.id === lower);
+  const lower = query.trim().toLowerCase();
+  // Exact id match (case-insensitive, e.g. "cli", "hook-authoring")
+  const exact = topics.find((t) => t.id.toLowerCase() === lower);
   if (exact) return exact;
   // Accept full filename stem with toolkit. prefix (e.g. "toolkit.cli" resolves to id "cli")
-  const withPrefix = topics.find((t) => `${TOOLKIT_PREFIX}${t.id}` === lower);
+  const withPrefix = topics.find((t) => `${TOOLKIT_PREFIX}${t.id}`.toLowerCase() === lower);
   if (withPrefix) return withPrefix;
   return undefined;
 }

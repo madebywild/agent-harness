@@ -1,4 +1,4 @@
-import type { DocsSearchResult } from "../docs.js";
+import type { DocsSearchResult, DocTopic, DocTopicSummary } from "../docs.js";
 import type {
   ApplyResult,
   CliEntityType,
@@ -232,8 +232,8 @@ export interface MigrateOutput
   > {}
 
 export type DocsOutputData =
-  | { operation: "list"; topics: Array<{ id: string; title: string }> }
-  | { operation: "show"; topic: { id: string; title: string; content: string } }
+  | { operation: "list"; topics: DocTopicSummary[] }
+  | { operation: "show"; topic: DocTopic | null }
   | { operation: "search"; query: string; results: DocsSearchResult[] };
 
 export interface DocsOutput extends CommandOutputBase<"docs", DocsOutputData> {}
