@@ -711,6 +711,24 @@ export async function runCommanderAdapter(
 
   addJsonOption(
     program
+      .command("docs")
+      .description("Browse and search harness documentation")
+      .argument("[topic]", "topic id to display")
+      .option("--search <query>", "search query to filter documentation")
+      .action(async (topic: string | undefined, options: { search?: string; json?: boolean }) => {
+        await runCommand(
+          {
+            command: "docs",
+            args: { topic },
+            options: { search: options.search },
+          },
+          options,
+        );
+      }),
+  );
+
+  addJsonOption(
+    program
       .command("ui")
       .description("Launch interactive prompt mode")
       .action(async () => {

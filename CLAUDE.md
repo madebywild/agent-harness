@@ -234,6 +234,16 @@ npx harness watch                 # watch sources and auto-apply on changes
 npx harness watch --debounce 500  # custom debounce in ms (default 250)
 ```
 
+### Documentation
+
+Browse and search harness documentation. Content is read from the `docs/` directory at runtime, so it always reflects the current codebase.
+
+```bash
+npx harness docs                  # list all documentation topics
+npx harness docs <topic>          # show a specific topic (e.g. "cli", "provider.claude")
+npx harness docs --search <query> # search across all docs for a keyword
+```
+
 ### Validation, doctor, and migration
 
 ```bash

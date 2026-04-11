@@ -53,6 +53,7 @@ Detection uses `resolveHarnessPaths` + `exists` for the fast path and `runDoctor
 - `init --preset <id>` chains workspace initialization with preset application
 - `init --delegate <provider>` auto-applies the bundled `delegate` preset and launches `claude`, `codex`, or `copilot` to finish prompt authoring
 - `init --u-haul [--u-haul-precedence <provider>]` imports legacy provider assets into canonical `.harness/src/*`, removes imported legacy files, auto-enables contributing providers, and runs `apply`
+- `docs [topic] [--search <query>]` — browse and search harness documentation (reads from `docs/` at runtime)
 
 Examples:
 

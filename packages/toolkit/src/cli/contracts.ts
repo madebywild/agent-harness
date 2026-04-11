@@ -1,3 +1,4 @@
+import type { DocsSearchResult } from "../docs.js";
 import type {
   ApplyResult,
   CliEntityType,
@@ -48,6 +49,7 @@ export type CommandId =
   | "migrate"
   | "plan"
   | "apply"
+  | "docs"
   | "watch"
   | "default.plan";
 
@@ -229,6 +231,13 @@ export interface MigrateOutput
     }
   > {}
 
+export type DocsOutputData =
+  | { operation: "list"; topics: Array<{ id: string; title: string }> }
+  | { operation: "show"; topic: { id: string; title: string; content: string } }
+  | { operation: "search"; query: string; results: DocsSearchResult[] };
+
+export interface DocsOutput extends CommandOutputBase<"docs", DocsOutputData> {}
+
 export interface WatchOutput
   extends CommandOutputBase<
     "watch",
@@ -250,6 +259,7 @@ export type CommandOutput =
   | ApplyOutput
   | DoctorOutput
   | MigrateOutput
+  | DocsOutput
   | WatchOutput;
 
 export interface CliEnvelope<TData> {

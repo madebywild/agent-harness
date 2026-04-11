@@ -109,6 +109,7 @@ const INTERACTIVE_COMMAND_IDS: readonly CommandId[] = [
   "migrate",
   "plan",
   "apply",
+  "docs",
 ];
 
 const COMMAND_OPTIONS = [
@@ -446,6 +447,22 @@ function buildPromptsForCommand(commandId: CommandId, presets: Array<{ id: strin
         },
       ];
 
+    case "docs":
+      return [
+        {
+          id: "topic",
+          type: "text",
+          message: "Topic to display (leave empty to list all)",
+          required: false,
+        },
+        {
+          id: "search",
+          type: "text",
+          message: "Search query (leave empty to skip search)",
+          required: false,
+        },
+      ];
+
     default:
       return [];
   }
@@ -593,6 +610,13 @@ function buildCommandInput(commandId: CommandId, values: CollectedValues): Comma
       return {
         command: commandId,
         options: { to: "latest", dryRun: bool("dryRun") },
+      };
+
+    case "docs":
+      return {
+        command: commandId,
+        args: { topic: str("topic") },
+        options: { search: str("search") },
       };
 
     default:
