@@ -21,11 +21,11 @@ The file is a flat JSON object where each top-level key is a server ID and its v
 
 ## Provider output mapping
 
-| Field | Claude Code | OpenAI Codex CLI | GitHub Copilot |
-|-------|-------------|------------------|----------------|
-| Output file | `.mcp.json` | `.codex/config.toml` | `.vscode/mcp.json` |
-| Root key | `mcpServers` | `[mcp_servers.<id>]` | `servers` |
-| Format | JSON | TOML | JSON |
+| Field | Claude Code | OpenAI Codex CLI | GitHub Copilot | Cursor |
+|-------|-------------|------------------|----------------|--------|
+| Output file | `.mcp.json` | `.codex/config.toml` | `.vscode/mcp.json` | `.cursor/mcp.json` |
+| Root key | `mcpServers` | `[mcp_servers.<id>]` | `servers` | `mcpServers` |
+| Format | JSON | TOML | JSON | JSON |
 
 ### Claude Code — `.mcp.json`
 
@@ -79,6 +79,34 @@ Root key: `servers`. Each server entry supports:
 | `inputs` | object | Input variable definitions for sensitive data |
 
 Official docs: https://code.visualstudio.com/docs/copilot/chat/mcp-servers
+
+### Cursor — `.cursor/mcp.json`
+
+Root key: `mcpServers`. Each server entry supports:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `command` | string | Executable to run (stdio transport) |
+| `args` | string[] | Arguments passed to the command |
+| `env` | object | Environment variables forwarded to the server process |
+| `envFile` | string | Path to an `.env` file (stdio only) |
+| `type` | string | Transport: `stdio` (default) |
+| `url` | string | Endpoint URL (for `sse` / Streamable HTTP transport) |
+| `headers` | object | HTTP headers (for remote servers) |
+| `auth` | object | Static OAuth credentials (`CLIENT_ID`, `CLIENT_SECRET`, `scopes`) |
+
+Cursor supports three transport methods: `stdio` (local), `SSE` (local/remote), and `Streamable HTTP` (local/remote). Protocol capabilities include tools, prompts, resources, roots, elicitation, and MCP apps (interactive UI extension).
+
+Configuration locations: project (`.cursor/mcp.json`) or global (`~/.cursor/mcp.json`).
+
+Config interpolation supported in `command`, `args`, `env`, `url`, and `headers`:
+- `${env:NAME}` — environment variables
+- `${userHome}` — home directory
+- `${workspaceFolder}` — project root
+- `${workspaceFolderBasename}` — project root name
+- `${pathSeparator}` / `${/}` — OS path separator
+
+Official docs: https://docs.cursor.com/context/mcp
 
 ---
 
@@ -249,3 +277,4 @@ npx harness apply
 - Claude Code Settings: https://code.claude.com/docs/en/settings
 - OpenAI Codex Config Reference: https://developers.openai.com/codex/config-reference
 - GitHub Copilot MCP (VS Code): https://code.visualstudio.com/docs/copilot/chat/mcp-servers
+- Cursor MCP: https://docs.cursor.com/context/mcp

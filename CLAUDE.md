@@ -127,8 +127,6 @@ Global options: `--cwd <path>`, `--json`, `--no-interactive`.
 ```bash
 npx harness init              # scaffold .harness/ workspace
 npx harness init --force      # overwrite existing workspace
-npx harness init --u-haul     # import legacy provider configs into .harness/
-npx harness init --u-haul --u-haul-precedence codex  # override default precedence
 ```
 
 ### Providers
@@ -232,16 +230,6 @@ npx harness plan                  # show planned operations (dry run)
 npx harness apply                 # write all provider artifacts + update lock/index
 npx harness watch                 # watch sources and auto-apply on changes
 npx harness watch --debounce 500  # custom debounce in ms (default 250)
-```
-
-### Documentation
-
-Browse and search harness documentation. Content is read from the `docs/` directory at runtime, so it always reflects the current codebase.
-
-```bash
-npx harness docs                  # list all documentation topics
-npx harness docs <topic>          # show a specific topic (e.g. "cli", "provider.claude")
-npx harness docs --search <query> # search across all docs for a keyword
 ```
 
 ### Validation, doctor, and migration
