@@ -72,18 +72,37 @@ When `send: true` is set, the handoff prompt submits automatically.
 
 Official docs: https://docs.github.com/en/copilot/reference/custom-agents-configuration
 
+### Cursor
+
+| Item | Value |
+|------|-------|
+| Output path | `.cursor/agents/<subagent-id>.md` |
+| Format | Markdown with YAML frontmatter |
+| Required frontmatter | `name`, `description` |
+| Optional frontmatter | `model`, `readonly`, `is_background` |
+
+Cursor loads agent files from `.cursor/agents/` (project) or `~/.cursor/agents/` (user). For compatibility, it also scans `.claude/agents/` and `.codex/agents/` (project-level) and their user-level equivalents. Project subagents take precedence when names conflict; `.cursor/` takes precedence over `.claude/` or `.codex/`.
+
+The `description` field determines when the agent delegates to a subagent. Subagents can be invoked explicitly via `/name` syntax or automatically based on task complexity. The `model` field supports `fast`, `inherit` (default), or a specific model ID. When `readonly: true`, the subagent runs with restricted write permissions.
+
+Cursor includes three built-in subagents (`explore`, `bash`, `browser`) that run automatically. Custom subagents cannot spawn further subagents (single-level only).
+
+Official docs: https://docs.cursor.com/agent/subagents
+
 ---
 
 ## Provider-specific frontmatter comparison
 
-| Field | Claude Code | Codex CLI | GitHub Copilot |
-|-------|-------------|-----------|----------------|
-| `name` | required | via TOML key | optional |
-| `description` | required | required | required |
-| `tools` | `string` or `string[]` | — | `string[]` |
-| `model` | optional | optional | optional |
-| `developer_instructions` | — | required (body) | — |
-| `handoffs` | — | — | optional (VS Code only) |
+| Field | Claude Code | Codex CLI | GitHub Copilot | Cursor |
+|-------|-------------|-----------|----------------|--------|
+| `name` | required | via TOML key | optional | required |
+| `description` | required | required | required | required |
+| `tools` | `string` or `string[]` | — | `string[]` | — |
+| `model` | optional | optional | optional | optional (`fast`, `inherit`, or model ID) |
+| `readonly` | — | — | — | optional (boolean) |
+| `is_background` | — | — | — | optional (boolean) |
+| `developer_instructions` | — | required (body) | — | — |
+| `handoffs` | — | — | optional (VS Code only) | — |
 
 Provider-specific options (`model`, `tools`, `handoffs`) are set through override sidecar files, not in the canonical source frontmatter — see the Override sidecars section below.
 
@@ -256,4 +275,5 @@ Check `.claude/agents/`, `.codex/config.toml`, and `.github/agents/` to verify t
 - OpenAI Codex config reference: https://developers.openai.com/codex/config-reference
 - GitHub Copilot custom agents configuration: https://docs.github.com/en/copilot/reference/custom-agents-configuration
 - GitHub Copilot custom agents how-to: https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/create-custom-agents
+- Cursor subagents: https://docs.cursor.com/agent/subagents
 - Agent harness providers overview: docs/providers.md

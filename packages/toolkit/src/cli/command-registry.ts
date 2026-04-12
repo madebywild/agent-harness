@@ -2,6 +2,7 @@ import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { CLI_ENTITY_TYPES } from "../types.js";
 import type { CliResolvedContext, CommandId, CommandInput, CommandOutput } from "./contracts.js";
 import { handleApply } from "./handlers/apply.js";
+import { handleDocs } from "./handlers/docs.js";
 import { handleDoctor } from "./handlers/doctor.js";
 import {
   handleAddCommand,
@@ -783,6 +784,26 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         },
         context,
       ),
+  },
+  {
+    id: "docs",
+    path: ["docs"],
+    description: "Browse and search harness documentation",
+    args: [{ name: "topic", required: false, description: "topic id to display" }],
+    options: [
+      {
+        name: "search",
+        description: "search query to filter documentation",
+        takesValue: true,
+      },
+    ],
+    mutatesWorkspace: false,
+    interactiveLabel: "Browse documentation",
+    run: (input) =>
+      handleDocs({
+        topic: readStringArg(input, "topic", false),
+        search: readStringOption(input, "search"),
+      }),
   },
   {
     id: "default.plan",

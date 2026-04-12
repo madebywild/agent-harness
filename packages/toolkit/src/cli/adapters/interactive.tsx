@@ -107,6 +107,7 @@ const INTERACTIVE_COMMAND_IDS: readonly CommandId[] = [
   "validate",
   "doctor",
   "migrate",
+  "docs",
   "plan",
   "apply",
 ];
@@ -446,6 +447,20 @@ function buildPromptsForCommand(commandId: CommandId, presets: Array<{ id: strin
         },
       ];
 
+    case "docs":
+      return [
+        {
+          id: "docsMode",
+          type: "select",
+          message: "What would you like to do?",
+          options: [
+            { value: "list", label: "List all topics" },
+            { value: "show", label: "Show a specific topic" },
+            { value: "search", label: "Search documentation" },
+          ],
+        },
+      ];
+
     default:
       return [];
   }
@@ -593,6 +608,13 @@ function buildCommandInput(commandId: CommandId, values: CollectedValues): Comma
       return {
         command: commandId,
         options: { to: "latest", dryRun: bool("dryRun") },
+      };
+
+    case "docs":
+      return {
+        command: commandId,
+        args: { topic: str("docsMode") === "show" ? str("topic") : undefined },
+        options: { search: str("docsMode") === "search" ? str("search") : undefined },
       };
 
     default:
@@ -752,6 +774,19 @@ export function App({ api, presets, workspaceStatus, onExit }: AppProps) {
           newPrompts = [
             ...collector.prompts.slice(0, collector.index + 1),
             delegatePrompt,
+            ...collector.prompts.slice(collector.index + 1),
+          ];
+        }
+
+        // Dynamically inject topic/search prompt based on docs mode selection
+        if (commandId === "docs" && prompt.id === "docsMode" && (value === "show" || value === "search")) {
+          const followUp: CollectorPrompt =
+            value === "show"
+              ? { id: "topic", type: "text", message: "Topic id", required: true }
+              : { id: "search", type: "text", message: "Search query", required: true };
+          newPrompts = [
+            ...collector.prompts.slice(0, collector.index + 1),
+            followUp,
             ...collector.prompts.slice(collector.index + 1),
           ];
         }

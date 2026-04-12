@@ -1,6 +1,6 @@
 ---
 name: harness-hook
-description: Create and manage lifecycle hook entities in the agent-harness workspace. Covers canonical event authoring, provider projection (Claude Code, GitHub Copilot, OpenAI Codex CLI), mode behavior, handler types, the full event/provider support matrix, copy-paste recipes, and common diagnostics.
+description: Create and manage lifecycle hook entities in the agent-harness workspace. Covers canonical event authoring, provider projection (Claude Code, GitHub Copilot, OpenAI Codex CLI, Cursor), mode behavior, handler types, the full event/provider support matrix, copy-paste recipes, and common diagnostics.
 ---
 
 # /harness-hook — Lifecycle Hook Authoring
@@ -49,32 +49,32 @@ Recommendation: start with `"best_effort"` during development, switch to `"stric
 
 ## Canonical event list and provider support
 
-| Canonical event | Claude Code | GitHub Copilot | OpenAI Codex |
-|---|---|---|---|
-| `session_start` | Yes (`SessionStart`) | Yes (`sessionStart`) | No |
-| `session_end` | Yes (`SessionEnd`) | Yes (`sessionEnd`) | No |
-| `prompt_submit` | Yes (`UserPromptSubmit`) | Yes (`userPromptSubmitted`) | No |
-| `pre_tool_use` | Yes (`PreToolUse`) | Yes (`preToolUse`) | No |
-| `permission_request` | Yes (`PermissionRequest`) | No | No |
-| `post_tool_use` | Yes (`PostToolUse`) | Yes (`postToolUse`) | No |
-| `post_tool_failure` | Yes (`PostToolUseFailure`) | No | No |
-| `notification` | Yes (`Notification`) | No | No |
-| `subagent_start` | Yes (`SubagentStart`) | No | No |
-| `subagent_stop` | Yes (`SubagentStop`) | No | No |
-| `stop` | Yes (`Stop`) | No | No |
-| `stop_failure` | Yes (`StopFailure`) | No | No |
-| `teammate_idle` | Yes (`TeammateIdle`) | No | No |
-| `task_completed` | Yes (`TaskCompleted`) | No | No |
-| `instructions_loaded` | Yes (`InstructionsLoaded`) | No | No |
-| `config_change` | Yes (`ConfigChange`) | No | No |
-| `worktree_create` | Yes (`WorktreeCreate`) | No | No |
-| `worktree_remove` | Yes (`WorktreeRemove`) | No | No |
-| `pre_compact` | Yes (`PreCompact`) | No | No |
-| `post_compact` | Yes (`PostCompact`) | No | No |
-| `elicitation` | Yes (`Elicitation`) | No | No |
-| `elicitation_result` | Yes (`ElicitationResult`) | No | No |
-| `error` | No | Yes (`errorOccurred`) | No |
-| `turn_complete` | No | No | Yes (`notify`) |
+| Canonical event | Claude Code | GitHub Copilot | OpenAI Codex | Cursor |
+|---|---|---|---|---|
+| `session_start` | Yes (`SessionStart`) | Yes (`sessionStart`) | No | Yes (`sessionStart`) |
+| `session_end` | Yes (`SessionEnd`) | Yes (`sessionEnd`) | No | Yes (`sessionEnd`) |
+| `prompt_submit` | Yes (`UserPromptSubmit`) | Yes (`userPromptSubmitted`) | No | Yes (`beforeSubmitPrompt`) |
+| `pre_tool_use` | Yes (`PreToolUse`) | Yes (`preToolUse`) | No | Yes (`preToolUse`) |
+| `permission_request` | Yes (`PermissionRequest`) | No | No | No |
+| `post_tool_use` | Yes (`PostToolUse`) | Yes (`postToolUse`) | No | Yes (`postToolUse`) |
+| `post_tool_failure` | Yes (`PostToolUseFailure`) | No | No | Yes (`postToolUseFailure`) |
+| `notification` | Yes (`Notification`) | No | No | No |
+| `subagent_start` | Yes (`SubagentStart`) | No | No | Yes (`subagentStart`) |
+| `subagent_stop` | Yes (`SubagentStop`) | No | No | Yes (`subagentStop`) |
+| `stop` | Yes (`Stop`) | No | No | Yes (`stop`) |
+| `stop_failure` | Yes (`StopFailure`) | No | No | No |
+| `teammate_idle` | Yes (`TeammateIdle`) | No | No | No |
+| `task_completed` | Yes (`TaskCompleted`) | No | No | No |
+| `instructions_loaded` | Yes (`InstructionsLoaded`) | No | No | No |
+| `config_change` | Yes (`ConfigChange`) | No | No | No |
+| `worktree_create` | Yes (`WorktreeCreate`) | No | No | No |
+| `worktree_remove` | Yes (`WorktreeRemove`) | No | No | No |
+| `pre_compact` | Yes (`PreCompact`) | No | No | Yes (`preCompact`) |
+| `post_compact` | Yes (`PostCompact`) | No | No | No |
+| `elicitation` | Yes (`Elicitation`) | No | No | No |
+| `elicitation_result` | Yes (`ElicitationResult`) | No | No | No |
+| `error` | No | Yes (`errorOccurred`) | No | No |
+| `turn_complete` | No | No | Yes (`notify`) | No |
 
 ---
 
@@ -150,6 +150,38 @@ notify = ["python3", "scripts/on_turn_complete.py"]
 ```
 
 - **Official docs:** https://developers.openai.com/codex/config-reference
+
+### Cursor
+
+- **Output file:** `.cursor/hooks.json` (key: `hooks`, top-level `version: 1`)
+- **Event names:** camelCase (e.g., `pre_tool_use` → `preToolUse`, `prompt_submit` → `beforeSubmitPrompt`)
+- **Supported canonical events:** `session_start`, `session_end`, `prompt_submit`, `pre_tool_use`, `post_tool_use`, `post_tool_failure`, `subagent_start`, `subagent_stop`, `pre_compact`, `stop`
+- **Handler types:** `command` only
+- **Matcher:** supported — filters by tool name, subagent type, or command text depending on the event
+- **Limitations:** `cwd` and `env` fields on command handlers are NOT supported (harness errors if present)
+- **Hook execution types:** Cursor supports both command-based hooks (shell scripts) and prompt-based hooks (LLM-evaluated natural language conditions), but harness only projects command-based hooks.
+- **Per-script options:** `timeout` (seconds), `loop_limit` (for `stop`/`subagentStop`), `failClosed` (block action on hook failure)
+- **Output shape:**
+
+```json
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": "./scripts/validate-tool.sh",
+        "matcher": "Shell|Read|Write"
+      }
+    ]
+  }
+}
+```
+
+- **Additional Cursor-native events (no canonical equivalent):** `beforeShellExecution`, `afterShellExecution`, `beforeMCPExecution`, `afterMCPExecution`, `beforeReadFile`, `afterFileEdit`, `afterAgentResponse`, `afterAgentThought`, `beforeTabFileRead`, `afterTabFileEdit`. These are not projectable from harness canonical events; use them directly in `.cursor/hooks.json` if needed.
+- **Configuration locations:** Project (`.cursor/hooks.json`), user (`~/.cursor/hooks.json`), enterprise (system-wide), team (cloud-distributed)
+- **Priority order:** Enterprise → Team → Project → User
+- **Exit code behavior:** Exit code `0` = success, exit code `2` = block/deny, other codes = fail-open (unless `failClosed: true`)
+- **Official docs:** https://docs.cursor.com/agent/hooks
 
 ---
 
@@ -364,3 +396,4 @@ If multiple hook entities for the same provider resolve to different target path
 - GitHub Copilot hooks configuration: https://docs.github.com/en/copilot/reference/hooks-configuration
 - GitHub Copilot about hooks: https://docs.github.com/en/copilot/concepts/agents/coding-agent/about-hooks
 - OpenAI Codex config reference: https://developers.openai.com/codex/config-reference
+- Cursor hooks: https://docs.cursor.com/agent/hooks

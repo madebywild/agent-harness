@@ -19,6 +19,17 @@
       "type": "settings"
     },
     {
+      "id": "critical-review",
+      "overrideSha256ByProvider": {
+        "claude": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847",
+        "codex": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847",
+        "copilot": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847"
+      },
+      "registry": "local",
+      "sourceSha256": "f1fcaf0629666bf2f9995d21b53646af7ac07213d75f9b993ad15bd7a8b31d93",
+      "type": "skill"
+    },
+    {
       "id": "harness-command",
       "overrideSha256ByProvider": {
         "claude": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847",
@@ -37,7 +48,7 @@
         "copilot": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847"
       },
       "registry": "local",
-      "sourceSha256": "66d01ce9fd9eec4bbd13ba8f01ec2ce2cc1078050844415d8cacda26adf5b242",
+      "sourceSha256": "821412f05601a38da1e7761832e375cb41bbfabe51f77b306d01c2156c23736d",
       "type": "skill"
     },
     {
@@ -48,7 +59,7 @@
         "copilot": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847"
       },
       "registry": "local",
-      "sourceSha256": "8d6306e55b1793c678667b4c5be8e0c28ced7eda487f8fbadca4468bcd117852",
+      "sourceSha256": "93aa25041edbe3aa52fc1c7b168e780d0c38350cce6a911d32922edf9f7ee121",
       "type": "skill"
     },
     {
@@ -81,7 +92,7 @@
         "copilot": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847"
       },
       "registry": "local",
-      "sourceSha256": "af06190e70ce279a0208d298ae30a2ed5ceef4aeeed8a4fa2678c26fd9cc34b1",
+      "sourceSha256": "c381423fa914ac1dce398b15297f3199e17080c48bead3d59593d4311c6d2bfc",
       "type": "skill"
     },
     {
@@ -92,7 +103,7 @@
         "copilot": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847"
       },
       "registry": "local",
-      "sourceSha256": "d90896124fc9b4020100913f259cb2c3ed12b75e34e4298d108267d9dd237323",
+      "sourceSha256": "e8eeec14adde6b5747e0572436f5fbc66392344e47a33c94374078c1721d833c",
       "type": "skill"
     },
     {
@@ -162,8 +173,8 @@
       "type": "subagent"
     }
   ],
-  "generatedAt": "2026-03-26T05:54:17.648Z",
-  "manifestFingerprint": "a2908ed0d5859006b80593592d3a4cdec87e0f320b9a3b32f074aa1b83c07d03",
+  "generatedAt": "2026-04-12T07:57:27.990Z",
+  "manifestFingerprint": "941166d63f29df7e38fd15400f542f74eb5147d8628cdf8ee1f14de6fbbacdb3",
   "outputs": [
     {
       "contentSha256": "57c0139f33600c39fa6886e716237d396886799876a0bd22e8f91e73004d2070",
@@ -202,19 +213,25 @@
       "provider": "claude"
     },
     {
+      "contentSha256": "ab97c433dd8aff83142984834ccf6543ce1d41ddbdd79566879db6c441e33d5e",
+      "ownerEntityIds": ["critical-review"],
+      "path": ".claude/skills/critical-review/SKILL.md",
+      "provider": "claude"
+    },
+    {
       "contentSha256": "f0e342a294795e2d681da9c33f0f6672983676e7eb022416d3216af44701e0bd",
       "ownerEntityIds": ["harness-command"],
       "path": ".claude/skills/harness-command/SKILL.md",
       "provider": "claude"
     },
     {
-      "contentSha256": "a10a84f6ae1085112527210e4b1e52379411170555e851de86f83f4c83afc9f1",
+      "contentSha256": "64ad7ea46e2774300b037b626f32bb28b5cb2cca6aeb187fdfe76ee707ba28ac",
       "ownerEntityIds": ["harness-hook"],
       "path": ".claude/skills/harness-hook/SKILL.md",
       "provider": "claude"
     },
     {
-      "contentSha256": "5ad2c02a045793e9dd917eead17cc5c02d8b5108fc9bfd34ca7f10eb1f57867e",
+      "contentSha256": "10bbafcb52f852769ca5a96299362804de526adaa33485582f1bc3bc96f76207",
       "ownerEntityIds": ["harness-mcp"],
       "path": ".claude/skills/harness-mcp/SKILL.md",
       "provider": "claude"
@@ -232,13 +249,13 @@
       "provider": "claude"
     },
     {
-      "contentSha256": "0a73b6249e331c46e8d6ebbda852e0894c3d03635cdfce2b5ffb2ed4849dd87f",
+      "contentSha256": "1dc18086822c9cf231c3ecd476231b25af6a75f335b01cbebff15c0aebfe3009",
       "ownerEntityIds": ["harness-skill"],
       "path": ".claude/skills/harness-skill/SKILL.md",
       "provider": "claude"
     },
     {
-      "contentSha256": "f2257941ea419eae38b3beb2e0084f423ce9a271d680e3fc0b9b9caf27850f40",
+      "contentSha256": "b51e43761513ccc66c60c7e77fa8f3e849f257ce5428382003d9cc490949af89",
       "ownerEntityIds": ["harness-subagent"],
       "path": ".claude/skills/harness-subagent/SKILL.md",
       "provider": "claude"
@@ -262,19 +279,25 @@
       "provider": "codex"
     },
     {
+      "contentSha256": "ab97c433dd8aff83142984834ccf6543ce1d41ddbdd79566879db6c441e33d5e",
+      "ownerEntityIds": ["critical-review"],
+      "path": ".codex/skills/critical-review/SKILL.md",
+      "provider": "codex"
+    },
+    {
       "contentSha256": "f0e342a294795e2d681da9c33f0f6672983676e7eb022416d3216af44701e0bd",
       "ownerEntityIds": ["harness-command"],
       "path": ".codex/skills/harness-command/SKILL.md",
       "provider": "codex"
     },
     {
-      "contentSha256": "a10a84f6ae1085112527210e4b1e52379411170555e851de86f83f4c83afc9f1",
+      "contentSha256": "64ad7ea46e2774300b037b626f32bb28b5cb2cca6aeb187fdfe76ee707ba28ac",
       "ownerEntityIds": ["harness-hook"],
       "path": ".codex/skills/harness-hook/SKILL.md",
       "provider": "codex"
     },
     {
-      "contentSha256": "5ad2c02a045793e9dd917eead17cc5c02d8b5108fc9bfd34ca7f10eb1f57867e",
+      "contentSha256": "10bbafcb52f852769ca5a96299362804de526adaa33485582f1bc3bc96f76207",
       "ownerEntityIds": ["harness-mcp"],
       "path": ".codex/skills/harness-mcp/SKILL.md",
       "provider": "codex"
@@ -292,13 +315,13 @@
       "provider": "codex"
     },
     {
-      "contentSha256": "0a73b6249e331c46e8d6ebbda852e0894c3d03635cdfce2b5ffb2ed4849dd87f",
+      "contentSha256": "1dc18086822c9cf231c3ecd476231b25af6a75f335b01cbebff15c0aebfe3009",
       "ownerEntityIds": ["harness-skill"],
       "path": ".codex/skills/harness-skill/SKILL.md",
       "provider": "codex"
     },
     {
-      "contentSha256": "f2257941ea419eae38b3beb2e0084f423ce9a271d680e3fc0b9b9caf27850f40",
+      "contentSha256": "b51e43761513ccc66c60c7e77fa8f3e849f257ce5428382003d9cc490949af89",
       "ownerEntityIds": ["harness-subagent"],
       "path": ".codex/skills/harness-subagent/SKILL.md",
       "provider": "codex"
@@ -346,19 +369,25 @@
       "provider": "copilot"
     },
     {
+      "contentSha256": "ab97c433dd8aff83142984834ccf6543ce1d41ddbdd79566879db6c441e33d5e",
+      "ownerEntityIds": ["critical-review"],
+      "path": ".github/skills/critical-review/SKILL.md",
+      "provider": "copilot"
+    },
+    {
       "contentSha256": "f0e342a294795e2d681da9c33f0f6672983676e7eb022416d3216af44701e0bd",
       "ownerEntityIds": ["harness-command"],
       "path": ".github/skills/harness-command/SKILL.md",
       "provider": "copilot"
     },
     {
-      "contentSha256": "a10a84f6ae1085112527210e4b1e52379411170555e851de86f83f4c83afc9f1",
+      "contentSha256": "64ad7ea46e2774300b037b626f32bb28b5cb2cca6aeb187fdfe76ee707ba28ac",
       "ownerEntityIds": ["harness-hook"],
       "path": ".github/skills/harness-hook/SKILL.md",
       "provider": "copilot"
     },
     {
-      "contentSha256": "5ad2c02a045793e9dd917eead17cc5c02d8b5108fc9bfd34ca7f10eb1f57867e",
+      "contentSha256": "10bbafcb52f852769ca5a96299362804de526adaa33485582f1bc3bc96f76207",
       "ownerEntityIds": ["harness-mcp"],
       "path": ".github/skills/harness-mcp/SKILL.md",
       "provider": "copilot"
@@ -376,13 +405,13 @@
       "provider": "copilot"
     },
     {
-      "contentSha256": "0a73b6249e331c46e8d6ebbda852e0894c3d03635cdfce2b5ffb2ed4849dd87f",
+      "contentSha256": "1dc18086822c9cf231c3ecd476231b25af6a75f335b01cbebff15c0aebfe3009",
       "ownerEntityIds": ["harness-skill"],
       "path": ".github/skills/harness-skill/SKILL.md",
       "provider": "copilot"
     },
     {
-      "contentSha256": "f2257941ea419eae38b3beb2e0084f423ce9a271d680e3fc0b9b9caf27850f40",
+      "contentSha256": "b51e43761513ccc66c60c7e77fa8f3e849f257ce5428382003d9cc490949af89",
       "ownerEntityIds": ["harness-subagent"],
       "path": ".github/skills/harness-subagent/SKILL.md",
       "provider": "copilot"

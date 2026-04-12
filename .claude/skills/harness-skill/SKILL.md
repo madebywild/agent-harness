@@ -107,19 +107,38 @@ After `npx harness apply`, provider artifacts are written to the paths described
 
 - **Official docs:** https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/create-skills
 
+### Cursor
+
+- **Output path:** `.cursor/skills/<skill-id>/SKILL.md` (plus any supporting files)
+- **Discovery:** Cursor loads skills from `.agents/skills/`, `.cursor/skills/`, and `~/.cursor/skills/`. For compatibility, it also scans `.claude/skills/`, `.codex/skills/`, `~/.claude/skills/`, and `~/.codex/skills/`. Harness writes to `.cursor/skills/` at the project level.
+- **Invocation:** `/` followed by the skill name in Agent chat, or automatic when the agent determines the skill is relevant.
+- **How it works:** Cursor discovers skills at startup and presents them to the agent. The agent decides when they are relevant based on context. Skills can also include `scripts/`, `references/`, and `assets/` subdirectories for supporting files.
+- **Frontmatter fields supported:**
+
+  | Field | Required | Notes |
+  |---|---|---|
+  | `name` | Yes | Must match the parent folder name. Lowercase letters, numbers, and hyphens only. |
+  | `description` | Yes | Used by the agent to determine relevance. |
+  | `license` | No | License name or reference. |
+  | `compatibility` | No | Environment requirements. |
+  | `metadata` | No | Arbitrary key-value mapping. |
+  | `disable-model-invocation` | No | `true` = only included when explicitly invoked via `/skill-name`. |
+
+- **Official docs:** https://docs.cursor.com/agent/skills
+
 ---
 
 ## Provider-specific differences at a glance
 
-| Aspect | Claude Code | Codex CLI | GitHub Copilot |
-|---|---|---|---|
-| Output root | `.claude/skills/` | `.codex/skills/` | `.github/skills/` |
-| Invocation | `/<skill-id>` | `/skills` or `$mention` | Automatic on context match |
-| Auto-invoke | Yes (opt-out via frontmatter) | Yes (opt-out via `openai.yaml`) | Yes (opt-out via frontmatter in VS Code) |
-| Frontmatter richness | Extensive (11+ fields) | Minimal (`name`, `description`) | Moderate (`name`, `description`, plus VS Code fields) |
-| Argument passing | `$ARGUMENTS`, `$N` placeholders | Not specified | Not applicable |
-| Subagent execution | `context: fork` | Not applicable | Not applicable |
-| Supporting files | Fully supported | Supported (`scripts/`, `references/`) | Supported |
+| Aspect | Claude Code | Codex CLI | GitHub Copilot | Cursor |
+|---|---|---|---|---|
+| Output root | `.claude/skills/` | `.codex/skills/` | `.github/skills/` | `.cursor/skills/` |
+| Invocation | `/<skill-id>` | `/skills` or `$mention` | Automatic on context match | `/<skill-id>` or automatic |
+| Auto-invoke | Yes (opt-out via frontmatter) | Yes (opt-out via `openai.yaml`) | Yes (opt-out via frontmatter in VS Code) | Yes (opt-out via `disable-model-invocation`) |
+| Frontmatter richness | Extensive (11+ fields) | Minimal (`name`, `description`) | Moderate (`name`, `description`, plus VS Code fields) | Moderate (`name`, `description`, plus 4 optional fields) |
+| Argument passing | `$ARGUMENTS`, `$N` placeholders | Not specified | Not applicable | Not specified |
+| Subagent execution | `context: fork` | Not applicable | Not applicable | Not applicable |
+| Supporting files | Fully supported | Supported (`scripts/`, `references/`) | Supported | Supported (`scripts/`, `references/`, `assets/`) |
 
 ---
 
@@ -212,4 +231,5 @@ npx harness provider enable copilot        # ensure the copilot provider is enab
 - OpenAI Codex agent skills: https://developers.openai.com/codex/skills
 - GitHub Copilot agent skills: https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/create-skills
 - GitHub Copilot skills (VS Code): https://code.visualstudio.com/docs/copilot/customization/agent-skills
+- Cursor agent skills: https://docs.cursor.com/agent/skills
 - Agent Skills open standard: https://agentskills.io

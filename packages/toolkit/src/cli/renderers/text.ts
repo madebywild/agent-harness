@@ -2,6 +2,7 @@ import type { Diagnostic } from "../../types.js";
 import type {
   ApplyOutput,
   CommandOutput,
+  DocsOutput,
   DoctorOutput,
   InitOutput,
   MigrateOutput,
@@ -212,6 +213,44 @@ function renderMigrateOutput(output: MigrateOutput, writeLine: (line: string) =>
   renderDiagnosticsSection(output.data.result.diagnostics, writeLine);
 }
 
+function renderDocsOutput(output: DocsOutput, writeLine: (line: string) => void): void {
+  switch (output.data.operation) {
+    case "list": {
+      for (const topic of output.data.topics) {
+        writeLine(`${topic.id} — ${topic.title}`);
+      }
+      if (output.data.topics.length === 0) {
+        writeLine("No documentation topics found.");
+      }
+      break;
+    }
+    case "show": {
+      if (output.data.topic) {
+        writeLine(output.data.topic.content);
+      } else {
+        writeLine("Topic not found.");
+      }
+      break;
+    }
+    case "search": {
+      if (output.data.results.length === 0) {
+        writeLine(`No results for '${output.data.query}'.`);
+        break;
+      }
+      for (const [i, result] of output.data.results.entries()) {
+        if (i > 0) writeLine("");
+        writeLine(`## ${result.id} — ${result.title}`);
+        for (const excerpt of result.excerpts) {
+          writeLine(`  ${excerpt.replaceAll("\n", "\n  ")}`);
+        }
+      }
+      break;
+    }
+  }
+
+  renderDiagnosticsSection(output.diagnostics, writeLine);
+}
+
 function renderPlanOutput(output: PlanOutput, writeLine: (line: string) => void): void {
   if (
     output.data.defaultInvocation &&
@@ -321,6 +360,10 @@ export function renderTextOutput(output: CommandOutput, writeLine: (line: string
     }
     case "migrate": {
       renderMigrateOutput(output, writeLine);
+      return;
+    }
+    case "docs": {
+      renderDocsOutput(output, writeLine);
       return;
     }
     case "plan": {

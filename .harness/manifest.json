@@ -14,6 +14,18 @@
     },
     {
       "enabled": true,
+      "id": "critical-review",
+      "overrides": {
+        "claude": ".harness/src/skills/critical-review/OVERRIDES.claude.yaml",
+        "codex": ".harness/src/skills/critical-review/OVERRIDES.codex.yaml",
+        "copilot": ".harness/src/skills/critical-review/OVERRIDES.copilot.yaml"
+      },
+      "registry": "local",
+      "sourcePath": ".harness/src/skills/critical-review/SKILL.md",
+      "type": "skill"
+    },
+    {
+      "enabled": true,
       "id": "harness-command",
       "overrides": {
         "claude": ".harness/src/skills/harness-command/OVERRIDES.claude.yaml",
