@@ -54,6 +54,8 @@ export function buildCopilotAdapter(skillFilesByEntityId: SkillFileIndex): Provi
             tools: options.tools,
             model: options.model,
             handoffs: options.handoffs,
+            agents: options.agents,
+            "mcp-servers": options.mcpServers,
           }),
           ownerEntityId: input.id,
           provider: "copilot",
@@ -97,7 +99,22 @@ export function buildCopilotAdapter(skillFilesByEntityId: SkillFileIndex): Provi
 }
 
 function renderCopilotCommandMarkdown(input: CanonicalCommand): string {
-  const frontmatterLines = ["agent: agent", `description: ${JSON.stringify(input.description)}`];
+  const frontmatterLines: string[] = [];
+  frontmatterLines.push(`agent: ${JSON.stringify(input.agent ?? "agent")}`);
+  if (input.name) {
+    frontmatterLines.push(`name: ${JSON.stringify(input.name)}`);
+  }
+  frontmatterLines.push(`description: ${JSON.stringify(input.description)}`);
+  if (input.argumentHint) {
+    frontmatterLines.push(`argument-hint: ${JSON.stringify(input.argumentHint)}`);
+  }
+  if (input.model) {
+    frontmatterLines.push(`model: ${JSON.stringify(input.model)}`);
+  }
+  if (input.tools && input.tools.length > 0) {
+    const items = input.tools.map((tool) => JSON.stringify(tool)).join(", ");
+    frontmatterLines.push(`tools: [${items}]`);
+  }
   const parts = ["---", ...frontmatterLines, "---"];
   if (input.body) {
     parts.push("", input.body);

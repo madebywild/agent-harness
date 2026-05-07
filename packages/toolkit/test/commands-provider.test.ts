@@ -133,7 +133,7 @@ test("copilot renderCommand includes agent: agent in frontmatter", async () => {
   const artifacts = (await adapter.renderCommand?.(input, undefined)) ?? [];
   const content = artifacts[0]?.content ?? "";
 
-  assert.ok(content.includes("agent: agent"), `content was:\n${content}`);
+  assert.ok(content.includes('agent: "agent"'), `content was:\n${content}`);
 });
 
 test("copilot renderCommand includes description in frontmatter", async () => {
@@ -150,7 +150,7 @@ test("copilot renderCommand includes description in frontmatter", async () => {
   assert.ok(content.includes('description: "My copilot description"'), `content was:\n${content}`);
 });
 
-test("copilot renderCommand does not include argument-hint", async () => {
+test("copilot renderCommand includes argument-hint when present", async () => {
   const adapter = buildCopilotAdapter(new Map());
   const input: CanonicalCommand = {
     id: "cmd",
@@ -162,7 +162,40 @@ test("copilot renderCommand does not include argument-hint", async () => {
   const artifacts = (await adapter.renderCommand?.(input, undefined)) ?? [];
   const content = artifacts[0]?.content ?? "";
 
-  assert.ok(!content.includes("argument-hint"), `content was:\n${content}`);
+  assert.ok(content.includes('argument-hint: "[arg]"'), `content was:\n${content}`);
+});
+
+test("copilot renderCommand projects name, model, tools, and custom agent", async () => {
+  const adapter = buildCopilotAdapter(new Map());
+  const input: CanonicalCommand = {
+    id: "cmd",
+    description: "Demo",
+    name: "Demo command",
+    model: "gpt-5",
+    tools: ["editFiles", "search"],
+    agent: "code-review",
+    body: "Run the demo.",
+  };
+
+  const artifacts = (await adapter.renderCommand?.(input, undefined)) ?? [];
+  const content = artifacts[0]?.content ?? "";
+
+  assert.ok(content.includes('agent: "code-review"'), `agent: ${content}`);
+  assert.ok(content.includes('name: "Demo command"'), `name: ${content}`);
+  assert.ok(content.includes('model: "gpt-5"'), `model: ${content}`);
+  assert.ok(content.includes('tools: ["editFiles", "search"]'), `tools: ${content}`);
+});
+
+test("copilot renderCommand omits new fields when not present", async () => {
+  const adapter = buildCopilotAdapter(new Map());
+  const input: CanonicalCommand = { id: "cmd", description: "Demo", body: "Body." };
+
+  const artifacts = (await adapter.renderCommand?.(input, undefined)) ?? [];
+  const content = artifacts[0]?.content ?? "";
+
+  assert.ok(!/^name:/m.test(content), `name should be absent: ${content}`);
+  assert.ok(!/^model:/m.test(content), `model should be absent: ${content}`);
+  assert.ok(!/^tools:/m.test(content), `tools should be absent: ${content}`);
 });
 
 test("copilot renderCommand returns empty when override.enabled is false", async () => {

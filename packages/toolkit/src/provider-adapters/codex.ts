@@ -3,7 +3,7 @@ import type { ProviderAdapter } from "../types.js";
 import { deepMergeObjects, normalizeRelativePath, uniqSorted, withSingleTrailingNewline } from "../utils.js";
 import { PROVIDER_DEFAULTS } from "./constants.js";
 import { createProviderAdapter } from "./create-adapter.js";
-import { resolveCodexNotifyCommand } from "./hooks.js";
+import { renderCodexHookConfigObject, resolveCodexNotifyCommand } from "./hooks.js";
 import { mergeMcpServers } from "./mcp.js";
 import { parseCodexSubagentOptions } from "./subagents.js";
 import type { ProviderDefinition, SkillFileIndex } from "./types.js";
@@ -45,7 +45,7 @@ export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): Provide
         enabledSubagents,
         enabledHooks.map((entry) => entry.id),
       );
-      const payload: Record<string, unknown> = {};
+      let payload: Record<string, unknown> = {};
 
       if (enabledMcps.length > 0) {
         payload.mcp_servers = mergeMcpServers(enabledMcps) as unknown as TOML.AnyJson;
@@ -65,13 +65,33 @@ export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): Provide
               if (options.model) {
                 agentState.model = options.model;
               }
+              if (options.reasoning) {
+                agentState.model_reasoning_effort = options.reasoning;
+              }
+              if (options.sandboxMode) {
+                agentState.sandbox_mode = options.sandboxMode;
+              }
               if (options.tools) {
                 agentState.tools = options.tools;
+              }
+              if (options.mcpServers) {
+                agentState.mcp_servers = options.mcpServers;
+              }
+              if (options.skillsConfig) {
+                agentState.skills = { config: options.skillsConfig };
+              }
+              if (options.nicknameCandidates) {
+                agentState.nickname_candidates = options.nicknameCandidates;
               }
               return [subagent.id, agentState] as const;
             }),
         );
         payload.agents = agents as unknown as TOML.AnyJson;
+      }
+
+      const codexHookConfig = renderCodexHookConfigObject(enabledHooks);
+      if (codexHookConfig) {
+        payload = deepMergeObjects(payload, codexHookConfig);
       }
 
       const notifyCommand = resolveCodexNotifyCommand(enabledHooks);

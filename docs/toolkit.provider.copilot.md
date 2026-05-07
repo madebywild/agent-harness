@@ -19,3 +19,12 @@ Builds the Copilot provider adapter.
 - Hooks:
   - renders consolidated hook config to `.github/hooks/harness.generated.json` (or overridden target)
   - uses shared projection helper `renderCopilotHookConfig(...)`
+- Commands / prompt files:
+  - renders `.github/prompts/<id>.prompt.md`
+  - frontmatter projects canonical command fields when present:
+    - `agent` (defaults to `agent` when not set)
+    - `name`
+    - `description`
+    - `argument-hint`
+    - `model`
+    - `tools` (array of strings; a single string in the source is coerced to a one-element array)

@@ -21,7 +21,7 @@ Supported providers:
 | `skill` | Yes | Yes | Yes | Yes |
 | `mcp_config` | Yes | Yes | Yes | Yes |
 | `subagent` | Yes | Yes | Yes | Yes |
-| `hook` | Partial (`notify` projection) | Yes | Yes | Yes |
+| `hook` | Yes (`[hooks]` + `notify`) | Yes | Yes | Yes |
 | `settings` | Yes | Yes | Yes | No (v1) |
 | `command` | No | Yes | Yes | No (v1) |
 
@@ -43,13 +43,28 @@ Authoring examples: [Hook Authoring Guide](./hook-authoring.md)
 | Skills | `.codex/skills/<skill-id>/` | Markdown/JSON |
 | MCP Config | `.codex/config.toml` (`[mcp_servers.<id>]`) | TOML |
 | Subagents | `.codex/config.toml` (`[agents.<id>]`) | TOML |
-| Hooks | `.codex/config.toml` (`notify = [...]`) | TOML |
+| Hooks | `.codex/config.toml` (`[hooks]`, `notify = [...]`) | TOML |
 
 ### Hook notes
 
-- Codex projection always accepts canonical `turn_complete`; strict mode only controls whether other unsupported events/handlers cause errors.
-- Hook handlers can be `notify` or `command`; both normalize into `notify` command array.
+- Codex projects canonical `session_start`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, and `stop` into inline `[hooks]` tables in `.codex/config.toml`.
+- Codex also keeps canonical `turn_complete` as legacy `notify = [...]` output for current compatibility.
+- When inline hooks are present, `harness` emits `[features] codex_hooks = true`.
+- Matcher is supported for projected Codex `session_start`, `pre_tool_use`, `permission_request`, and `post_tool_use` events.
+- `cwd` and `env` command fields are unsupported for Codex inline hook projection and fail in strict mode.
 - Multiple distinct notify commands across enabled hooks fail with `HOOK_NOTIFY_CONFLICT`.
+
+### Skill notes
+
+- `harness` manages project-layer Codex skills under `.codex/skills/`.
+- Current Codex upstream implementations also scan repo `.agents/skills/` roots in addition to project-layer `.codex/skills/`.
+
+### Subagent notes
+
+- Codex subagents render inline under `[agents.<id>]` in `.codex/config.toml`; harness does not migrate them to
+  `.codex/agents/*.toml`.
+- Supported Codex-specific override options: `model`, `tools`, `reasoning` / `model_reasoning_effort`,
+  `sandbox_mode`, `mcp_servers`, `skills.config`, `nickname_candidates`.
 
 ## 2. Anthropic Claude Code
 
@@ -77,6 +92,11 @@ Authoring examples: [Hook Authoring Guide](./hook-authoring.md)
 - Supports canonical `command` hook handlers.
 - Matcher support is event-dependent; invalid matcher usage fails in strict mode.
 
+### Subagent notes
+
+- Claude frontmatter always includes `name` and `description`.
+- Supported Claude-specific override options: `model`, `tools`, `disallowedTools`, `permissionMode`, `mcpServers`, `maxTurns`.
+
 ## 3. GitHub Copilot
 
 ### Native configuration locations
@@ -99,9 +119,19 @@ Authoring examples: [Hook Authoring Guide](./hook-authoring.md)
 
 ### Hook notes
 
-- Uses Copilot CLI event names (for example `preToolUse`, `postToolUse`, `sessionStart`).
+- Uses Copilot CLI event names (for example `preToolUse`, `postToolUse`, `sessionStart`, `subagentStart`, `preCompact`).
 - Supports canonical `command` handlers only.
 - Matcher is unsupported for Copilot projection and fails in strict mode.
+
+### Subagent notes
+
+- Copilot frontmatter always includes `name` and `description`.
+- Supported Copilot-specific override options: `model` (string or string array), `tools`, `handoffs`, `agents`, `mcp-servers`.
+
+### Command notes
+
+- Copilot prompt files include `agent`, `description`, and `argument-hint` when present in the canonical command source.
+- Additional canonical command frontmatter is projected when present: `name`, `model`, `tools` (array of strings), and a non-default `agent`. `tools` may be authored as a single string in the source — the loader coerces it to a one-element array before rendering.
 
 ## 4. Cursor
 

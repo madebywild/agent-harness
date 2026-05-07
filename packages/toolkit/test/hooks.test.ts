@@ -3,6 +3,7 @@ import test from "node:test";
 import { parseCanonicalHookDocument } from "../src/hooks.ts";
 import {
   renderClaudeHookSettings,
+  renderCodexHookConfigObject,
   renderCopilotHookConfig,
   renderCursorHookConfig,
   resolveCodexNotifyCommand,
@@ -185,6 +186,38 @@ test("renderCopilotHookConfig throws for matcher usage in strict mode", () => {
   assert.throws(() => renderCopilotHookConfig(hooks), /HOOK_EVENT_UNSUPPORTED/u);
 });
 
+test("renderCopilotHookConfig maps subagent_start and pre_compact", () => {
+  const hooks: CanonicalHook[] = [
+    {
+      id: "guard",
+      mode: "strict",
+      events: {
+        subagent_start: [
+          {
+            type: "command",
+            command: "echo subagent-start",
+          },
+        ],
+        pre_compact: [
+          {
+            type: "command",
+            command: "echo pre-compact",
+          },
+        ],
+      },
+    },
+  ];
+
+  const rendered = JSON.parse(renderCopilotHookConfig(hooks)) as {
+    version: number;
+    hooks: Record<string, Array<Record<string, unknown>>>;
+  };
+
+  assert.equal(rendered.version, 1);
+  assert.ok(rendered.hooks.subagentStart);
+  assert.ok(rendered.hooks.preCompact);
+});
+
 test("renderCursorHookConfig maps canonical events and supports matcher/timeout", () => {
   const hooks: CanonicalHook[] = [
     {
@@ -262,7 +295,7 @@ test("resolveCodexNotifyCommand ignores unsupported events in best_effort mode",
   const hooks: CanonicalHook[] = [
     {
       id: "guard",
-      mode: "best_effort",
+      mode: "strict",
       events: {
         pre_tool_use: [
           {
@@ -283,23 +316,66 @@ test("resolveCodexNotifyCommand ignores unsupported events in best_effort mode",
   assert.deepEqual(resolveCodexNotifyCommand(hooks), ["python3", "scripts/on_turn_complete.py"]);
 });
 
-test("resolveCodexNotifyCommand throws for unsupported events in strict mode", () => {
+test("renderCodexHookConfigObject maps supported events and enables the feature flag", () => {
   const hooks: CanonicalHook[] = [
     {
       id: "guard",
       mode: "strict",
       events: {
+        session_start: [
+          {
+            type: "command",
+            command: "echo session-start",
+            matcher: "startup|resume",
+          },
+        ],
         pre_tool_use: [
           {
             type: "command",
             command: "echo pre-tool",
+            matcher: "^Bash$",
+            timeoutSec: 30,
+          },
+        ],
+        stop: [
+          {
+            type: "command",
+            command: "echo stop",
           },
         ],
       },
     },
   ];
 
-  assert.throws(() => resolveCodexNotifyCommand(hooks), /HOOK_EVENT_UNSUPPORTED/u);
+  const rendered = renderCodexHookConfigObject(hooks) as {
+    features?: { codex_hooks?: boolean };
+    hooks?: Record<string, Array<{ matcher?: string; hooks: Array<Record<string, unknown>> }>>;
+  };
+
+  assert.equal(rendered.features?.codex_hooks, true);
+  assert.equal(rendered.hooks?.SessionStart?.[0]?.matcher, "startup|resume");
+  assert.equal(rendered.hooks?.PreToolUse?.[0]?.matcher, "^Bash$");
+  assert.equal(rendered.hooks?.PreToolUse?.[0]?.hooks?.[0]?.timeout, 30);
+  assert.ok(rendered.hooks?.Stop);
+});
+
+test("renderCodexHookConfigObject throws for unsupported events in strict mode", () => {
+  const hooks: CanonicalHook[] = [
+    {
+      id: "guard",
+      mode: "strict",
+      events: {
+        session_end: [
+          {
+            type: "command",
+            command: "echo nope",
+          },
+        ],
+      },
+    },
+  ];
+
+  assert.throws(() => renderCodexHookConfigObject(hooks), /HOOK_EVENT_UNSUPPORTED/u);
 });
 
 test("resolveCodexNotifyCommand rejects conflicting notify commands", () => {
@@ -331,4 +407,89 @@ test("resolveCodexNotifyCommand rejects conflicting notify commands", () => {
   ];
 
   assert.throws(() => resolveCodexNotifyCommand(hooks), /HOOK_NOTIFY_CONFLICT/u);
+});
+
+test("parseCanonicalHookDocument accepts new Claude-aligned events", () => {
+  const parsed = parseCanonicalHookDocument(
+    {
+      mode: "strict",
+      events: {
+        setup: [{ type: "command", command: "echo setup" }],
+        user_prompt_expansion: [{ type: "command", command: "echo expand" }],
+        permission_denied: [{ type: "command", command: "echo denied" }],
+        post_tool_batch: [{ type: "command", command: "echo batch" }],
+        cwd_changed: [{ type: "command", command: "echo cwd" }],
+        file_changed: [{ type: "command", command: "echo file" }],
+        task_created: [{ type: "command", command: "echo task" }],
+      },
+    },
+    ".harness/src/hooks/new-events.json",
+    "new-events",
+  );
+
+  assert.equal(parsed.diagnostics.length, 0, JSON.stringify(parsed.diagnostics));
+  assert.ok(parsed.canonical?.events.setup);
+  assert.ok(parsed.canonical?.events.task_created);
+});
+
+test("renderClaudeHookSettings projects all new events to camelCase Claude names", () => {
+  const hook: CanonicalHook = {
+    id: "h",
+    mode: "strict",
+    events: {
+      setup: [{ type: "command", command: "echo setup" }],
+      user_prompt_expansion: [{ type: "command", command: "echo expand" }],
+      permission_denied: [{ type: "command", command: "echo denied" }],
+      post_tool_batch: [{ type: "command", command: "echo batch" }],
+      cwd_changed: [{ type: "command", command: "echo cwd" }],
+      file_changed: [{ type: "command", command: "echo file" }],
+      task_created: [{ type: "command", command: "echo task" }],
+    },
+  };
+
+  const json = JSON.parse(renderClaudeHookSettings([hook])) as { hooks: Record<string, unknown> };
+  for (const eventName of [
+    "Setup",
+    "UserPromptExpansion",
+    "PermissionDenied",
+    "PostToolBatch",
+    "CwdChanged",
+    "FileChanged",
+    "TaskCreated",
+  ]) {
+    assert.ok(json.hooks[eventName], `Claude hooks should expose ${eventName}: ${JSON.stringify(json)}`);
+  }
+});
+
+test("non-Claude providers skip new events under best_effort", () => {
+  const hook: CanonicalHook = {
+    id: "h",
+    mode: "best_effort",
+    events: {
+      setup: [{ type: "command", command: "echo setup" }],
+      task_created: [{ type: "command", command: "echo task" }],
+    },
+  };
+
+  const copilot = JSON.parse(renderCopilotHookConfig([hook])) as { hooks: Record<string, unknown> };
+  const cursor = JSON.parse(renderCursorHookConfig([hook])) as { hooks: Record<string, unknown> };
+  const codex = renderCodexHookConfigObject([hook]);
+
+  assert.equal(Object.keys(copilot.hooks).length, 0);
+  assert.equal(Object.keys(cursor.hooks).length, 0);
+  assert.equal(codex, undefined);
+});
+
+test("non-Claude providers throw on new events under strict mode", () => {
+  const hook: CanonicalHook = {
+    id: "h",
+    mode: "strict",
+    events: {
+      task_created: [{ type: "command", command: "echo task" }],
+    },
+  };
+
+  assert.throws(() => renderCopilotHookConfig([hook]), /HOOK_EVENT_UNSUPPORTED/u);
+  assert.throws(() => renderCursorHookConfig([hook]), /HOOK_EVENT_UNSUPPORTED/u);
+  assert.throws(() => renderCodexHookConfigObject([hook]), /HOOK_EVENT_UNSUPPORTED/u);
 });
