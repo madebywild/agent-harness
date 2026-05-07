@@ -102,6 +102,10 @@ export interface CanonicalCommand {
   id: string;
   description: string;
   argumentHint?: string;
+  name?: string;
+  model?: string;
+  tools?: string[];
+  agent?: string;
   body: string;
 }
 

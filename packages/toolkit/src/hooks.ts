@@ -32,6 +32,13 @@ export const CANONICAL_HOOK_EVENTS = [
   "elicitation_result",
   "error",
   "turn_complete",
+  "setup",
+  "user_prompt_expansion",
+  "permission_denied",
+  "post_tool_batch",
+  "cwd_changed",
+  "file_changed",
+  "task_created",
 ] as const;
 
 export type CanonicalHookEvent = (typeof CANONICAL_HOOK_EVENTS)[number];

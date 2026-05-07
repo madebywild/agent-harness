@@ -51,7 +51,11 @@ npx harness apply
 
 ## Supported canonical events
 
-`session_start`, `session_end`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, `post_tool_failure`, `notification`, `subagent_start`, `subagent_stop`, `stop`, `stop_failure`, `teammate_idle`, `task_completed`, `instructions_loaded`, `config_change`, `worktree_create`, `worktree_remove`, `pre_compact`, `post_compact`, `elicitation`, `elicitation_result`, `error`, `turn_complete`
+`session_start`, `session_end`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, `post_tool_failure`, `notification`, `subagent_start`, `subagent_stop`, `stop`, `stop_failure`, `teammate_idle`, `task_completed`, `instructions_loaded`, `config_change`, `worktree_create`, `worktree_remove`, `pre_compact`, `post_compact`, `elicitation`, `elicitation_result`, `error`, `turn_complete`, `setup`, `user_prompt_expansion`, `permission_denied`, `post_tool_batch`, `cwd_changed`, `file_changed`, `task_created`
+
+> The Claude-aligned events `setup`, `user_prompt_expansion`, `permission_denied`, `post_tool_batch`, `cwd_changed`, `file_changed`, and `task_created` currently project only to Claude. On Codex, Copilot, and Cursor they are unsupported and behave per the chosen `mode`: `strict` raises `HOOK_EVENT_UNSUPPORTED`, `best_effort` silently skips them.
+
+> Only the `command` and `notify` handler types are supported. Provider-specific HTTP and prompt-driven hook handlers (documented for Claude) are not yet modelled in the canonical schema and require validation-backed schema work before they can be added.
 
 ## Handler types
 

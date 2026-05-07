@@ -123,8 +123,8 @@ test("runUHaulInitFlow imports all entity families, deletes legacy paths, enable
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/settings/copilot.json")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/commands/fix.md")));
 
-  await assert.rejects(async () => fs.stat(path.join(cwd, "AGENTS.md")), /ENOENT/u);
-  await assert.rejects(async () => fs.stat(path.join(cwd, ".claude/skills")), /ENOENT/u);
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, "AGENTS.md")));
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".claude/skills/reviewer/SKILL.md")));
 });
 
 test("runUHaulInitFlow resolves prompt conflicts by default precedence and supports precedence override", async () => {

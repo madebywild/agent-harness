@@ -1089,11 +1089,38 @@ function validateSubagentOverrideOptions(
 
   const allowed = new Set<string>(
     provider === "codex"
-      ? ["model", "tools"]
+      ? [
+          "model",
+          "reasoning",
+          "model_reasoning_effort",
+          "modelReasoningEffort",
+          "sandbox_mode",
+          "sandboxMode",
+          "tools",
+          "mcp_servers",
+          "mcpServers",
+          "skills",
+          "skills.config",
+          "skillsConfig",
+          "skills-config",
+          "nickname_candidates",
+          "nicknameCandidates",
+        ]
       : provider === "claude"
-        ? ["model", "tools"]
+        ? [
+            "model",
+            "tools",
+            "disallowedTools",
+            "disallowed-tools",
+            "permissionMode",
+            "permission-mode",
+            "mcpServers",
+            "mcp-servers",
+            "maxTurns",
+            "max-turns",
+          ]
         : provider === "copilot"
-          ? ["model", "tools", "handoffs"]
+          ? ["model", "tools", "handoffs", "agents", "mcpServers", "mcp-servers"]
           : ["model", "readonly", "is_background"],
   );
 

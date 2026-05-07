@@ -298,7 +298,22 @@ test("claude subagent renders frontmatter and body", async () => {
 
   await fs.writeFile(
     path.join(cwd, ".harness/src/subagents/researcher.overrides.claude.yaml"),
-    "version: 1\noptions:\n  model: claude-sonnet-4-5\n  tools:\n    - bash\n    - web_search\n",
+    [
+      "version: 1",
+      "options:",
+      "  model: claude-sonnet-4-5",
+      "  tools:",
+      "    - bash",
+      "    - web_search",
+      "  disallowedTools:",
+      "    - rm",
+      "  permissionMode: plan",
+      "  mcpServers:",
+      "    - github",
+      "    - playwright",
+      "  maxTurns: 7",
+      "",
+    ].join("\n"),
     "utf8",
   );
 
@@ -313,10 +328,14 @@ test("claude subagent renders frontmatter and body", async () => {
   assert.match(rendered, /description: "Describe what this subagent does\."/u);
   assert.match(rendered, /model: "claude-sonnet-4-5"/u);
   assert.match(rendered, /tools: \["bash","web_search"\]/u);
+  assert.match(rendered, /disallowedTools: \["rm"\]/u);
+  assert.match(rendered, /permissionMode: "plan"/u);
+  assert.match(rendered, /mcpServers: \["github","playwright"\]/u);
+  assert.match(rendered, /maxTurns: 7/u);
   assert.match(rendered, /You are the researcher subagent\./u);
 });
 
-test("copilot subagent renders .agent.md with handoffs", async () => {
+test("copilot subagent renders .agent.md with handoffs and agent-specific fields", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);
 
@@ -326,7 +345,23 @@ test("copilot subagent renders .agent.md with handoffs", async () => {
 
   await fs.writeFile(
     path.join(cwd, ".harness/src/subagents/reviewer.overrides.copilot.yaml"),
-    "version: 1\noptions:\n  model: gpt-5\n  tools:\n    - code_search\n  handoffs:\n    - planner\n",
+    [
+      "version: 1",
+      "options:",
+      "  model:",
+      "    - gpt-5",
+      "    - gpt-4.1",
+      "  tools:",
+      "    - code_search",
+      "  handoffs:",
+      "    - planner",
+      "  agents:",
+      "    - planner",
+      "    - verifier",
+      "  mcp-servers:",
+      "    - github",
+      "",
+    ].join("\n"),
     "utf8",
   );
 
@@ -338,9 +373,11 @@ test("copilot subagent renders .agent.md with handoffs", async () => {
 
   const rendered = await fs.readFile(path.join(cwd, ".github/agents/reviewer.agent.md"), "utf8");
   assert.match(rendered, /name: "reviewer"/u);
-  assert.match(rendered, /model: "gpt-5"/u);
+  assert.match(rendered, /model: \["gpt-5","gpt-4.1"\]/u);
   assert.match(rendered, /tools: \["code_search"\]/u);
   assert.match(rendered, /handoffs: \["planner"\]/u);
+  assert.match(rendered, /agents: \["planner","verifier"\]/u);
+  assert.match(rendered, /mcp-servers: \["github"\]/u);
 });
 
 test("cursor subagent uses override options first, then canonical metadata", async () => {
@@ -415,7 +452,27 @@ test("codex merges MCP and subagents into shared config", async () => {
   );
   await fs.writeFile(
     path.join(cwd, ".harness/src/subagents/researcher.overrides.codex.yaml"),
-    "version: 1\noptions:\n  model: gpt-5\n  tools:\n    - web_search\n",
+    [
+      "version: 1",
+      "options:",
+      "  model: gpt-5",
+      "  reasoning: high",
+      "  sandbox_mode: workspace-write",
+      "  tools:",
+      "    - web_search",
+      "  mcp_servers:",
+      "    docs:",
+      "      url: https://developers.openai.com/mcp",
+      "      startup_timeout_sec: 20",
+      "  skills:",
+      "    config:",
+      "      - path: /Users/me/.agents/skills/docs-editor/SKILL.md",
+      "        enabled: false",
+      "  nickname_candidates:",
+      "    - Scout",
+      "    - Indexer",
+      "",
+    ].join("\n"),
     "utf8",
   );
 
@@ -429,7 +486,20 @@ test("codex merges MCP and subagents into shared config", async () => {
   assert.match(tomlContent, /\[mcp_servers\.test\]/u);
   assert.match(tomlContent, /\[agents\.researcher\]/u);
   assert.match(tomlContent, /model = "gpt-5"/u);
+  assert.match(tomlContent, /model_reasoning_effort = "high"/u);
+  assert.match(tomlContent, /sandbox_mode = "workspace-write"/u);
   assert.match(tomlContent, /tools = \[\s*"web_search"\s*\]/u);
+  assert.match(tomlContent, /nickname_candidates = \[\s*"Scout",\s*"Indexer"\s*\]/u);
+  assert.match(tomlContent, /\[agents\.researcher\.mcp_servers\.docs\]/u);
+  assert.match(tomlContent, /url = "https:\/\/developers\.openai\.com\/mcp"/u);
+  assert.match(tomlContent, /startup_timeout_sec = 20/u);
+  assert.match(tomlContent, /\[\[agents\.researcher\.skills\.config\]\]/u);
+  assert.match(tomlContent, /path = "\/Users\/me\/\.agents\/skills\/docs-editor\/SKILL\.md"/u);
+  assert.match(tomlContent, /enabled = false/u);
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.code === "SUBAGENT_OPTIONS_UNKNOWN"),
+    false,
+  );
 });
 
 test("codex shared config target conflict reports CODEX_CONFIG_TARGET_CONFLICT", async () => {
@@ -706,6 +776,68 @@ test("codex provider maps turn_complete hook to notify command", async () => {
   assert.match(tomlContent, /notify = \[\s*"python3",\s*"scripts\/on_turn_complete\.py"\s*\]/u);
 });
 
+test("codex provider renders documented hook events into config.toml", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addHook("guard");
+  await engine.enableProvider("codex");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/hooks/guard.json"),
+    JSON.stringify(
+      {
+        mode: "strict",
+        events: {
+          session_start: [
+            {
+              type: "command",
+              command: "echo session-start",
+              matcher: "startup|resume",
+            },
+          ],
+          pre_tool_use: [
+            {
+              type: "command",
+              command: "echo pre-tool",
+              matcher: "^Bash$",
+              timeoutSec: 45,
+            },
+          ],
+          stop: [
+            {
+              type: "command",
+              command: "echo stop",
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+    JSON.stringify(apply.diagnostics),
+  );
+
+  const tomlContent = await fs.readFile(path.join(cwd, ".codex/config.toml"), "utf8");
+  assert.match(tomlContent, /\[features\]/u);
+  assert.match(tomlContent, /codex_hooks = true/u);
+  assert.match(tomlContent, /\[\[hooks\.SessionStart\]\]/u);
+  assert.match(tomlContent, /matcher = "startup\|resume"/u);
+  assert.match(tomlContent, /\[\[hooks\.PreToolUse\]\]/u);
+  assert.match(tomlContent, /matcher = "\^Bash\$"/u);
+  assert.match(tomlContent, /\[\[hooks\.PreToolUse\.hooks\]\]/u);
+  assert.match(tomlContent, /timeout = 45/u);
+  assert.match(tomlContent, /\[\[hooks\.Stop\]\]/u);
+});
+
 test("codex provider accepts default scaffolded hook without edits", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);
@@ -776,7 +908,7 @@ test("codex provider rejects unsupported hook events in strict mode", async () =
       {
         mode: "strict",
         events: {
-          pre_tool_use: [
+          session_end: [
             {
               type: "command",
               command: "echo should-fail-on-codex",
@@ -849,9 +981,10 @@ test("best_effort mode skips unsupported events without errors on claude and cod
   };
   assert.ok(claudeSettings.hooks?.PreToolUse, "Claude should render PreToolUse");
 
-  // Codex renders turn_complete as notify but skips pre_tool_use
+  // Codex renders both the notify fallback and documented hooks
   const tomlContent = await fs.readFile(path.join(cwd, ".codex/config.toml"), "utf8");
   assert.match(tomlContent, /notify/u, "Codex should render notify");
+  assert.match(tomlContent, /\[\[hooks\.PreToolUse\]\]/u, "Codex should render PreToolUse");
 });
 
 test("hook target path conflict fails with HOOK_TARGET_CONFLICT", async () => {

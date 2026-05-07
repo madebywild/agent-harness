@@ -139,3 +139,42 @@ test("parseCanonicalCommandDocument sets path on diagnostics", () => {
 
   assert.ok(result.diagnostics.some((d) => d.path === sourcePath));
 });
+
+test("parseCanonicalCommandDocument captures name, model, agent, and tools array", () => {
+  const raw = [
+    "---",
+    'description: "Demo"',
+    'name: "Demo command"',
+    'model: "gpt-5"',
+    'agent: "code-review"',
+    'tools: ["editFiles", "search"]',
+    "---",
+    "",
+    "Body.",
+  ].join("\n");
+
+  const result = parseCanonicalCommandDocument(raw, ".harness/src/commands/demo.md", "demo");
+
+  assert.equal(result.diagnostics.length, 0, JSON.stringify(result.diagnostics));
+  assert.equal(result.canonical?.name, "Demo command");
+  assert.equal(result.canonical?.model, "gpt-5");
+  assert.equal(result.canonical?.agent, "code-review");
+  assert.deepEqual(result.canonical?.tools, ["editFiles", "search"]);
+});
+
+test("parseCanonicalCommandDocument coerces single-string tools into array", () => {
+  const raw = ["---", 'description: "Demo"', 'tools: "editFiles"', "---", "", "Body."].join("\n");
+
+  const result = parseCanonicalCommandDocument(raw, ".harness/src/commands/single-tool.md", "single-tool");
+
+  assert.deepEqual(result.canonical?.tools, ["editFiles"]);
+});
+
+test("parseCanonicalCommandDocument rejects non-string tools entries", () => {
+  const raw = ["---", 'description: "Demo"', "tools: [1, 2]", "---", "", "Body."].join("\n");
+
+  const result = parseCanonicalCommandDocument(raw, ".harness/src/commands/bad.md", "bad");
+
+  assert.ok(result.diagnostics.some((d) => d.code === "COMMAND_TOOLS_INVALID"));
+  assert.equal(result.canonical, undefined);
+});

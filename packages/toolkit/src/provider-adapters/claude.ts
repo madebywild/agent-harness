@@ -100,6 +100,10 @@ export function buildClaudeAdapter(skillFilesByEntityId: SkillFileIndex): Provid
           content: renderSubagentMarkdown(input, {
             tools: options.tools,
             model: options.model,
+            disallowedTools: options.disallowedTools,
+            permissionMode: options.permissionMode,
+            mcpServers: options.mcpServers,
+            maxTurns: options.maxTurns,
           }),
           ownerEntityId: input.id,
           provider: "claude",
