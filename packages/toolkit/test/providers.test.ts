@@ -288,6 +288,48 @@ test("codex MCP config uses TOML format with mcp_servers property", async () => 
   assert.ok(!tomlContent.includes("[mcp_servers]\n"), "TOML should NOT have bare [mcp_servers] header");
 });
 
+test("codex remote MCP config renders serverUrl as url", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addMcp("remote");
+  await engine.enableProvider("codex");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/mcp/remote.json"),
+    JSON.stringify(
+      {
+        servers: {
+          figma: {
+            serverUrl: "https://mcp.figma.com/mcp",
+            bearer_token_env_var: "FIGMA_OAUTH_TOKEN",
+            http_headers: { "X-Figma-Region": "us-east-1" },
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+    JSON.stringify(apply.diagnostics),
+  );
+
+  const tomlContent = await fs.readFile(path.join(cwd, ".codex/config.toml"), "utf8");
+  assert.match(tomlContent, /\[mcp_servers\.figma\]/u);
+  assert.match(tomlContent, /url = "https:\/\/mcp\.figma\.com\/mcp"/u);
+  assert.doesNotMatch(tomlContent, /serverUrl/u);
+  assert.match(tomlContent, /bearer_token_env_var = "FIGMA_OAUTH_TOKEN"/u);
+  assert.match(tomlContent, /\[mcp_servers\.figma\.http_headers\]/u);
+  assert.match(tomlContent, /X-Figma-Region = "us-east-1"/u);
+});
+
 test("claude subagent renders frontmatter and body", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);

@@ -13,6 +13,7 @@ Builds the Codex provider adapter.
 - Defaults from `PROVIDER_DEFAULTS.codex`.
 - MCP format: TOML.
 - Uses `renderProviderState` to merge enabled MCP/subagent/hook-state into one TOML artifact.
+- Remote MCP server entries authored with `serverUrl` are rendered as Codex's current `url` field.
 - TOML payload can include:
   - `mcp_servers` (merged MCP servers)
   - `agents.<id>` entries (enabled subagents, with `developer_instructions`, `description`, and supported

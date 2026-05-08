@@ -16,7 +16,7 @@ const CODEX_DEFINITION: ProviderDefinition = {
     render(servers) {
       return withSingleTrailingNewline(
         TOML.stringify({
-          mcp_servers: servers as unknown as TOML.AnyJson,
+          mcp_servers: normalizeCodexMcpServers(servers) as unknown as TOML.AnyJson,
         }),
       );
     },
@@ -48,7 +48,7 @@ export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): Provide
       let payload: Record<string, unknown> = {};
 
       if (enabledMcps.length > 0) {
-        payload.mcp_servers = mergeMcpServers(enabledMcps) as unknown as TOML.AnyJson;
+        payload.mcp_servers = normalizeCodexMcpServers(mergeMcpServers(enabledMcps)) as unknown as TOML.AnyJson;
       }
 
       if (enabledSubagents.length > 0) {
@@ -75,7 +75,7 @@ export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): Provide
                 agentState.tools = options.tools;
               }
               if (options.mcpServers) {
-                agentState.mcp_servers = options.mcpServers;
+                agentState.mcp_servers = normalizeCodexMcpServers(options.mcpServers);
               }
               if (options.skillsConfig) {
                 agentState.skills = { config: options.skillsConfig };
@@ -124,6 +124,24 @@ export function buildCodexAdapter(skillFilesByEntityId: SkillFileIndex): Provide
         },
       ];
     },
+  };
+}
+
+function normalizeCodexMcpServers(servers: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(servers).map(([serverId, server]) => [serverId, normalizeCodexMcpServer(server)] as const),
+  );
+}
+
+function normalizeCodexMcpServer(server: unknown): unknown {
+  if (!server || typeof server !== "object" || Array.isArray(server) || !Object.hasOwn(server, "serverUrl")) {
+    return server;
+  }
+
+  const { serverUrl, ...rest } = server as Record<string, unknown>;
+  return {
+    ...(!Object.hasOwn(rest, "url") ? { url: serverUrl } : {}),
+    ...rest,
   };
 }
 

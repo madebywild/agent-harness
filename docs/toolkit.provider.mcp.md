@@ -22,3 +22,5 @@ Provides MCP-specific composition logic shared by provider adapters.
 - Merges all servers by server ID.
 - Rejects conflicting definitions for the same server ID.
 - Returns deterministically key-sorted merged server map.
+- Provider adapters may still apply native field normalization after the shared merge; Codex renders remote server
+  `serverUrl` fields as `url` in `.codex/config.toml`.
