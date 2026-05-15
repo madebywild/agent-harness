@@ -49,8 +49,9 @@ Authoring examples: [Hook Authoring Guide](./hook-authoring.md)
 
 - Codex projects canonical `session_start`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, and `stop` into inline `[hooks]` tables in `.codex/config.toml`.
 - Codex also keeps canonical `turn_complete` as legacy `notify = [...]` output for current compatibility.
-- When inline hooks are present, `harness` emits `[features] codex_hooks = true`.
+- When inline hooks are present, `harness` emits `[features] hooks = true`; `codex_hooks` is treated as a deprecated upstream alias during import.
 - Matcher is supported for projected Codex `session_start`, `pre_tool_use`, `permission_request`, and `post_tool_use` events.
+- `statusMessage` is supported for Codex lifecycle command hooks.
 - `cwd` and `env` command fields are unsupported for Codex inline hook projection and fail in strict mode.
 - Multiple distinct notify commands across enabled hooks fail with `HOOK_NOTIFY_CONFLICT`.
 
@@ -230,6 +231,7 @@ For hook entities the default sidecar path is:
 ## References
 
 - [OpenAI Codex Config Reference](https://developers.openai.com/codex/config-reference)
+- [OpenAI Codex Hooks](https://developers.openai.com/codex/hooks)
 - [OpenAI AGENTS.md Guide](https://developers.openai.com/codex/agents)
 - [Claude Code Settings](https://docs.claude.com/en/docs/claude-code/settings)
 - [Claude Code Hooks](https://code.claude.com/docs/en/hooks)

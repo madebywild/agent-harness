@@ -232,6 +232,7 @@ function parseCommandHandler(
   const timeoutSecIsPlaceholder = isEnvPlaceholderToken(input.timeoutSec);
   const timeoutIsPlaceholder = isEnvPlaceholderToken(input.timeout);
   const env = asOptionalStringMap(input.env);
+  const statusMessage = asOptionalString(input.statusMessage);
 
   if (!command && !windows && !linux && !osx && !bash && !powershell) {
     diagnostics.push({
@@ -279,6 +280,17 @@ function parseCommandHandler(
     return undefined;
   }
 
+  if (typeof input.statusMessage !== "undefined" && !statusMessage) {
+    diagnostics.push({
+      code: "HOOK_STATUS_MESSAGE_INVALID",
+      severity: "error",
+      message: `Hook '${entityId}' event '${eventName}' handler #${index + 1} has invalid statusMessage`,
+      path: sourcePath,
+      entityId,
+    });
+    return undefined;
+  }
+
   return {
     type: "command",
     matcher,
@@ -292,6 +304,7 @@ function parseCommandHandler(
     env,
     timeoutSec,
     timeout,
+    statusMessage,
   };
 }
 

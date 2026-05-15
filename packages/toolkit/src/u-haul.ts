@@ -19,6 +19,7 @@ import {
 import { validateEntityId } from "./engine/utils.js";
 import { HarnessEngine } from "./engine.js";
 import { parseCanonicalHookDocument } from "./hooks.js";
+import { getHookEventCapability, nativeToCanonicalHookEvent } from "./provider-adapters/hook-capabilities.js";
 import { renderSubagentMarkdown } from "./provider-adapters/subagents.js";
 import { listFilesRecursively } from "./repository.js";
 import type { ApplyResult, CanonicalHookEvent, CanonicalSubagent, CliEntityType, ProviderId } from "./types.js";
@@ -54,42 +55,6 @@ const U_HAUL_TYPE_ORDER: readonly CliEntityType[] = [
   "settings",
   "command",
 ];
-
-const CLAUDE_EVENT_FROM_PROVIDER: Record<string, CanonicalHookEvent> = {
-  SessionStart: "session_start",
-  SessionEnd: "session_end",
-  UserPromptSubmit: "prompt_submit",
-  PreToolUse: "pre_tool_use",
-  PermissionRequest: "permission_request",
-  PostToolUse: "post_tool_use",
-  PostToolUseFailure: "post_tool_failure",
-  Notification: "notification",
-  SubagentStart: "subagent_start",
-  SubagentStop: "subagent_stop",
-  Stop: "stop",
-  StopFailure: "stop_failure",
-  TeammateIdle: "teammate_idle",
-  TaskCompleted: "task_completed",
-  InstructionsLoaded: "instructions_loaded",
-  ConfigChange: "config_change",
-  WorktreeCreate: "worktree_create",
-  WorktreeRemove: "worktree_remove",
-  PreCompact: "pre_compact",
-  PostCompact: "post_compact",
-  Elicitation: "elicitation",
-  ElicitationResult: "elicitation_result",
-};
-
-const COPILOT_EVENT_FROM_PROVIDER: Record<string, CanonicalHookEvent> = {
-  sessionStart: "session_start",
-  sessionEnd: "session_end",
-  userPromptSubmitted: "prompt_submit",
-  preToolUse: "pre_tool_use",
-  postToolUse: "post_tool_use",
-  agentStop: "stop",
-  subagentStop: "subagent_stop",
-  errorOccurred: "error",
-};
 
 export interface LegacyAssetsDetection {
   hasLegacyAssets: boolean;
@@ -278,6 +243,7 @@ export async function detectLegacyAssets(cwd: string): Promise<LegacyAssetsDetec
       check: directoryHasMatchingFiles(cwd, ".github/skills", (_base, relative) => relative.endsWith("/SKILL.md")),
     },
     { provider: "codex", legacyPath: ".codex/config.toml", check: pathExists(cwd, ".codex/config.toml") },
+    { provider: "codex", legacyPath: ".codex/hooks.json", check: pathExists(cwd, ".codex/hooks.json") },
     { provider: "claude", legacyPath: ".mcp.json", check: pathExists(cwd, ".mcp.json") },
     { provider: "copilot", legacyPath: ".vscode/mcp.json", check: pathExists(cwd, ".vscode/mcp.json") },
     {
@@ -411,6 +377,7 @@ async function buildUHaulPlan(cwd: string, precedence: readonly ProviderId[]): P
   await parsePromptSources(collection);
   await parseSkillSources(collection);
   await parseCodexConfig(collection);
+  await parseCodexHooksJson(collection);
   await parseStandaloneMcpFiles(collection);
   await parseSubagentFiles(collection);
   await parseClaudeSettings(collection);
@@ -616,6 +583,7 @@ async function parseCodexConfig(collection: CandidateCollection): Promise<void> 
 
   const candidateCountBefore = collection.candidates.length;
   const consumedKeys = new Set<string>();
+  let importedHooks = false;
 
   if (Object.hasOwn(payload, "mcp_servers")) {
     consumedKeys.add("mcp_servers");
@@ -632,9 +600,18 @@ async function parseCodexConfig(collection: CandidateCollection): Promise<void> 
     parseCodexNotify(collection, `${relativePath}#notify`, payload.notify);
   }
 
-  const settingsPayload = Object.fromEntries(
-    Object.entries(payload).filter(([key]) => !consumedKeys.has(key)),
-  ) as Record<string, unknown>;
+  if (Object.hasOwn(payload, "hooks")) {
+    consumedKeys.add("hooks");
+    importedHooks = parseGroupedProviderHooks(collection, "codex", `${relativePath}#hooks`, payload.hooks);
+  }
+
+  let settingsPayload = Object.fromEntries(Object.entries(payload).filter(([key]) => !consumedKeys.has(key))) as Record<
+    string,
+    unknown
+  >;
+  if (importedHooks) {
+    settingsPayload = removeDeprecatedCodexHookFeatureAlias(settingsPayload);
+  }
 
   if (Object.keys(settingsPayload).length > 0) {
     pushCandidate(collection, {
@@ -651,6 +628,46 @@ async function parseCodexConfig(collection: CandidateCollection): Promise<void> 
   if (collection.candidates.length > candidateCountBefore) {
     collection.deletionPaths.add(relativePath);
   }
+}
+
+async function parseCodexHooksJson(collection: CandidateCollection): Promise<void> {
+  const relativePath = ".codex/hooks.json";
+  const absolutePath = path.join(collection.cwd, relativePath);
+  const text = await readTextIfExists(absolutePath);
+  if (text === null) {
+    return;
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = parseJsonAsRecord(text);
+  } catch (error) {
+    pushParseError(collection, relativePath, `invalid JSON: ${toErrorMessage(error)}`);
+    return;
+  }
+
+  const candidateCountBefore = collection.candidates.length;
+  parseGroupedProviderHooks(collection, "codex", `${relativePath}#hooks`, payload.hooks);
+
+  if (collection.candidates.length > candidateCountBefore) {
+    collection.deletionPaths.add(relativePath);
+  }
+}
+
+function removeDeprecatedCodexHookFeatureAlias(settingsPayload: Record<string, unknown>): Record<string, unknown> {
+  const features = settingsPayload.features;
+  if (!isRecord(features) || !Object.hasOwn(features, "codex_hooks")) {
+    return settingsPayload;
+  }
+
+  const { codex_hooks: _codexHooks, ...remainingFeatures } = features;
+  const output = { ...settingsPayload };
+  if (Object.keys(remainingFeatures).length > 0) {
+    output.features = remainingFeatures;
+  } else {
+    delete output.features;
+  }
+  return output;
 }
 
 function parseCodexAgents(collection: CandidateCollection, sourcePath: string, value: unknown): void {
@@ -902,84 +919,7 @@ async function parseClaudeSettings(collection: CandidateCollection): Promise<voi
   const candidateCountBefore = collection.candidates.length;
 
   if (Object.hasOwn(payload, "hooks")) {
-    const hooks = payload.hooks;
-    if (!isRecord(hooks)) {
-      pushParseError(collection, `${relativePath}#hooks`, "hooks must be an object");
-    } else {
-      for (const [providerEvent, groupsValue] of sortedEntries(hooks)) {
-        const canonicalEvent = CLAUDE_EVENT_FROM_PROVIDER[providerEvent];
-        if (!canonicalEvent) {
-          pushParseError(collection, `${relativePath}#hooks.${providerEvent}`, "unsupported Claude hook event");
-          continue;
-        }
-
-        if (!Array.isArray(groupsValue)) {
-          pushParseError(collection, `${relativePath}#hooks.${providerEvent}`, "event groups must be an array");
-          continue;
-        }
-
-        const handlers: Array<Record<string, unknown>> = [];
-
-        for (let index = 0; index < groupsValue.length; index += 1) {
-          const group = groupsValue[index];
-          if (!isRecord(group)) {
-            pushParseError(
-              collection,
-              `${relativePath}#hooks.${providerEvent}[${index}]`,
-              "group entry must be an object",
-            );
-            continue;
-          }
-
-          const matcher = asNonEmptyString(group.matcher);
-          const hookEntries = group.hooks;
-          if (!Array.isArray(hookEntries)) {
-            pushParseError(
-              collection,
-              `${relativePath}#hooks.${providerEvent}[${index}]`,
-              "group.hooks must be an array",
-            );
-            continue;
-          }
-
-          for (let hookIndex = 0; hookIndex < hookEntries.length; hookIndex += 1) {
-            const hook = hookEntries[hookIndex];
-            if (!isRecord(hook)) {
-              pushParseError(
-                collection,
-                `${relativePath}#hooks.${providerEvent}[${index}].hooks[${hookIndex}]`,
-                "hook entry must be an object",
-              );
-              continue;
-            }
-
-            const parsed = parseCommandHookHandler(collection, hook, {
-              sourcePath: `${relativePath}#hooks.${providerEvent}[${index}].hooks[${hookIndex}]`,
-              allowMatcher: false,
-            });
-            if (!parsed) {
-              continue;
-            }
-
-            if (matcher) {
-              parsed.matcher = matcher;
-            }
-
-            handlers.push(parsed);
-          }
-        }
-
-        if (handlers.length > 0) {
-          addHookCandidate(collection, {
-            provider: "claude",
-            id: canonicalEvent,
-            event: canonicalEvent,
-            handlers,
-            sourcePath: `${relativePath}#hooks.${providerEvent}`,
-          });
-        }
-      }
-    }
+    parseGroupedProviderHooks(collection, "claude", `${relativePath}#hooks`, payload.hooks);
   }
 
   const settingsPayload = Object.fromEntries(Object.entries(payload).filter(([key]) => key !== "hooks")) as Record<
@@ -1002,6 +942,96 @@ async function parseClaudeSettings(collection: CandidateCollection): Promise<voi
   if (collection.candidates.length > candidateCountBefore) {
     collection.deletionPaths.add(relativePath);
   }
+}
+
+function parseGroupedProviderHooks(
+  collection: CandidateCollection,
+  provider: "claude" | "codex",
+  sourcePath: string,
+  hooksValue: unknown,
+): boolean {
+  if (!isRecord(hooksValue)) {
+    pushParseError(collection, sourcePath, "hooks must be an object");
+    return false;
+  }
+
+  let importedAny = false;
+  const providerLabel = provider === "codex" ? "Codex" : "Claude";
+
+  for (const [providerEvent, groupsValue] of sortedEntries(hooksValue)) {
+    const canonicalEvent = nativeToCanonicalHookEvent(provider, providerEvent);
+    if (!canonicalEvent) {
+      pushParseError(collection, `${sourcePath}.${providerEvent}`, `unsupported ${providerLabel} hook event`);
+      continue;
+    }
+    const eventCapability = getHookEventCapability(provider, canonicalEvent);
+
+    if (!Array.isArray(groupsValue)) {
+      pushParseError(collection, `${sourcePath}.${providerEvent}`, "event groups must be an array");
+      continue;
+    }
+
+    const handlers: Array<Record<string, unknown>> = [];
+
+    for (let index = 0; index < groupsValue.length; index += 1) {
+      const group = groupsValue[index];
+      if (!isRecord(group)) {
+        pushParseError(collection, `${sourcePath}.${providerEvent}[${index}]`, "group entry must be an object");
+        continue;
+      }
+
+      const matcher = asNonEmptyString(group.matcher);
+      const hookEntries = group.hooks;
+      if (!Array.isArray(hookEntries)) {
+        pushParseError(collection, `${sourcePath}.${providerEvent}[${index}]`, "group.hooks must be an array");
+        continue;
+      }
+
+      for (let hookIndex = 0; hookIndex < hookEntries.length; hookIndex += 1) {
+        const hook = hookEntries[hookIndex];
+        if (!isRecord(hook)) {
+          pushParseError(
+            collection,
+            `${sourcePath}.${providerEvent}[${index}].hooks[${hookIndex}]`,
+            "hook entry must be an object",
+          );
+          continue;
+        }
+
+        if (provider === "codex" && isCodexSkippedHookHandler(hook)) {
+          continue;
+        }
+
+        const parsed = parseCommandHookHandler(collection, hook, {
+          sourcePath: `${sourcePath}.${providerEvent}[${index}].hooks[${hookIndex}]`,
+          allowMatcher: false,
+          allowStatusMessage: provider === "codex",
+        });
+        if (!parsed) {
+          continue;
+        }
+
+        if (matcher && eventCapability?.matcher) {
+          parsed.matcher = matcher;
+        }
+
+        handlers.push(parsed);
+      }
+    }
+
+    if (handlers.length > 0) {
+      importedAny = true;
+      addHookCandidate(collection, {
+        provider,
+        id: canonicalEvent,
+        event: canonicalEvent,
+        handlers,
+        sourcePath: `${sourcePath}.${providerEvent}`,
+      });
+    }
+  }
+
+  return importedAny;
 }
 
 async function parseCopilotHooks(collection: CandidateCollection): Promise<void> {
@@ -1029,7 +1059,7 @@ async function parseCopilotHooks(collection: CandidateCollection): Promise<void>
   const candidateCountBefore = collection.candidates.length;
 
   for (const [providerEvent, entriesValue] of sortedEntries(hooks)) {
-    const canonicalEvent = COPILOT_EVENT_FROM_PROVIDER[providerEvent];
+    const canonicalEvent = nativeToCanonicalHookEvent("copilot", providerEvent);
     if (!canonicalEvent) {
       pushParseError(collection, `${relativePath}#hooks.${providerEvent}`, "unsupported Copilot hook event");
       continue;
@@ -1079,7 +1109,7 @@ async function parseCopilotHooks(collection: CandidateCollection): Promise<void>
 function parseCommandHookHandler(
   collection: CandidateCollection,
   value: Record<string, unknown>,
-  input: { sourcePath: string; allowMatcher: boolean },
+  input: { sourcePath: string; allowMatcher: boolean; allowStatusMessage?: boolean },
 ): Record<string, unknown> | undefined {
   const type = value.type;
   if (typeof type !== "undefined" && type !== "command") {
@@ -1121,6 +1151,15 @@ function parseCommandHookHandler(
   if (bash) output.bash = bash;
   if (powershell) output.powershell = powershell;
 
+  const statusMessage = asNonEmptyString(value.statusMessage);
+  if (Object.hasOwn(value, "statusMessage") && input.allowStatusMessage) {
+    if (!statusMessage) {
+      pushParseError(collection, input.sourcePath, "statusMessage must be a non-empty string");
+      return undefined;
+    }
+    output.statusMessage = statusMessage;
+  }
+
   const cwd = asNonEmptyString(value.cwd);
   if (cwd) {
     output.cwd = cwd;
@@ -1153,6 +1192,10 @@ function parseCommandHookHandler(
   }
 
   return output;
+}
+
+function isCodexSkippedHookHandler(value: Record<string, unknown>): boolean {
+  return value.async === true || value.type === "prompt" || value.type === "agent";
 }
 
 function addHookCandidate(

@@ -51,17 +51,17 @@ Recommendation: start with `"best_effort"` during development, switch to `"stric
 
 | Canonical event | Claude Code | GitHub Copilot | OpenAI Codex | Cursor |
 |---|---|---|---|---|
-| `session_start` | Yes (`SessionStart`) | Yes (`sessionStart`) | No | Yes (`sessionStart`) |
+| `session_start` | Yes (`SessionStart`) | Yes (`sessionStart`) | Yes (`SessionStart`) | Yes (`sessionStart`) |
 | `session_end` | Yes (`SessionEnd`) | Yes (`sessionEnd`) | No | Yes (`sessionEnd`) |
-| `prompt_submit` | Yes (`UserPromptSubmit`) | Yes (`userPromptSubmitted`) | No | Yes (`beforeSubmitPrompt`) |
-| `pre_tool_use` | Yes (`PreToolUse`) | Yes (`preToolUse`) | No | Yes (`preToolUse`) |
-| `permission_request` | Yes (`PermissionRequest`) | No | No | No |
-| `post_tool_use` | Yes (`PostToolUse`) | Yes (`postToolUse`) | No | Yes (`postToolUse`) |
+| `prompt_submit` | Yes (`UserPromptSubmit`) | Yes (`userPromptSubmitted`) | Yes (`UserPromptSubmit`) | Yes (`beforeSubmitPrompt`) |
+| `pre_tool_use` | Yes (`PreToolUse`) | Yes (`preToolUse`) | Yes (`PreToolUse`) | Yes (`preToolUse`) |
+| `permission_request` | Yes (`PermissionRequest`) | No | Yes (`PermissionRequest`) | No |
+| `post_tool_use` | Yes (`PostToolUse`) | Yes (`postToolUse`) | Yes (`PostToolUse`) | Yes (`postToolUse`) |
 | `post_tool_failure` | Yes (`PostToolUseFailure`) | No | No | Yes (`postToolUseFailure`) |
 | `notification` | Yes (`Notification`) | No | No | No |
 | `subagent_start` | Yes (`SubagentStart`) | No | No | Yes (`subagentStart`) |
 | `subagent_stop` | Yes (`SubagentStop`) | No | No | Yes (`subagentStop`) |
-| `stop` | Yes (`Stop`) | No | No | Yes (`stop`) |
+| `stop` | Yes (`Stop`) | No | Yes (`Stop`) | Yes (`stop`) |
 | `stop_failure` | Yes (`StopFailure`) | No | No | No |
 | `teammate_idle` | Yes (`TeammateIdle`) | No | No | No |
 | `task_completed` | Yes (`TaskCompleted`) | No | No | No |
@@ -135,21 +135,39 @@ Recommendation: start with `"best_effort"` during development, switch to `"stric
 
 ### OpenAI Codex CLI
 
-- **Output file:** `.codex/config.toml` (key: `notify = [...]`)
-- **Supported canonical events:** `turn_complete` only
-- **Handler types:** both `notify` and `command` handlers are accepted — both normalize to a TOML notify command array
-- **Matcher:** NOT supported
-- **Normalization rules:**
+- **Output file:** `.codex/config.toml` (keys: inline `[hooks]`, `[features] hooks = true`, and legacy `notify = [...]`)
+- **Supported canonical lifecycle events:** `session_start`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, `stop`
+- **Legacy notification event:** `turn_complete` renders to top-level `notify = [...]`
+- **Handler types:** lifecycle hooks accept `command`; `turn_complete` accepts `notify` and `command`, both normalized to a TOML notify command array
+- **Matcher:** supported for `session_start`, `pre_tool_use`, `permission_request`, and `post_tool_use`; unsupported matcher usage fails in `"strict"` mode
+- **Command options:** `timeout`/`timeoutSec` render as `timeout`; `statusMessage` is supported; `cwd` and `env` are unsupported
+- **Notify normalization rules:**
   - `notify` handler: `command` field used directly; string values are wrapped as `["sh", "-lc", "<command>"]`; arrays pass through unchanged
   - `command` handler: first available field among `command`, `bash`, `linux`, `osx`, `powershell`, `windows` is selected and wrapped the same way
 - **Conflict rule:** only one notify command is allowed across all enabled hook entities. If two hooks produce different notify commands, `apply` fails with `HOOK_NOTIFY_CONFLICT`.
-- **Output shape:**
+- **Lifecycle output shape:**
+
+```toml
+[features]
+hooks = true
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "python3 scripts/check_bash.py"
+timeout = 30
+statusMessage = "Checking Bash command"
+```
+
+- **Notify output shape:**
 
 ```toml
 notify = ["python3", "scripts/on_turn_complete.py"]
 ```
 
-- **Official docs:** https://developers.openai.com/codex/config-reference
+- **Official docs:** https://developers.openai.com/codex/hooks
 
 ### Cursor
 
@@ -201,14 +219,16 @@ notify = ["python3", "scripts/on_turn_complete.py"]
   "matcher": "Bash",
   "cwd": ".",
   "env": { "MY_VAR": "value" },
-  "timeoutSec": 30
+  "timeoutSec": 30,
+  "statusMessage": "Checking command"
 }
 ```
 
 - At least one of `command`, `bash`, `linux`, `osx`, `windows`, `powershell` is required.
-- `matcher` is Claude-only; ignored/errors for Copilot (strict mode error), not applicable for Codex.
+- `matcher` support is provider/event-dependent. Codex supports it on `session_start`, `pre_tool_use`, `permission_request`, and `post_tool_use`; Copilot does not support it.
 - `env` values must all be strings.
 - `timeoutSec` (or `timeout`) must be a positive number.
+- `statusMessage` is Codex lifecycle-hook only.
 
 ### `notify` handler (Codex only)
 
@@ -288,7 +308,42 @@ Claude output fragment:
 }
 ```
 
-### 3) Codex turn-complete notification
+### 3) Codex pre-tool guard
+
+```json
+{
+  "mode": "strict",
+  "events": {
+    "pre_tool_use": [
+      {
+        "type": "command",
+        "matcher": "^Bash$",
+        "command": "python3 scripts/check_bash.py",
+        "timeout": 30,
+        "statusMessage": "Checking Bash command"
+      }
+    ]
+  }
+}
+```
+
+Codex output in `.codex/config.toml`:
+
+```toml
+[features]
+hooks = true
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "python3 scripts/check_bash.py"
+timeout = 30
+statusMessage = "Checking Bash command"
+```
+
+### 4) Codex turn-complete notification
 
 ```json
 {
@@ -310,9 +365,9 @@ Codex output in `.codex/config.toml`:
 notify = ["python3", "scripts/on_turn_complete.py"]
 ```
 
-### 4) Cross-provider best_effort hook (all three providers)
+### 5) Cross-provider best_effort hook (all three providers)
 
-Covers `pre_tool_use` for Claude/Copilot and `turn_complete` for Codex in one file. Unsupported combinations are skipped rather than failing.
+Covers `pre_tool_use` for Claude/Copilot/Codex and `turn_complete` for Codex in one file. Unsupported combinations are skipped rather than failing.
 
 ```json
 {
@@ -338,7 +393,7 @@ Covers `pre_tool_use` for Claude/Copilot and `turn_complete` for Codex in one fi
 Behavior:
 - Claude: receives `PreToolUse`; `turn_complete` is skipped.
 - Copilot: receives `preToolUse`; `turn_complete` is skipped.
-- Codex: receives `notify`; `pre_tool_use` is skipped.
+- Codex: receives `PreToolUse` plus `notify`.
 
 ---
 
@@ -354,6 +409,7 @@ Behavior:
 | `HOOK_COMMAND_MISSING` | `command` handler has no command field |
 | `HOOK_TIMEOUT_INVALID` | `timeoutSec`/`timeout` is not a positive number |
 | `HOOK_ENV_INVALID` | `env` is not a string-to-string map |
+| `HOOK_STATUS_MESSAGE_INVALID` | `statusMessage` is present but not a non-empty string |
 | `HOOK_NOTIFY_EVENT_INVALID` | `notify` handler `event` is not `"agent-turn-complete"` |
 | `HOOK_NOTIFY_COMMAND_INVALID` | `notify` handler `command` is empty or wrong type |
 | `HOOK_EVENT_UNSUPPORTED` | Event is not supported by the target provider (strict mode) |
@@ -395,5 +451,6 @@ If multiple hook entities for the same provider resolve to different target path
 - Claude Code hooks: https://code.claude.com/docs/en/hooks
 - GitHub Copilot hooks configuration: https://docs.github.com/en/copilot/reference/hooks-configuration
 - GitHub Copilot about hooks: https://docs.github.com/en/copilot/concepts/agents/coding-agent/about-hooks
+- OpenAI Codex hooks: https://developers.openai.com/codex/hooks
 - OpenAI Codex config reference: https://developers.openai.com/codex/config-reference
 - Cursor hooks: https://docs.cursor.com/agent/hooks

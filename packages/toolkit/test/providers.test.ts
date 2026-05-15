@@ -845,6 +845,27 @@ test("codex provider renders documented hook events into config.toml", async () 
               command: "echo pre-tool",
               matcher: "^Bash$",
               timeoutSec: 45,
+              statusMessage: "Checking Bash command",
+            },
+          ],
+          permission_request: [
+            {
+              type: "command",
+              command: "echo permission",
+              matcher: "^Bash$",
+            },
+          ],
+          post_tool_use: [
+            {
+              type: "command",
+              command: "echo post-tool",
+              matcher: "^Bash$",
+            },
+          ],
+          prompt_submit: [
+            {
+              type: "command",
+              command: "echo prompt",
             },
           ],
           stop: [
@@ -870,13 +891,18 @@ test("codex provider renders documented hook events into config.toml", async () 
 
   const tomlContent = await fs.readFile(path.join(cwd, ".codex/config.toml"), "utf8");
   assert.match(tomlContent, /\[features\]/u);
-  assert.match(tomlContent, /codex_hooks = true/u);
+  assert.match(tomlContent, /hooks = true/u);
+  assert.doesNotMatch(tomlContent, /codex_hooks/u);
   assert.match(tomlContent, /\[\[hooks\.SessionStart\]\]/u);
   assert.match(tomlContent, /matcher = "startup\|resume"/u);
+  assert.match(tomlContent, /\[\[hooks\.UserPromptSubmit\]\]/u);
   assert.match(tomlContent, /\[\[hooks\.PreToolUse\]\]/u);
   assert.match(tomlContent, /matcher = "\^Bash\$"/u);
   assert.match(tomlContent, /\[\[hooks\.PreToolUse\.hooks\]\]/u);
   assert.match(tomlContent, /timeout = 45/u);
+  assert.match(tomlContent, /statusMessage = "Checking Bash command"/u);
+  assert.match(tomlContent, /\[\[hooks\.PermissionRequest\]\]/u);
+  assert.match(tomlContent, /\[\[hooks\.PostToolUse\]\]/u);
   assert.match(tomlContent, /\[\[hooks\.Stop\]\]/u);
 });
 

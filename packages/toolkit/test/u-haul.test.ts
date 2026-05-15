@@ -127,6 +127,147 @@ test("runUHaulInitFlow imports all entity families, deletes legacy paths, enable
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".claude/skills/reviewer/SKILL.md")));
 });
 
+test("runUHaulInitFlow imports Codex inline lifecycle hooks and normalizes the feature flag", async () => {
+  const cwd = await mkTmpRepo();
+  await initGitRepo(cwd);
+
+  await fs.mkdir(path.join(cwd, ".codex"), { recursive: true });
+  await fs.writeFile(
+    path.join(cwd, ".codex/config.toml"),
+    `
+[features]
+codex_hooks = true
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "python3 scripts/check-bash.py"
+timeout = 30
+statusMessage = "Checking Bash command"
+`.trimStart(),
+    "utf8",
+  );
+
+  const summary = await runUHaulInitFlow({ cwd, force: false });
+
+  assert.equal(summary.detected.hook, 1);
+  assert.equal(summary.imported.hook, 1);
+  assert.deepEqual(summary.autoEnabledProviders, ["codex"]);
+  assert.ok(summary.deletedLegacyPaths.includes(".codex/config.toml"));
+
+  const canonicalHook = JSON.parse(
+    await fs.readFile(path.join(cwd, ".harness/src/hooks/pre_tool_use.json"), "utf8"),
+  ) as {
+    events?: { pre_tool_use?: Array<{ statusMessage?: string; matcher?: string }> };
+  };
+  assert.equal(canonicalHook.events?.pre_tool_use?.[0]?.matcher, "^Bash$");
+  assert.equal(canonicalHook.events?.pre_tool_use?.[0]?.statusMessage, "Checking Bash command");
+
+  const rendered = await fs.readFile(path.join(cwd, ".codex/config.toml"), "utf8");
+  assert.match(rendered, /hooks = true/u);
+  assert.doesNotMatch(rendered, /codex_hooks/u);
+  assert.match(rendered, /statusMessage = "Checking Bash command"/u);
+});
+
+test("runUHaulInitFlow imports standalone Codex hooks.json", async () => {
+  const cwd = await mkTmpRepo();
+  await initGitRepo(cwd);
+
+  await fs.mkdir(path.join(cwd, ".codex"), { recursive: true });
+  await fs.writeFile(
+    path.join(cwd, ".codex/hooks.json"),
+    JSON.stringify(
+      {
+        hooks: {
+          PermissionRequest: [
+            {
+              matcher: "^Bash$",
+              hooks: [
+                {
+                  type: "command",
+                  command: "python3 scripts/permission.py",
+                  statusMessage: "Checking approval request",
+                },
+                {
+                  type: "prompt",
+                  prompt: "parsed but skipped by Codex",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const summary = await runUHaulInitFlow({ cwd, force: false });
+
+  assert.equal(summary.detected.hook, 1);
+  assert.equal(summary.imported.hook, 1);
+  assert.ok(summary.deletedLegacyPaths.includes(".codex/hooks.json"));
+
+  const canonicalHook = JSON.parse(
+    await fs.readFile(path.join(cwd, ".harness/src/hooks/permission_request.json"), "utf8"),
+  ) as {
+    events?: { permission_request?: Array<{ command?: string; statusMessage?: string }> };
+  };
+  assert.equal(canonicalHook.events?.permission_request?.length, 1);
+  assert.equal(canonicalHook.events?.permission_request?.[0]?.command, "python3 scripts/permission.py");
+  assert.equal(canonicalHook.events?.permission_request?.[0]?.statusMessage, "Checking approval request");
+});
+
+test("runUHaulInitFlow drops Codex matchers for events that ignore them", async () => {
+  const cwd = await mkTmpRepo();
+  await initGitRepo(cwd);
+
+  await fs.mkdir(path.join(cwd, ".codex"), { recursive: true });
+  await fs.writeFile(
+    path.join(cwd, ".codex/hooks.json"),
+    JSON.stringify(
+      {
+        hooks: {
+          UserPromptSubmit: [
+            {
+              matcher: "ignored-by-codex",
+              hooks: [
+                {
+                  type: "command",
+                  command: "python3 scripts/prompt.py",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const summary = await runUHaulInitFlow({ cwd, force: false });
+
+  assert.equal(summary.detected.hook, 1);
+  assert.equal(summary.imported.hook, 1);
+
+  const canonicalHook = JSON.parse(
+    await fs.readFile(path.join(cwd, ".harness/src/hooks/prompt_submit.json"), "utf8"),
+  ) as {
+    events?: { prompt_submit?: Array<{ command?: string; matcher?: string }> };
+  };
+  assert.equal(canonicalHook.events?.prompt_submit?.[0]?.command, "python3 scripts/prompt.py");
+  assert.equal(canonicalHook.events?.prompt_submit?.[0]?.matcher, undefined);
+
+  const rendered = await fs.readFile(path.join(cwd, ".codex/config.toml"), "utf8");
+  assert.match(rendered, /UserPromptSubmit/u);
+  assert.doesNotMatch(rendered, /ignored-by-codex/u);
+});
+
 test("runUHaulInitFlow resolves prompt conflicts by default precedence and supports precedence override", async () => {
   const cwdDefault = await mkTmpRepo();
   await initGitRepo(cwdDefault);

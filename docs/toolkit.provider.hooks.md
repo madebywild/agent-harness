@@ -10,7 +10,11 @@ Shared hook projection utilities for provider adapters.
 - `renderClaudeHookSettings(hooks)`
 - `renderCopilotHookConfig(hooks)`
 - `renderCursorHookConfig(hooks)`
+- `renderCodexHookConfigObject(hooks)`
 - `resolveCodexNotifyCommand(hooks)`
+
+Provider event names and matcher support are shared through `hook-capabilities.ts` so forward rendering and `u-haul`
+reverse imports use the same mapping.
 
 ## Provider projections
 
@@ -42,8 +46,12 @@ Shared hook projection utilities for provider adapters.
 
 ### Codex
 
-- Projects canonical `turn_complete` events in all modes; strict mode controls whether unsupported events throw vs. are skipped.
-- Normalizes either canonical `notify` or `command` handlers into notify command arrays.
+- Maps canonical `session_start`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, and `stop`
+  into Codex inline `[hooks]` tables.
+- Emits `[features] hooks = true` when lifecycle hooks are projected.
+- Supports `statusMessage` on Codex lifecycle command handlers.
+- Projects canonical `turn_complete` as the legacy top-level `notify = [...]` command.
+- Normalizes either canonical `notify` or `command` `turn_complete` handlers into notify command arrays.
 - Returns one merged notify command, failing on incompatible multiple values (`HOOK_NOTIFY_CONFLICT`).
 
 ## Strict vs best-effort

@@ -124,7 +124,8 @@ Notes:
 
 - Claude: rendered into `.claude/settings.json` as `hooks` configuration.
 - Copilot: rendered into `.github/hooks/harness.generated.json` (`version: 1` + `hooks` map).
-- Codex: projected into `.codex/config.toml` notify command only (canonical `turn_complete`).
+- Codex: projected into `.codex/config.toml` as inline `[hooks]` lifecycle tables for supported events, plus top-level
+  `notify = [...]` for canonical `turn_complete`.
 
 In strict mode, unsupported provider/event/type projections fail with `HOOK_EVENT_UNSUPPORTED`.
 
@@ -164,7 +165,7 @@ High-level flow (`loader.ts` + `planner.ts` + `engine.ts`):
 5. Load canonical entities + provider override sidecars (with env var substitution).
 6. Render provider artifacts through adapters:
    - per-entity renders (`prompt`, `skill`, `subagent`, `hook`)
-   - optional provider-state render (`codex` composite state for MCP/subagent/hook notify)
+   - optional provider-state render (`codex` composite state for MCP/subagent/lifecycle hooks/notify)
 7. Detect collisions, unmanaged collisions, drift, creates, updates, and stale deletes.
 8. Build deterministic `operations`, `nextLock`, and `nextManagedIndex`.
 9. `plan` returns diagnostics/operations only.

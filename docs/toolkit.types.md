@@ -32,6 +32,6 @@ Defines shared toolkit interfaces for canonical entities, provider adapters, dia
 - `ProviderAdapter.renderMcp` accepts all canonical MCP configs and optional per-entity override map.
 - `ProviderAdapter.renderSubagent` renders provider-native subagent artifacts for providers with per-subagent files.
 - `ProviderAdapter.renderHooks` renders provider-native hook artifacts for providers with dedicated hook outputs.
-- `ProviderAdapter.renderProviderState` supports composite provider artifacts (Codex merges MCP, subagents, and hook notify state).
+- `ProviderAdapter.renderProviderState` supports composite provider artifacts (Codex merges MCP, subagents, lifecycle hooks, and notify state).
 - `ProviderStateInput` includes MCP/subagent/hook arrays and per-entity override maps.
 - CLI entity types now include `hook`.

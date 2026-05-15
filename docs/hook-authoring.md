@@ -75,6 +75,7 @@ Supported fields:
 - `env` (string map)
 - `timeoutSec`
 - `timeout`
+- `statusMessage` (Codex lifecycle hooks only)
 
 At least one command field is required.
 
@@ -93,11 +94,29 @@ Supported fields:
 | --- | --- | --- |
 | Claude | most lifecycle events (mapped to Claude names) | `command` |
 | Copilot | `session_start`, `session_end`, `prompt_submit`, `pre_tool_use`, `post_tool_use`, `stop`, `subagent_stop`, `error` | `command` |
-| Codex | `turn_complete` | `notify` and `command` (both normalized to `notify`) |
+| Codex | `session_start`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, `stop`, plus legacy `turn_complete` notification | `command` for lifecycle hooks; `notify` and `command` for `turn_complete` |
 
-## Codex command normalization
+## Codex lifecycle hooks and notifications
 
-When Codex projects a `turn_complete` handler, both `notify` and `command` handler types are converted into a TOML `notify` command array:
+Codex lifecycle hooks render inline in `.codex/config.toml` under `[hooks]` and enable the canonical feature flag:
+
+```toml
+[features]
+hooks = true
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "python3 scripts/check_bash.py"
+timeout = 30
+statusMessage = "Checking Bash command"
+```
+
+Codex matcher support is limited to `session_start`, `pre_tool_use`, `permission_request`, and `post_tool_use`. `cwd` and `env` are not supported for Codex lifecycle command hooks.
+
+For legacy Codex notifications, `turn_complete` handlers still render to top-level `notify = [...]`. Both `notify` and `command` handler types are converted into a TOML notify command array:
 
 - `notify` handlers: the `command` field is used directly (arrays pass through; strings are wrapped as `["sh", "-lc", "<command>"]`).
 - `command` handlers: the first available command field (`command`, `bash`, `linux`, `osx`, `powershell`, `windows`) is selected and wrapped the same way.
@@ -222,7 +241,44 @@ Expected Copilot output fragment:
 }
 ```
 
-### 4) Codex turn-complete notification
+### 4) Codex pre-tool guard
+
+Canonical source:
+
+```json
+{
+  "mode": "strict",
+  "events": {
+    "pre_tool_use": [
+      {
+        "type": "command",
+        "matcher": "^Bash$",
+        "command": "python3 scripts/check_bash.py",
+        "timeout": 30,
+        "statusMessage": "Checking Bash command"
+      }
+    ]
+  }
+}
+```
+
+Expected Codex output fragment in `.codex/config.toml`:
+
+```toml
+[features]
+hooks = true
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "python3 scripts/check_bash.py"
+timeout = 30
+statusMessage = "Checking Bash command"
+```
+
+### 5) Codex turn-complete notification
 
 Canonical source:
 
@@ -246,7 +302,7 @@ Expected Codex output fragment in `.codex/config.toml`:
 notify = ["python3", "scripts/on_turn_complete.py"]
 ```
 
-### 5) One file for all providers (`best_effort`)
+### 6) One file for all providers (`best_effort`)
 
 Canonical source:
 
@@ -273,8 +329,8 @@ Canonical source:
 
 Behavior:
 
-- Claude/Copilot use `pre_tool_use`.
-- Codex uses `turn_complete`.
+- Claude/Copilot/Codex use `pre_tool_use`.
+- Codex also uses `turn_complete`.
 - Unsupported parts are skipped instead of failing.
 
 ## Target path overrides
@@ -305,6 +361,7 @@ Rules:
 - `HOOK_COMMAND_MISSING`
 - `HOOK_TIMEOUT_INVALID`
 - `HOOK_ENV_INVALID`
+- `HOOK_STATUS_MESSAGE_INVALID`
 - `HOOK_NOTIFY_EVENT_INVALID`
 - `HOOK_NOTIFY_COMMAND_INVALID`
 - `HOOK_EVENT_UNSUPPORTED`

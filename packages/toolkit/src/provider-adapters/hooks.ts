@@ -8,104 +8,7 @@ import type {
   ProviderOverride,
 } from "../types.js";
 import { normalizeRelativePath, stableStringify } from "../utils.js";
-
-const CLAUDE_EVENT_MAP: Partial<Record<CanonicalHookEvent, string>> = {
-  session_start: "SessionStart",
-  session_end: "SessionEnd",
-  prompt_submit: "UserPromptSubmit",
-  pre_tool_use: "PreToolUse",
-  permission_request: "PermissionRequest",
-  post_tool_use: "PostToolUse",
-  post_tool_failure: "PostToolUseFailure",
-  notification: "Notification",
-  subagent_start: "SubagentStart",
-  subagent_stop: "SubagentStop",
-  stop: "Stop",
-  stop_failure: "StopFailure",
-  teammate_idle: "TeammateIdle",
-  task_completed: "TaskCompleted",
-  instructions_loaded: "InstructionsLoaded",
-  config_change: "ConfigChange",
-  worktree_create: "WorktreeCreate",
-  worktree_remove: "WorktreeRemove",
-  pre_compact: "PreCompact",
-  post_compact: "PostCompact",
-  elicitation: "Elicitation",
-  elicitation_result: "ElicitationResult",
-  setup: "Setup",
-  user_prompt_expansion: "UserPromptExpansion",
-  permission_denied: "PermissionDenied",
-  post_tool_batch: "PostToolBatch",
-  cwd_changed: "CwdChanged",
-  file_changed: "FileChanged",
-  task_created: "TaskCreated",
-};
-
-const COPILOT_EVENT_MAP: Partial<Record<CanonicalHookEvent, string>> = {
-  session_start: "sessionStart",
-  session_end: "sessionEnd",
-  prompt_submit: "userPromptSubmitted",
-  pre_tool_use: "preToolUse",
-  post_tool_use: "postToolUse",
-  pre_compact: "preCompact",
-  stop: "agentStop",
-  subagent_start: "subagentStart",
-  subagent_stop: "subagentStop",
-  error: "errorOccurred",
-};
-
-// Cursor also supports beforeShellExecution, afterShellExecution, beforeMCPExecution,
-// afterMCPExecution, beforeReadFile, afterFileEdit, afterAgentResponse, afterAgentThought,
-// beforeTabFileRead, and afterTabFileEdit — these have no canonical equivalents yet.
-const CURSOR_EVENT_MAP: Partial<Record<CanonicalHookEvent, string>> = {
-  session_start: "sessionStart",
-  session_end: "sessionEnd",
-  prompt_submit: "beforeSubmitPrompt",
-  pre_tool_use: "preToolUse",
-  post_tool_use: "postToolUse",
-  post_tool_failure: "postToolUseFailure",
-  subagent_start: "subagentStart",
-  subagent_stop: "subagentStop",
-  pre_compact: "preCompact",
-  stop: "stop",
-};
-
-const CODEX_EVENT_MAP: Partial<Record<CanonicalHookEvent, string>> = {
-  session_start: "SessionStart",
-  prompt_submit: "UserPromptSubmit",
-  pre_tool_use: "PreToolUse",
-  permission_request: "PermissionRequest",
-  post_tool_use: "PostToolUse",
-  stop: "Stop",
-};
-
-const CLAUDE_MATCHER_SUPPORTED_EVENTS = new Set<CanonicalHookEvent>([
-  "pre_tool_use",
-  "post_tool_use",
-  "post_tool_failure",
-  "permission_request",
-  "session_start",
-  "session_end",
-  "notification",
-  "subagent_start",
-  "subagent_stop",
-  "config_change",
-  "stop_failure",
-  "instructions_loaded",
-  "pre_compact",
-  "post_compact",
-  "elicitation",
-  "elicitation_result",
-  "post_tool_batch",
-  "file_changed",
-]);
-
-const CODEX_MATCHER_SUPPORTED_EVENTS = new Set<CanonicalHookEvent>([
-  "session_start",
-  "pre_tool_use",
-  "permission_request",
-  "post_tool_use",
-]);
+import { getHookEventCapability } from "./hook-capabilities.js";
 
 export function resolveHookTargetPath(
   provider: ProviderId,
@@ -136,65 +39,7 @@ export function resolveHookTargetPath(
 }
 
 export function renderClaudeHookSettings(hooks: ReadonlyArray<CanonicalHook>): string {
-  const events: Record<string, Array<{ matcher?: string; hooks: Array<Record<string, unknown>> }>> = {};
-
-  for (const hook of hooks) {
-    for (const [eventName, handlers] of Object.entries(hook.events) as Array<
-      [CanonicalHookEvent, CanonicalHook["events"][CanonicalHookEvent]]
-    >) {
-      const mappedEvent = CLAUDE_EVENT_MAP[eventName];
-      if (!mappedEvent) {
-        handleUnsupported(hook, "claude", `event '${eventName}'`);
-        continue;
-      }
-
-      if (!handlers || handlers.length === 0) {
-        continue;
-      }
-
-      const groups = new Map<string, Array<Record<string, unknown>>>();
-      const matcherSupported = CLAUDE_MATCHER_SUPPORTED_EVENTS.has(eventName);
-
-      for (const handler of handlers) {
-        if (handler.type !== "command") {
-          handleUnsupported(hook, "claude", `handler type '${handler.type}'`);
-          continue;
-        }
-
-        if (handler.matcher && !matcherSupported) {
-          handleUnsupported(hook, "claude", `matcher on event '${eventName}'`);
-          continue;
-        }
-
-        const rendered = renderClaudeCommand(handler);
-        if (!rendered) {
-          handleUnsupported(hook, "claude", "command fields");
-          continue;
-        }
-
-        const groupKey = matcherSupported ? handler.matcher?.trim() || "__all__" : "__all__";
-        const entry = groups.get(groupKey) ?? [];
-        entry.push(rendered);
-        groups.set(groupKey, entry);
-      }
-
-      if (groups.size === 0) {
-        continue;
-      }
-
-      const groupEntries = [...groups.entries()]
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([matcher, groupedHooks]) =>
-          matcher === "__all__"
-            ? ({ hooks: groupedHooks } as { matcher?: string; hooks: Array<Record<string, unknown>> })
-            : ({ matcher, hooks: groupedHooks } as { matcher?: string; hooks: Array<Record<string, unknown>> }),
-        );
-
-      events[mappedEvent] = [...(events[mappedEvent] ?? []), ...groupEntries];
-    }
-  }
-
-  return stableStringify({ hooks: events });
+  return stableStringify({ hooks: renderGroupedHookEvents(hooks, "claude", renderClaudeCommand) });
 }
 
 export function renderCopilotHookConfig(hooks: ReadonlyArray<CanonicalHook>): string {
@@ -204,8 +49,8 @@ export function renderCopilotHookConfig(hooks: ReadonlyArray<CanonicalHook>): st
     for (const [eventName, handlers] of Object.entries(hook.events) as Array<
       [CanonicalHookEvent, CanonicalHook["events"][CanonicalHookEvent]]
     >) {
-      const mappedEvent = COPILOT_EVENT_MAP[eventName];
-      if (!mappedEvent) {
+      const eventCapability = getHookEventCapability("copilot", eventName);
+      if (!eventCapability) {
         handleUnsupported(hook, "copilot", `event '${eventName}'`);
         continue;
       }
@@ -225,13 +70,13 @@ export function renderCopilotHookConfig(hooks: ReadonlyArray<CanonicalHook>): st
           continue;
         }
 
-        const rendered = renderCopilotCommand(handler);
+        const rendered = renderCopilotCommand(hook, handler);
         if (!rendered) {
           handleUnsupported(hook, "copilot", "command fields");
           continue;
         }
 
-        events[mappedEvent] = [...(events[mappedEvent] ?? []), rendered];
+        events[eventCapability.nativeEvent] = [...(events[eventCapability.nativeEvent] ?? []), rendered];
       }
     }
   }
@@ -249,8 +94,8 @@ export function renderCursorHookConfig(hooks: ReadonlyArray<CanonicalHook>): str
     for (const [eventName, handlers] of Object.entries(hook.events) as Array<
       [CanonicalHookEvent, CanonicalHook["events"][CanonicalHookEvent]]
     >) {
-      const mappedEvent = CURSOR_EVENT_MAP[eventName];
-      if (!mappedEvent) {
+      const eventCapability = getHookEventCapability("cursor", eventName);
+      if (!eventCapability) {
         handleUnsupported(hook, "cursor", `event '${eventName}'`);
         continue;
       }
@@ -270,7 +115,7 @@ export function renderCursorHookConfig(hooks: ReadonlyArray<CanonicalHook>): str
           continue;
         }
 
-        events[mappedEvent] = [...(events[mappedEvent] ?? []), rendered];
+        events[eventCapability.nativeEvent] = [...(events[eventCapability.nativeEvent] ?? []), rendered];
       }
     }
   }
@@ -281,20 +126,25 @@ export function renderCursorHookConfig(hooks: ReadonlyArray<CanonicalHook>): str
   });
 }
 
-export function renderCodexHookConfigObject(hooks: ReadonlyArray<CanonicalHook>): Record<string, unknown> | undefined {
+function renderGroupedHookEvents(
+  hooks: ReadonlyArray<CanonicalHook>,
+  provider: "claude" | "codex",
+  renderCommand: (hook: CanonicalHook, handler: CanonicalHookCommandHandler) => Record<string, unknown> | undefined,
+  ignoredEvents = new Set<CanonicalHookEvent>(),
+): Record<string, Array<{ matcher?: string; hooks: Array<Record<string, unknown>> }>> {
   const events: Record<string, Array<{ matcher?: string; hooks: Array<Record<string, unknown>> }>> = {};
 
   for (const hook of hooks) {
     for (const [eventName, handlers] of Object.entries(hook.events) as Array<
       [CanonicalHookEvent, CanonicalHook["events"][CanonicalHookEvent]]
     >) {
-      if (eventName === "turn_complete") {
+      if (ignoredEvents.has(eventName)) {
         continue;
       }
 
-      const mappedEvent = CODEX_EVENT_MAP[eventName];
-      if (!mappedEvent) {
-        handleUnsupported(hook, "codex", `event '${eventName}'`);
+      const eventCapability = getHookEventCapability(provider, eventName);
+      if (!eventCapability) {
+        handleUnsupported(hook, provider, `event '${eventName}'`);
         continue;
       }
 
@@ -303,25 +153,24 @@ export function renderCodexHookConfigObject(hooks: ReadonlyArray<CanonicalHook>)
       }
 
       const groups = new Map<string, Array<Record<string, unknown>>>();
-      const matcherSupported = CODEX_MATCHER_SUPPORTED_EVENTS.has(eventName);
 
       for (const handler of handlers) {
         if (handler.type !== "command") {
-          handleUnsupported(hook, "codex", `handler type '${handler.type}'`);
+          handleUnsupported(hook, provider, `handler type '${handler.type}'`);
           continue;
         }
 
-        if (handler.matcher && !matcherSupported) {
-          handleUnsupported(hook, "codex", `matcher on event '${eventName}'`);
+        if (handler.matcher && !eventCapability.matcher) {
+          handleUnsupported(hook, provider, `matcher on event '${eventName}'`);
           continue;
         }
 
-        const rendered = renderCodexHookCommand(hook, handler);
+        const rendered = renderCommand(hook, handler);
         if (!rendered) {
           continue;
         }
 
-        const groupKey = matcherSupported ? handler.matcher?.trim() || "__all__" : "__all__";
+        const groupKey = eventCapability.matcher ? handler.matcher?.trim() || "__all__" : "__all__";
         const entry = groups.get(groupKey) ?? [];
         entry.push(rendered);
         groups.set(groupKey, entry);
@@ -339,9 +188,15 @@ export function renderCodexHookConfigObject(hooks: ReadonlyArray<CanonicalHook>)
             : ({ matcher, hooks: groupedHooks } as { matcher?: string; hooks: Array<Record<string, unknown>> }),
         );
 
-      events[mappedEvent] = [...(events[mappedEvent] ?? []), ...groupEntries];
+      events[eventCapability.nativeEvent] = [...(events[eventCapability.nativeEvent] ?? []), ...groupEntries];
     }
   }
+
+  return events;
+}
+
+export function renderCodexHookConfigObject(hooks: ReadonlyArray<CanonicalHook>): Record<string, unknown> | undefined {
+  const events = renderGroupedHookEvents(hooks, "codex", renderCodexHookCommand, new Set(["turn_complete"]));
 
   if (Object.keys(events).length === 0) {
     return undefined;
@@ -349,7 +204,7 @@ export function renderCodexHookConfigObject(hooks: ReadonlyArray<CanonicalHook>)
 
   return {
     features: {
-      codex_hooks: true,
+      hooks: true,
     },
     hooks: events,
   };
@@ -439,11 +294,22 @@ function renderCodexHookCommand(
   if (timeout) {
     output.timeout = timeout;
   }
+  if (handler.statusMessage) {
+    output.statusMessage = handler.statusMessage;
+  }
 
   return output;
 }
 
-function renderClaudeCommand(handler: CanonicalHookCommandHandler): Record<string, unknown> | undefined {
+function renderClaudeCommand(
+  hook: CanonicalHook,
+  handler: CanonicalHookCommandHandler,
+): Record<string, unknown> | undefined {
+  if (handler.statusMessage) {
+    handleUnsupported(hook, "claude", "'statusMessage' on command handler");
+    return undefined;
+  }
+
   const command = resolveGenericCommand(handler);
   if (!command) {
     return undefined;
@@ -469,7 +335,15 @@ function renderClaudeCommand(handler: CanonicalHookCommandHandler): Record<strin
   return output;
 }
 
-function renderCopilotCommand(handler: CanonicalHookCommandHandler): Record<string, unknown> | undefined {
+function renderCopilotCommand(
+  hook: CanonicalHook,
+  handler: CanonicalHookCommandHandler,
+): Record<string, unknown> | undefined {
+  if (handler.statusMessage) {
+    handleUnsupported(hook, "copilot", "'statusMessage' on command handler");
+    return undefined;
+  }
+
   const bash = handler.bash ?? handler.linux ?? handler.osx ?? handler.command;
   const powershell = handler.powershell ?? handler.windows ?? handler.command;
 
@@ -508,6 +382,10 @@ function renderCursorCommand(
   hook: CanonicalHook,
   handler: CanonicalHookCommandHandler,
 ): Record<string, unknown> | undefined {
+  if (handler.statusMessage) {
+    handleUnsupported(hook, "cursor", "'statusMessage' on command handler");
+    return undefined;
+  }
   if (handler.cwd) {
     handleUnsupported(hook, "cursor", "'cwd' on command handler");
     return undefined;

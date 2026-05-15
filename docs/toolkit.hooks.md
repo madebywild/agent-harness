@@ -31,6 +31,7 @@ Parses and validates canonical hook source documents loaded from `.harness/src/h
   - `command`, `windows`, `linux`, `osx`, `bash`, or `powershell`
 - `timeoutSec` / `timeout` must be positive numbers when present.
 - `env` must be an object of string values.
+- `statusMessage`, when present, must be a non-empty string.
 
 ### `notify` handler validation
 
@@ -41,4 +42,4 @@ Parses and validates canonical hook source documents loaded from `.harness/src/h
 
 ## Diagnostic families
 
-Emits `HOOK_*` diagnostics for invalid mode/event/handler/timeout/env/notify shape.
+Emits `HOOK_*` diagnostics for invalid mode/event/handler/timeout/env/status-message/notify shape.
