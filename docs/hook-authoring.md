@@ -94,7 +94,7 @@ Supported fields:
 | --- | --- | --- |
 | Claude | most lifecycle events (mapped to Claude names) | `command` |
 | Copilot | `session_start`, `session_end`, `prompt_submit`, `pre_tool_use`, `post_tool_use`, `stop`, `subagent_stop`, `error` | `command` |
-| Codex | `session_start`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, `stop`, plus legacy `turn_complete` notification | `command` for lifecycle hooks; `notify` and `command` for `turn_complete` |
+| Codex | `session_start`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, `subagent_start`, `subagent_stop`, `pre_compact`, `post_compact`, `stop`, plus legacy `turn_complete` notification | `command` for lifecycle hooks; `notify` and `command` for `turn_complete` |
 
 ## Codex lifecycle hooks and notifications
 
@@ -114,7 +114,7 @@ timeout = 30
 statusMessage = "Checking Bash command"
 ```
 
-Codex matcher support is limited to `session_start`, `pre_tool_use`, `permission_request`, and `post_tool_use`. `cwd` and `env` are not supported for Codex lifecycle command hooks.
+Codex matcher support covers `session_start`, `pre_tool_use`, `permission_request`, `post_tool_use`, `subagent_start`, `subagent_stop`, `pre_compact`, and `post_compact` (only `prompt_submit` and `stop` ignore matchers). `cwd` and `env` are not supported for Codex lifecycle command hooks.
 
 For legacy Codex notifications, `turn_complete` handlers still render to top-level `notify = [...]`. Both `notify` and `command` handler types are converted into a TOML notify command array:
 

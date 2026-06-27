@@ -47,10 +47,10 @@ Authoring examples: [Hook Authoring Guide](./hook-authoring.md)
 
 ### Hook notes
 
-- Codex projects canonical `session_start`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, and `stop` into inline `[hooks]` tables in `.codex/config.toml`.
+- Codex projects canonical `session_start`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, `subagent_start`, `subagent_stop`, `pre_compact`, `post_compact`, and `stop` into inline `[hooks]` tables in `.codex/config.toml`.
 - Codex also keeps canonical `turn_complete` as legacy `notify = [...]` output for current compatibility.
 - When inline hooks are present, `harness` emits `[features] hooks = true`; `codex_hooks` is treated as a deprecated upstream alias during import.
-- Matcher is supported for projected Codex `session_start`, `pre_tool_use`, `permission_request`, and `post_tool_use` events.
+- Matcher is supported for projected Codex `session_start`, `pre_tool_use`, `permission_request`, `post_tool_use`, `subagent_start`, `subagent_stop`, `pre_compact`, and `post_compact` events (`prompt_submit` and `stop` ignore it).
 - `statusMessage` is supported for Codex lifecycle command hooks.
 - `cwd` and `env` command fields are unsupported for Codex inline hook projection and fail in strict mode.
 - Multiple distinct notify commands across enabled hooks fail with `HOOK_NOTIFY_CONFLICT`.

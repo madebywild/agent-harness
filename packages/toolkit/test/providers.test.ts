@@ -862,6 +862,34 @@ test("codex provider renders documented hook events into config.toml", async () 
               matcher: "^Bash$",
             },
           ],
+          subagent_start: [
+            {
+              type: "command",
+              command: "echo subagent-start",
+              matcher: "worker",
+            },
+          ],
+          subagent_stop: [
+            {
+              type: "command",
+              command: "echo subagent-stop",
+              matcher: "worker",
+            },
+          ],
+          pre_compact: [
+            {
+              type: "command",
+              command: "echo pre-compact",
+              matcher: "manual",
+            },
+          ],
+          post_compact: [
+            {
+              type: "command",
+              command: "echo post-compact",
+              matcher: "auto",
+            },
+          ],
           prompt_submit: [
             {
               type: "command",
@@ -903,6 +931,11 @@ test("codex provider renders documented hook events into config.toml", async () 
   assert.match(tomlContent, /statusMessage = "Checking Bash command"/u);
   assert.match(tomlContent, /\[\[hooks\.PermissionRequest\]\]/u);
   assert.match(tomlContent, /\[\[hooks\.PostToolUse\]\]/u);
+  assert.match(tomlContent, /\[\[hooks\.SubagentStart\]\]/u);
+  assert.match(tomlContent, /\[\[hooks\.SubagentStop\]\]/u);
+  assert.match(tomlContent, /\[\[hooks\.PreCompact\]\]/u);
+  assert.match(tomlContent, /matcher = "manual"/u);
+  assert.match(tomlContent, /\[\[hooks\.PostCompact\]\]/u);
   assert.match(tomlContent, /\[\[hooks\.Stop\]\]/u);
 });
 

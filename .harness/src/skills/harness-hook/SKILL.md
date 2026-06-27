@@ -59,8 +59,8 @@ Recommendation: start with `"best_effort"` during development, switch to `"stric
 | `post_tool_use` | Yes (`PostToolUse`) | Yes (`postToolUse`) | Yes (`PostToolUse`) | Yes (`postToolUse`) |
 | `post_tool_failure` | Yes (`PostToolUseFailure`) | No | No | Yes (`postToolUseFailure`) |
 | `notification` | Yes (`Notification`) | No | No | No |
-| `subagent_start` | Yes (`SubagentStart`) | No | No | Yes (`subagentStart`) |
-| `subagent_stop` | Yes (`SubagentStop`) | No | No | Yes (`subagentStop`) |
+| `subagent_start` | Yes (`SubagentStart`) | No | Yes (`SubagentStart`) | Yes (`subagentStart`) |
+| `subagent_stop` | Yes (`SubagentStop`) | No | Yes (`SubagentStop`) | Yes (`subagentStop`) |
 | `stop` | Yes (`Stop`) | No | Yes (`Stop`) | Yes (`stop`) |
 | `stop_failure` | Yes (`StopFailure`) | No | No | No |
 | `teammate_idle` | Yes (`TeammateIdle`) | No | No | No |
@@ -69,8 +69,8 @@ Recommendation: start with `"best_effort"` during development, switch to `"stric
 | `config_change` | Yes (`ConfigChange`) | No | No | No |
 | `worktree_create` | Yes (`WorktreeCreate`) | No | No | No |
 | `worktree_remove` | Yes (`WorktreeRemove`) | No | No | No |
-| `pre_compact` | Yes (`PreCompact`) | No | No | Yes (`preCompact`) |
-| `post_compact` | Yes (`PostCompact`) | No | No | No |
+| `pre_compact` | Yes (`PreCompact`) | No | Yes (`PreCompact`) | Yes (`preCompact`) |
+| `post_compact` | Yes (`PostCompact`) | No | Yes (`PostCompact`) | No |
 | `elicitation` | Yes (`Elicitation`) | No | No | No |
 | `elicitation_result` | Yes (`ElicitationResult`) | No | No | No |
 | `error` | No | Yes (`errorOccurred`) | No | No |
@@ -136,10 +136,10 @@ Recommendation: start with `"best_effort"` during development, switch to `"stric
 ### OpenAI Codex CLI
 
 - **Output file:** `.codex/config.toml` (keys: inline `[hooks]`, `[features] hooks = true`, and legacy `notify = [...]`)
-- **Supported canonical lifecycle events:** `session_start`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, `stop`
+- **Supported canonical lifecycle events:** `session_start`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, `subagent_start`, `subagent_stop`, `pre_compact`, `post_compact`, `stop`
 - **Legacy notification event:** `turn_complete` renders to top-level `notify = [...]`
 - **Handler types:** lifecycle hooks accept `command`; `turn_complete` accepts `notify` and `command`, both normalized to a TOML notify command array
-- **Matcher:** supported for `session_start`, `pre_tool_use`, `permission_request`, and `post_tool_use`; unsupported matcher usage fails in `"strict"` mode
+- **Matcher:** supported for `session_start`, `pre_tool_use`, `permission_request`, `post_tool_use`, `subagent_start`, `subagent_stop`, `pre_compact`, and `post_compact` (`prompt_submit` and `stop` ignore it); unsupported matcher usage fails in `"strict"` mode
 - **Command options:** `timeout`/`timeoutSec` render as `timeout`; `statusMessage` is supported; `cwd` and `env` are unsupported
 - **Notify normalization rules:**
   - `notify` handler: `command` field used directly; string values are wrapped as `["sh", "-lc", "<command>"]`; arrays pass through unchanged
@@ -225,7 +225,7 @@ notify = ["python3", "scripts/on_turn_complete.py"]
 ```
 
 - At least one of `command`, `bash`, `linux`, `osx`, `windows`, `powershell` is required.
-- `matcher` support is provider/event-dependent. Codex supports it on `session_start`, `pre_tool_use`, `permission_request`, and `post_tool_use`; Copilot does not support it.
+- `matcher` support is provider/event-dependent. Codex supports it on `session_start`, `pre_tool_use`, `permission_request`, `post_tool_use`, `subagent_start`, `subagent_stop`, `pre_compact`, and `post_compact` (`prompt_submit` and `stop` ignore it); Copilot does not support it.
 - `env` values must all be strings.
 - `timeoutSec` (or `timeout`) must be a positive number.
 - `statusMessage` is Codex lifecycle-hook only.

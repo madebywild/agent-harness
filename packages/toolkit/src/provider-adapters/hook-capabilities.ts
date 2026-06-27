@@ -68,6 +68,10 @@ export const HOOK_PROVIDER_CAPABILITIES = {
       pre_tool_use: event("PreToolUse", true),
       permission_request: event("PermissionRequest", true),
       post_tool_use: event("PostToolUse", true),
+      subagent_start: event("SubagentStart", true),
+      subagent_stop: event("SubagentStop", true),
+      pre_compact: event("PreCompact", true),
+      post_compact: event("PostCompact", true),
       stop: event("Stop"),
     },
     command: {

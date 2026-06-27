@@ -46,8 +46,8 @@ reverse imports use the same mapping.
 
 ### Codex
 
-- Maps canonical `session_start`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, and `stop`
-  into Codex inline `[hooks]` tables.
+- Maps canonical `session_start`, `prompt_submit`, `pre_tool_use`, `permission_request`, `post_tool_use`, `subagent_start`,
+  `subagent_stop`, `pre_compact`, `post_compact`, and `stop` into Codex inline `[hooks]` tables.
 - Emits `[features] hooks = true` when lifecycle hooks are projected.
 - Supports `statusMessage` on Codex lifecycle command handlers.
 - Projects canonical `turn_complete` as the legacy top-level `notify = [...]` command.

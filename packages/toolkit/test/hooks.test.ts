@@ -381,6 +381,34 @@ test("renderCodexHookConfigObject maps all supported lifecycle events and enable
             matcher: "^Bash$",
           },
         ],
+        subagent_start: [
+          {
+            type: "command",
+            command: "echo subagent-start",
+            matcher: "worker-start",
+          },
+        ],
+        subagent_stop: [
+          {
+            type: "command",
+            command: "echo subagent-stop",
+            matcher: "worker-stop",
+          },
+        ],
+        pre_compact: [
+          {
+            type: "command",
+            command: "echo pre-compact",
+            matcher: "manual",
+          },
+        ],
+        post_compact: [
+          {
+            type: "command",
+            command: "echo post-compact",
+            matcher: "auto",
+          },
+        ],
         stop: [
           {
             type: "command",
@@ -405,11 +433,18 @@ test("renderCodexHookConfigObject maps all supported lifecycle events and enable
   assert.equal(rendered.hooks?.PreToolUse?.[0]?.hooks?.[0]?.statusMessage, "Checking Bash command");
   assert.ok(rendered.hooks?.PermissionRequest);
   assert.ok(rendered.hooks?.PostToolUse);
+  // Matchers must attach to their own event block, not leak across events.
+  assert.equal(rendered.hooks?.SubagentStart?.[0]?.matcher, "worker-start");
+  assert.equal(rendered.hooks?.SubagentStop?.[0]?.matcher, "worker-stop");
+  assert.equal(rendered.hooks?.PreCompact?.[0]?.matcher, "manual");
+  assert.equal(rendered.hooks?.PostCompact?.[0]?.matcher, "auto");
   assert.ok(rendered.hooks?.Stop);
 });
 
 test("hook capabilities reverse-map native Codex and Claude events", () => {
   assert.equal(nativeToCanonicalHookEvent("codex", "PermissionRequest"), "permission_request");
+  assert.equal(nativeToCanonicalHookEvent("codex", "SubagentStart"), "subagent_start");
+  assert.equal(nativeToCanonicalHookEvent("codex", "PostCompact"), "post_compact");
   assert.equal(nativeToCanonicalHookEvent("codex", "SessionEnd"), undefined);
   assert.equal(nativeToCanonicalHookEvent("claude", "SessionEnd"), "session_end");
   assert.equal(nativeToCanonicalHookEvent("copilot", "preCompact"), "pre_compact");
