@@ -105,6 +105,13 @@ args = ["@modelcontextprotocol/server-browser"]
 [agents.researcher]
 description = "Research tasks"
 developer_instructions = "Find relevant sources and summarize"
+
+[[hooks.PreToolUse]]
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "python3 scripts/check-bash.py"
+timeout = 30
 `.trimStart(),
       "utf8",
     );
@@ -214,7 +221,7 @@ developer_instructions = "Find relevant sources and summarize"
     assert.equal(initPayload.data.uHaul.detected.subagent, 3);
     assert.equal(initPayload.data.uHaul.detected.settings, 3);
     assert.equal(initPayload.data.uHaul.detected.command, 2);
-    assert.equal(initPayload.data.uHaul.detected.hook, 0);
+    assert.equal(initPayload.data.uHaul.detected.hook, 1);
 
     assert.equal(initPayload.data.uHaul.imported.prompt, 1);
     assert.equal(initPayload.data.uHaul.imported.skill, 1);
@@ -222,7 +229,7 @@ developer_instructions = "Find relevant sources and summarize"
     assert.equal(initPayload.data.uHaul.imported.subagent, 1);
     assert.equal(initPayload.data.uHaul.imported.settings, 3);
     assert.equal(initPayload.data.uHaul.imported.command, 1);
-    assert.equal(initPayload.data.uHaul.imported.hook, 0);
+    assert.equal(initPayload.data.uHaul.imported.hook, 1);
 
     assert.ok(
       initPayload.data.uHaul.precedenceDrops.some(
@@ -280,6 +287,7 @@ developer_instructions = "Find relevant sources and summarize"
     await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/mcp/browser.json")));
     await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/mcp/localdocs.json")));
     await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/subagents/researcher.md")));
+    await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/hooks/pre_tool_use.json")));
     await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/settings/codex.toml")));
     await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/settings/claude.json")));
     await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/settings/copilot.json")));
@@ -299,6 +307,10 @@ developer_instructions = "Find relevant sources and summarize"
     assert.match(codexConfig, /\[mcp_servers\.browser\]/u);
     assert.match(codexConfig, /\[mcp_servers\.localdocs\]/u);
     assert.match(codexConfig, /\[agents\.researcher\]/u);
+    assert.match(codexConfig, /hooks = true/u);
+    assert.doesNotMatch(codexConfig, /codex_hooks/u);
+    assert.match(codexConfig, /\[\[hooks\.PreToolUse\]\]/u);
+    assert.match(codexConfig, /timeout = 30/u);
 
     // MCP JSON conventions per provider.
     const claudeMcp = await readWorkspaceJson<{ mcpServers: Record<string, unknown> }>(workspace, ".mcp.json");

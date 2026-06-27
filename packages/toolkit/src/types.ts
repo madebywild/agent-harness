@@ -88,6 +88,7 @@ export interface CanonicalHookCommandHandler {
   env?: Record<string, string>;
   timeoutSec?: number;
   timeout?: number;
+  statusMessage?: string;
 }
 
 export interface CanonicalHookNotifyHandler {

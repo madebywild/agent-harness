@@ -18,7 +18,7 @@ Builds the Codex provider adapter.
   - `mcp_servers` (merged MCP servers)
   - `agents.<id>` entries (enabled subagents, with `developer_instructions`, `description`, and supported
     provider-specific options)
-  - inline `[hooks]` config plus `[features] codex_hooks = true` when Codex hook events are projected
+  - inline `[hooks]` config plus `[features] hooks = true` when Codex lifecycle hook events are projected
   - `notify = [...]` (projected from hook `turn_complete`)
 - Returns no artifact when merged payload is empty.
 - Output string is normalized to one trailing newline.

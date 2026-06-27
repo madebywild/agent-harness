@@ -31,7 +31,7 @@ Implements `init --u-haul`, a legacy import flow that migrates provider-owned fi
 - Skills: `.codex/skills/*`, `.claude/skills/*`, `.github/skills/*`
 - MCP: `.codex/config.toml` (`mcp_servers`), `.mcp.json` (`mcpServers`/`servers`), `.vscode/mcp.json` (`servers`)
 - Subagents: `.codex/config.toml` (`agents`), `.claude/agents/*.md`, `.github/agents/*.agent.md`
-- Hooks: `.codex/config.toml` (`notify`), `.claude/settings.json` (`hooks`), `.github/hooks/harness.generated.json`
+- Hooks: `.codex/config.toml` (`hooks` and `notify`), `.codex/hooks.json`, `.claude/settings.json` (`hooks`), `.github/hooks/harness.generated.json`
 - Settings: provider settings payloads after removing sections consumed by imported entities
 - Commands: `.claude/commands/*.md`, `.github/prompts/*.prompt.md`
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseCanonicalHookDocument } from "../src/hooks.ts";
+import { nativeToCanonicalHookEvent } from "../src/provider-adapters/hook-capabilities.ts";
 import {
   renderClaudeHookSettings,
   renderCodexHookConfigObject,
@@ -98,6 +99,28 @@ test("parseCanonicalHookDocument rejects non-string env values", () => {
 
   assert.equal(parsed.canonical, undefined);
   assert.ok(parsed.diagnostics.some((diagnostic) => diagnostic.code === "HOOK_ENV_INVALID"));
+});
+
+test("parseCanonicalHookDocument validates optional statusMessage", () => {
+  const parsed = parseCanonicalHookDocument(
+    {
+      mode: "strict",
+      events: {
+        pre_tool_use: [
+          {
+            type: "command",
+            command: "echo pre-tool",
+            statusMessage: "",
+          },
+        ],
+      },
+    },
+    ".harness/src/hooks/guard.json",
+    "guard",
+  );
+
+  assert.equal(parsed.canonical, undefined);
+  assert.ok(parsed.diagnostics.some((diagnostic) => diagnostic.code === "HOOK_STATUS_MESSAGE_INVALID"));
 });
 
 test("resolveHookTargetPath returns explicit hook override target", () => {
@@ -316,7 +339,7 @@ test("resolveCodexNotifyCommand ignores unsupported events in best_effort mode",
   assert.deepEqual(resolveCodexNotifyCommand(hooks), ["python3", "scripts/on_turn_complete.py"]);
 });
 
-test("renderCodexHookConfigObject maps supported events and enables the feature flag", () => {
+test("renderCodexHookConfigObject maps all supported lifecycle events and enables the canonical feature flag", () => {
   const hooks: CanonicalHook[] = [
     {
       id: "guard",
@@ -329,12 +352,61 @@ test("renderCodexHookConfigObject maps supported events and enables the feature 
             matcher: "startup|resume",
           },
         ],
+        prompt_submit: [
+          {
+            type: "command",
+            command: "echo prompt",
+          },
+        ],
         pre_tool_use: [
           {
             type: "command",
             command: "echo pre-tool",
             matcher: "^Bash$",
             timeoutSec: 30,
+            statusMessage: "Checking Bash command",
+          },
+        ],
+        permission_request: [
+          {
+            type: "command",
+            command: "echo permission-request",
+            matcher: "^Bash$",
+          },
+        ],
+        post_tool_use: [
+          {
+            type: "command",
+            command: "echo post-tool",
+            matcher: "^Bash$",
+          },
+        ],
+        subagent_start: [
+          {
+            type: "command",
+            command: "echo subagent-start",
+            matcher: "worker-start",
+          },
+        ],
+        subagent_stop: [
+          {
+            type: "command",
+            command: "echo subagent-stop",
+            matcher: "worker-stop",
+          },
+        ],
+        pre_compact: [
+          {
+            type: "command",
+            command: "echo pre-compact",
+            matcher: "manual",
+          },
+        ],
+        post_compact: [
+          {
+            type: "command",
+            command: "echo post-compact",
+            matcher: "auto",
           },
         ],
         stop: [
@@ -348,15 +420,54 @@ test("renderCodexHookConfigObject maps supported events and enables the feature 
   ];
 
   const rendered = renderCodexHookConfigObject(hooks) as {
-    features?: { codex_hooks?: boolean };
+    features?: { hooks?: boolean; codex_hooks?: boolean };
     hooks?: Record<string, Array<{ matcher?: string; hooks: Array<Record<string, unknown>> }>>;
   };
 
-  assert.equal(rendered.features?.codex_hooks, true);
+  assert.equal(rendered.features?.hooks, true);
+  assert.equal(rendered.features?.codex_hooks, undefined);
   assert.equal(rendered.hooks?.SessionStart?.[0]?.matcher, "startup|resume");
+  assert.ok(rendered.hooks?.UserPromptSubmit);
   assert.equal(rendered.hooks?.PreToolUse?.[0]?.matcher, "^Bash$");
   assert.equal(rendered.hooks?.PreToolUse?.[0]?.hooks?.[0]?.timeout, 30);
+  assert.equal(rendered.hooks?.PreToolUse?.[0]?.hooks?.[0]?.statusMessage, "Checking Bash command");
+  assert.ok(rendered.hooks?.PermissionRequest);
+  assert.ok(rendered.hooks?.PostToolUse);
+  // Matchers must attach to their own event block, not leak across events.
+  assert.equal(rendered.hooks?.SubagentStart?.[0]?.matcher, "worker-start");
+  assert.equal(rendered.hooks?.SubagentStop?.[0]?.matcher, "worker-stop");
+  assert.equal(rendered.hooks?.PreCompact?.[0]?.matcher, "manual");
+  assert.equal(rendered.hooks?.PostCompact?.[0]?.matcher, "auto");
   assert.ok(rendered.hooks?.Stop);
+});
+
+test("hook capabilities reverse-map native Codex and Claude events", () => {
+  assert.equal(nativeToCanonicalHookEvent("codex", "PermissionRequest"), "permission_request");
+  assert.equal(nativeToCanonicalHookEvent("codex", "SubagentStart"), "subagent_start");
+  assert.equal(nativeToCanonicalHookEvent("codex", "PostCompact"), "post_compact");
+  assert.equal(nativeToCanonicalHookEvent("codex", "SessionEnd"), undefined);
+  assert.equal(nativeToCanonicalHookEvent("claude", "SessionEnd"), "session_end");
+  assert.equal(nativeToCanonicalHookEvent("copilot", "preCompact"), "pre_compact");
+});
+
+test("non-Codex providers reject statusMessage in strict mode", () => {
+  const hook: CanonicalHook = {
+    id: "status",
+    mode: "strict",
+    events: {
+      pre_tool_use: [
+        {
+          type: "command",
+          command: "echo status",
+          statusMessage: "Checking",
+        },
+      ],
+    },
+  };
+
+  assert.throws(() => renderClaudeHookSettings([hook]), /HOOK_EVENT_UNSUPPORTED/u);
+  assert.throws(() => renderCopilotHookConfig([hook]), /HOOK_EVENT_UNSUPPORTED/u);
+  assert.throws(() => renderCursorHookConfig([hook]), /HOOK_EVENT_UNSUPPORTED/u);
 });
 
 test("renderCodexHookConfigObject throws for unsupported events in strict mode", () => {

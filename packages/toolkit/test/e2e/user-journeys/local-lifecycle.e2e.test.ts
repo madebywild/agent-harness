@@ -239,7 +239,7 @@ describe("local lifecycle journey", { timeout: 120_000 }, () => {
       "utf8",
     );
 
-    // Hook: lint-guard (cross-provider: pre_tool_use works on claude+copilot, skipped on codex)
+    // Hook: lint-guard (cross-provider: pre_tool_use works on claude+copilot+codex)
     await fs.writeFile(
       path.join(workspace, ".harness/src/hooks/lint-guard.json"),
       JSON.stringify(
@@ -318,11 +318,14 @@ describe("local lifecycle journey", { timeout: 120_000 }, () => {
     );
     assert.ok(await fileExists(path.join(workspace, ".codex/config.toml")), "codex config.toml");
 
-    // codex config.toml should have MCP servers, subagent, and notify
+    // codex config.toml should have MCP servers, subagent, lifecycle hooks, and notify
     const codexToml = await readWorkspaceText(workspace, ".codex/config.toml");
     assert.match(codexToml, /\[mcp_servers\.playwright\]/u, "codex has playwright MCP");
     assert.match(codexToml, /\[mcp_servers\.sentry\]/u, "codex has sentry MCP");
     assert.match(codexToml, /\[agents\.researcher\]/u, "codex has researcher agent");
+    assert.match(codexToml, /hooks = true/u, "codex lifecycle hooks enabled");
+    assert.doesNotMatch(codexToml, /codex_hooks/u, "codex avoids deprecated hook feature alias");
+    assert.match(codexToml, /\[\[hooks\.PreToolUse\]\]/u, "codex has PreToolUse lifecycle hook");
     assert.match(codexToml, /notify/u, "codex has notify from hook");
 
     // --- Claude outputs ---
