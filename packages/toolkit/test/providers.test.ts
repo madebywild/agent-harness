@@ -330,6 +330,117 @@ test("codex remote MCP config renders serverUrl as url", async () => {
   assert.match(tomlContent, /X-Figma-Region = "us-east-1"/u);
 });
 
+test("claude remote MCP config renders serverUrl as url in .mcp.json", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addMcp("remote");
+  await engine.enableProvider("claude");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/mcp/remote.json"),
+    JSON.stringify(
+      {
+        servers: {
+          figma: {
+            serverUrl: "https://mcp.figma.com/mcp",
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+    JSON.stringify(apply.diagnostics),
+  );
+
+  const mcpContent = await fs.readFile(path.join(cwd, ".mcp.json"), "utf8");
+  const mcpConfig = JSON.parse(mcpContent) as { mcpServers: Record<string, { url?: string; serverUrl?: string }> };
+  assert.equal(mcpConfig.mcpServers.figma?.url, "https://mcp.figma.com/mcp");
+  assert.equal(mcpConfig.mcpServers.figma?.serverUrl, undefined);
+});
+
+test("copilot remote MCP config renders serverUrl as url in .vscode/mcp.json", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addMcp("remote");
+  await engine.enableProvider("copilot");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/mcp/remote.json"),
+    JSON.stringify(
+      {
+        servers: {
+          figma: {
+            serverUrl: "https://mcp.figma.com/mcp",
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+    JSON.stringify(apply.diagnostics),
+  );
+
+  const mcpContent = await fs.readFile(path.join(cwd, ".vscode/mcp.json"), "utf8");
+  const mcpConfig = JSON.parse(mcpContent) as { servers: Record<string, { url?: string; serverUrl?: string }> };
+  assert.equal(mcpConfig.servers.figma?.url, "https://mcp.figma.com/mcp");
+  assert.equal(mcpConfig.servers.figma?.serverUrl, undefined);
+});
+
+test("cursor remote MCP config renders serverUrl as url in .cursor/mcp.json", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addMcp("remote");
+  await engine.enableProvider("cursor");
+
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/mcp/remote.json"),
+    JSON.stringify(
+      {
+        servers: {
+          figma: {
+            serverUrl: "https://mcp.figma.com/mcp",
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  const apply = await engine.apply();
+  assert.equal(
+    apply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+    false,
+    JSON.stringify(apply.diagnostics),
+  );
+
+  const mcpContent = await fs.readFile(path.join(cwd, ".cursor/mcp.json"), "utf8");
+  const mcpConfig = JSON.parse(mcpContent) as { mcpServers: Record<string, { url?: string; serverUrl?: string }> };
+  assert.equal(mcpConfig.mcpServers.figma?.url, "https://mcp.figma.com/mcp");
+  assert.equal(mcpConfig.mcpServers.figma?.serverUrl, undefined);
+});
+
 test("claude subagent renders frontmatter and body", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);

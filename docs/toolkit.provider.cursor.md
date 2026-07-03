@@ -13,6 +13,8 @@ Builds the Cursor provider adapter.
 - Defaults from `PROVIDER_DEFAULTS.cursor`.
 - MCP renderer: JSON via `createJsonMcpRenderer("mcpServers")`.
 - MCP output uses top-level `mcpServers`.
+- Remote server entries authored with `serverUrl` are rendered as `.cursor/mcp.json`'s `url` field (see
+  [`normalizeMcpServerUrlField`](toolkit.provider.mcp.md)).
 - Prompt projection is intentionally disabled in v1.
 - Command projection is intentionally disabled in v1.
 - Settings projection is intentionally disabled in v1.
