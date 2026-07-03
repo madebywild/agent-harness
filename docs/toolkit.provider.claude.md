@@ -13,6 +13,8 @@ Builds the Claude provider adapter.
 - Defaults from `PROVIDER_DEFAULTS.claude`.
 - MCP renderer: JSON via `createJsonMcpRenderer("mcpServers")`.
 - MCP output uses top-level `mcpServers`.
+- Remote server entries authored with `serverUrl` are rendered as `.mcp.json`'s `url` field (see
+  [`normalizeMcpServerUrlField`](toolkit.provider.mcp.md)).
 - Subagents:
   - renders `.claude/agents/<id>.md`
   - frontmatter includes `name`, `description`, optional `tools`/`model`

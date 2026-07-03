@@ -13,6 +13,8 @@ Builds the Copilot provider adapter.
 - Defaults from `PROVIDER_DEFAULTS.copilot`.
 - MCP renderer: JSON via `createJsonMcpRenderer("servers")`.
 - MCP output uses top-level `servers`.
+- Remote server entries authored with `serverUrl` are rendered as `.vscode/mcp.json`'s `url` field (see
+  [`normalizeMcpServerUrlField`](toolkit.provider.mcp.md)).
 - Subagents:
   - renders `.github/agents/<id>.agent.md`
   - frontmatter includes `name`, `description`, optional `tools`/`model`/`handoffs`
