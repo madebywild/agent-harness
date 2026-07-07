@@ -8,7 +8,7 @@
         "copilot": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847"
       },
       "registry": "local",
-      "sourceSha256": "12faf7be0e6fc487da8c3553c704652873d526ab195955ef0075897f73a5cbad",
+      "sourceSha256": "5def2455c03338b93f1758a16b6b0cd36786b84a6d66b616e367595528d6d13d",
       "type": "prompt"
     },
     {
@@ -59,7 +59,7 @@
         "copilot": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847"
       },
       "registry": "local",
-      "sourceSha256": "5fa2504b00cc4bbf4e85fba2b94fa5ac4cbb8439da25ded29112fef19675aa70",
+      "sourceSha256": "93aa25041edbe3aa52fc1c7b168e780d0c38350cce6a911d32922edf9f7ee121",
       "type": "skill"
     },
     {
@@ -173,7 +173,7 @@
       "type": "subagent"
     }
   ],
-  "generatedAt": "2026-07-07T11:37:03.776Z",
+  "generatedAt": "2026-04-12T07:57:27.990Z",
   "manifestFingerprint": "941166d63f29df7e38fd15400f542f74eb5147d8628cdf8ee1f14de6fbbacdb3",
   "outputs": [
     {
@@ -231,7 +231,7 @@
       "provider": "claude"
     },
     {
-      "contentSha256": "5412991e66519b6b5e1ddadcbb277298283de84076ea67d31908a6dffd81ed68",
+      "contentSha256": "10bbafcb52f852769ca5a96299362804de526adaa33485582f1bc3bc96f76207",
       "ownerEntityIds": ["harness-mcp"],
       "path": ".claude/skills/harness-mcp/SKILL.md",
       "provider": "claude"
@@ -297,7 +297,7 @@
       "provider": "codex"
     },
     {
-      "contentSha256": "5412991e66519b6b5e1ddadcbb277298283de84076ea67d31908a6dffd81ed68",
+      "contentSha256": "10bbafcb52f852769ca5a96299362804de526adaa33485582f1bc3bc96f76207",
       "ownerEntityIds": ["harness-mcp"],
       "path": ".codex/skills/harness-mcp/SKILL.md",
       "provider": "codex"
@@ -363,7 +363,7 @@
       "provider": "copilot"
     },
     {
-      "contentSha256": "12faf7be0e6fc487da8c3553c704652873d526ab195955ef0075897f73a5cbad",
+      "contentSha256": "5def2455c03338b93f1758a16b6b0cd36786b84a6d66b616e367595528d6d13d",
       "ownerEntityIds": ["system"],
       "path": ".github/copilot-instructions.md",
       "provider": "copilot"
@@ -387,7 +387,7 @@
       "provider": "copilot"
     },
     {
-      "contentSha256": "5412991e66519b6b5e1ddadcbb277298283de84076ea67d31908a6dffd81ed68",
+      "contentSha256": "10bbafcb52f852769ca5a96299362804de526adaa33485582f1bc3bc96f76207",
       "ownerEntityIds": ["harness-mcp"],
       "path": ".github/skills/harness-mcp/SKILL.md",
       "provider": "copilot"
@@ -423,13 +423,13 @@
       "provider": "copilot"
     },
     {
-      "contentSha256": "12faf7be0e6fc487da8c3553c704652873d526ab195955ef0075897f73a5cbad",
+      "contentSha256": "5def2455c03338b93f1758a16b6b0cd36786b84a6d66b616e367595528d6d13d",
       "ownerEntityIds": ["system"],
       "path": "AGENTS.md",
       "provider": "codex"
     },
     {
-      "contentSha256": "12faf7be0e6fc487da8c3553c704652873d526ab195955ef0075897f73a5cbad",
+      "contentSha256": "5def2455c03338b93f1758a16b6b0cd36786b84a6d66b616e367595528d6d13d",
       "ownerEntityIds": ["system"],
       "path": "CLAUDE.md",
       "provider": "claude"

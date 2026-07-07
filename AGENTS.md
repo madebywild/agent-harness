@@ -1,16 +1,5 @@
 This file provides guidance when working with code in this repository.
 
-## Prototype repository policy
-
-- New prototype or project work must happen in `madebywild/ai-prototypes-v2`, not in the legacy
-  `ai-prototypes` repository.
-- If `/Users/tom/Github/ai-prototypes-v2` is missing, clone `madebywild/ai-prototypes-v2` there, alongside the
-  existing legacy `ai-prototypes` checkout.
-- For new prototype work, Claude must start or request a fresh session rooted in
-  `/Users/tom/Github/ai-prototypes-v2` before making changes.
-- Work on existing legacy prototypes is allowed only for maintenance, fixes, audits, or requested changes to an
-  already-existing legacy prototype.
-
 ## Workflow
 
 ### Before starting work
