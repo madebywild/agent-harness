@@ -13,6 +13,25 @@ Agent Harness is a TypeScript CLI tool and library that manages AI agent configu
 
 Like [shadcn/ui](https://ui.shadcn.com/) does for UI components, Agent Harness gives you full ownership of your agent configuration. Pull shared entities from external git registries into your project as full source code — not as opaque library imports. You can inspect, modify, and version every file. The CLI manages the plumbing; you own the content.
 
+## How it works
+
+Install Agent Harness in a project, then add a skill, prompt, MCP config, subagent, or hook once under `.harness/src/`. Run `npx harness apply` and it renders that single source into the native config file each provider expects:
+
+```
+.harness/src/skills/my-skill/SKILL.md
+                │
+                ▼  npx harness apply
+                │
+    ┌───────────┼───────────┬───────────┐
+    ▼           ▼           ▼           ▼
+.codex/     .claude/    .github/    .cursor/
+skills/     skills/     skills/     skills/
+```
+
+No copy-pasting a skill or prompt into every provider's own format by hand, and no drift between them once you do. Edit the source once, run `apply`, and every enabled provider stays in sync.
+
+On top of that, `npx harness registry` lets a team pull any of the above from a shared git repo, and `npx harness preset apply` bootstraps a whole set of them in one step.
+
 ## Features
 
 ### Unified agent config
