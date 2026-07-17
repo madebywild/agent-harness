@@ -114,14 +114,19 @@ test("manifest.lock remains byte-stable on no-op apply", async () => {
   assert.equal(lockAfter, lockBefore);
 });
 
-test("remove prompt rejects non-system id and preserves manifest entity", async () => {
+test("remove prompt targets by id and rejects unknown ids", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
   await engine.addPrompt();
+  await engine.addPrompt({ id: "web", target: "packages/web" });
 
-  await assert.rejects(async () => engine.remove("prompt", "wrong-id", false), /must be 'system'/u);
+  // Unknown id is rejected (no longer forced to 'system').
+  await assert.rejects(async () => engine.remove("prompt", "wrong-id", false), /Could not find/u);
+
+  // A per-package prompt is removed by its own id, leaving the root prompt intact.
+  await engine.remove("prompt", "web", false);
 
   const manifestText = await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8");
   const manifest = JSON.parse(manifestText) as {

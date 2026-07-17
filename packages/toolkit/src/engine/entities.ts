@@ -57,7 +57,6 @@ import {
   manifestEntityTypeToCliEntityType,
   registryIdFromInput,
   resolveEntityRegistrySelection,
-  resolveRemoveTargetId,
   sortEntities,
   validateEntityId,
 } from "./utils.js";
@@ -865,8 +864,7 @@ export async function pullRegistryEntities(
 
   if (options?.entityType && options.id) {
     const targetType = CLI_ENTITY_TO_MANIFEST_ENTITY[options.entityType];
-    const targetId = resolveRemoveTargetId(options.entityType, options.id);
-    targets = targets.filter((entity) => entity.type === targetType && entity.id === targetId);
+    targets = targets.filter((entity) => entity.type === targetType && entity.id === options.id);
   }
 
   if (targets.length === 0) {
@@ -967,17 +965,16 @@ export async function removeEntity(
   const manifest = await readManifestOrThrow(paths);
 
   const entityType: EntityType = CLI_ENTITY_TO_MANIFEST_ENTITY[entityTypeArg];
-  const targetId = resolveRemoveTargetId(entityTypeArg, id);
 
-  const entityIndex = manifest.entities.findIndex((entity) => entity.type === entityType && entity.id === targetId);
+  const entityIndex = manifest.entities.findIndex((entity) => entity.type === entityType && entity.id === id);
 
   if (entityIndex === -1) {
-    throw new Error(`Could not find ${entityTypeArg} entity '${targetId}'`);
+    throw new Error(`Could not find ${entityTypeArg} entity '${id}'`);
   }
 
   const [entity] = manifest.entities.splice(entityIndex, 1);
   if (!entity) {
-    throw new Error(`Could not find ${entityTypeArg} entity '${targetId}'`);
+    throw new Error(`Could not find ${entityTypeArg} entity '${id}'`);
   }
 
   if (deleteSource) {
