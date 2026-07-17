@@ -38,6 +38,7 @@ On top of that, `npx harness registry` lets a team pull any of the above from a 
 
 - Single source of truth for all agent configurations in the `.harness/` directory
 - Multi-provider support with simultaneous output generation for Codex, Claude, Copilot, and Cursor
+- Monorepo co-location: place generated artifacts in per-package directories via a per-entity `target`, routed per provider capability
 - System prompt management with provider-specific overrides
 - Reusable skill management synchronized across providers
 - Third-party skill discovery and import via [skills.sh](https://skills.sh) with audit gating
@@ -179,13 +180,14 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | `npx harness preset list [--registry <name>]`                           | List bundled, local, or registry presets                                                                      |
 | `npx harness preset describe <id> [--registry <name>]`                  | Describe a preset                                                                                             |
 | `npx harness preset apply <id> [--registry <name>]`                     | Materialize a preset into normal harness state                                                                |
-| `npx harness add prompt [--registry <name>]`                            | Add system prompt entity                                                                                      |
+| `npx harness add prompt [<id>] [--registry <name>] [--target <dir>]`    | Add a system prompt entity (id defaults to `system`)                                                          |
 | `npx harness skill find <query>`                                        | Search third-party skills via skills.sh                                                                       |
 | `npx harness skill import <source> --skill <id> [--as <id>] [--replace]`| Import a third-party skill with audit gating                                                                  |
-| `npx harness add skill <id> [--registry <name>]`                        | Add a skill entity                                                                                            |
-| `npx harness add mcp <id> [--registry <name>]`                          | Add an MCP config entity                                                                                      |
-| `npx harness add subagent <id> [--registry <name>]`                     | Add a subagent entity                                                                                         |
-| `npx harness add hook <id> [--registry <name>]`                         | Add a lifecycle hook entity                                                                                   |
+| `npx harness add skill <id> [--registry <name>] [--target <dir>]`       | Add a skill entity                                                                                            |
+| `npx harness add mcp <id> [--registry <name>] [--target <dir>]`         | Add an MCP config entity                                                                                      |
+| `npx harness add subagent <id> [--registry <name>] [--target <dir>]`    | Add a subagent entity                                                                                         |
+| `npx harness add hook <id> [--registry <name>] [--target <dir>]`        | Add a lifecycle hook entity                                                                                   |
+| `npx harness add command <id> [--registry <name>] [--target <dir>]`     | Add a command entity                                                                                          |
 | `npx harness remove <type> <id> [--no-delete-source]`                   | Remove an entity (deletes source by default)                                                                  |
 | `npx harness validate`                                                  | Validate manifest and files                                                                                   |
 | `npx harness plan`                                                      | Preview changes (dry-run)                                                                                     |
@@ -269,6 +271,19 @@ Applying a preset materializes normal harness state such as enabled providers, p
 | Subagents | `.codex/config.toml` (merged `agents.*`) | `.claude/agents/<id>.md` | `.github/agents/<id>.agent.md`    | `.cursor/agents/<id>.md`   |
 | Hooks     | `.codex/config.toml`                     | `.claude/settings.json`  | `.github/hooks/...`               | `.cursor/hooks.json`       |
 
+## Monorepo support
+
+In a monorepo, co-locate generated artifacts with the package they describe using a per-entity `target`:
+
+```bash
+npx harness add prompt web --target packages/web
+npx harness add skill api-testing --target packages/api
+npx harness apply
+# -> packages/web/CLAUDE.md and packages/api/.claude/skills/api-testing/SKILL.md
+```
+
+`target` relocates only the generated artifacts; canonical sources stay under `.harness/src/`. Routing is capability-aware: providers that discover an artifact when nested (Claude for all artifacts, Codex for prompts) place it in the package, while providers that do not (Copilot, Cursor) keep it at the repository root. Multiple prompts are supported, so a root prompt plus per-package prompts can coexist. See [docs/monorepo.md](docs/monorepo.md) for the full behavior.
+
 ## Monorepo Packages
 
 ### `@madebywild/agent-harness-manifest`
@@ -318,16 +333,17 @@ pnpm --filter @madebywild/agent-harness-framework watch
 
 ## Release
 
-This repository publishes two npm packages in lockstep:
+This repository publishes three npm packages in lockstep:
 
 - `@madebywild/agent-harness-manifest`
+- `@madebywild/agent-harness-tui`
 - `@madebywild/agent-harness-framework`
 
 To release:
 
-1. Bump `version` in both `packages/manifest-schema/package.json` and `packages/toolkit/package.json` to the same semver.
+1. Bump `version` in `packages/manifest-schema/package.json`, `packages/tui/package.json`, and `packages/toolkit/package.json` to the same semver.
 2. Merge the version bump PR.
-3. Create and push a `vX.Y.Z` tag (e.g. `v0.2.0`). CI publishes manifest-schema first, then framework.
+3. Create and push a `vX.Y.Z` tag (e.g. `v1.12.0`). CI publishes the packages from the tag.
 
 ## Containerized E2E Tests
 
