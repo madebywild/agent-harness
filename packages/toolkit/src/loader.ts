@@ -3,6 +3,7 @@ import path from "node:path";
 import type {
   AgentsManifest,
   EntityRef,
+  EntityType,
   ProviderId,
   ProviderOverride,
   RegistryDefinition,
@@ -14,17 +15,18 @@ import { loadEnvVars, pushUnresolvedEnvDiagnostics, substituteEnvVars } from "./
 import { canonicalHookHasErrors, parseCanonicalHookDocument, withHookId } from "./hooks.js";
 import type { HarnessPaths } from "./paths.js";
 import {
-  DEFAULT_PROMPT_SOURCE_PATH,
   defaultCommandOverridePath,
   defaultCommandSourcePath,
   defaultHookOverridePath,
   defaultHookSourcePath,
   defaultMcpOverridePath,
   defaultPromptOverridePath,
+  defaultPromptSourcePath,
   defaultSettingsSourcePath,
   defaultSkillOverridePath,
   defaultSubagentOverridePath,
 } from "./paths.js";
+import { type ArtifactType, isNestable, providerEmitsArtifact } from "./provider-adapters/constants.js";
 import {
   collectManagedSourcePaths,
   collectSourceCandidates,
@@ -68,14 +70,12 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   }
 
   const promptEntities = manifest.entities.filter((entity) => entity.type === "prompt" && entity.enabled !== false);
-  let prompt: LoadedPrompt | undefined;
-
-  if (promptEntities.length === 1) {
-    const promptEntity = promptEntities[0];
-    if (promptEntity) {
-      const loadedPrompt = await loadPrompt(paths, promptEntity, envVars);
-      diagnostics.push(...loadedPrompt.diagnostics);
-      prompt = loadedPrompt.prompt;
+  const prompts: LoadedPrompt[] = [];
+  for (const promptEntity of promptEntities) {
+    const loadedPrompt = await loadPrompt(paths, promptEntity, envVars);
+    diagnostics.push(...loadedPrompt.diagnostics);
+    if (loadedPrompt.prompt) {
+      prompts.push(loadedPrompt.prompt);
     }
   }
 
@@ -142,7 +142,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   return {
     manifest,
     diagnostics,
-    prompt,
+    prompts: prompts.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     skills: skills.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     mcps: mcps.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     subagents: subagents.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
@@ -212,7 +212,6 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
   }
 
   const entityIdSet = new Set<string>();
-  let promptCount = 0;
 
   for (const entity of manifest.entities) {
     if (entityIdSet.has(entity.id)) {
@@ -238,22 +237,12 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
 
     const sourcePath = normalizeRelativePath(entity.sourcePath);
     if (entity.type === "prompt") {
-      promptCount += 1;
-      if (entity.id !== "system") {
-        diagnostics.push({
-          code: "PROMPT_ID_INVALID",
-          severity: "error",
-          message: `Prompt entity id must be 'system' in v1, found '${entity.id}'`,
-          path: sourcePath,
-          entityId: entity.id,
-        });
-      }
-
-      if (sourcePath !== DEFAULT_PROMPT_SOURCE_PATH) {
+      const expectedPath = defaultPromptSourcePath(entity.id);
+      if (sourcePath !== expectedPath) {
         diagnostics.push({
           code: "PROMPT_SOURCE_INVALID",
           severity: "error",
-          message: `Prompt sourcePath must be '${DEFAULT_PROMPT_SOURCE_PATH}' in v1`,
+          message: `Prompt '${entity.id}' sourcePath must be '${expectedPath}'`,
           path: sourcePath,
           entityId: entity.id,
         });
@@ -313,6 +302,17 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
     }
 
     if (entity.type === "settings") {
+      if (entity.target) {
+        diagnostics.push({
+          code: "SETTINGS_TARGET_UNSUPPORTED",
+          severity: "error",
+          message: `Settings entity '${entity.id}' does not support 'target' (settings are root-only in this version)`,
+          path: sourcePath,
+          entityId: entity.id,
+          hint: "Remove 'target', or co-locate hooks instead which do support it.",
+        });
+      }
+
       const parsedProvider = providerIdSchema.safeParse(entity.id);
       if (!parsedProvider.success) {
         diagnostics.push({
@@ -350,13 +350,107 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
     }
   }
 
-  if (promptCount > 1) {
-    diagnostics.push({
-      code: "PROMPT_COUNT_INVALID",
-      severity: "error",
-      message: "v1 supports exactly zero or one prompt entity",
-      path: ".harness/manifest.json",
-    });
+  diagnostics.push(...buildPromptTargetConflictDiagnostics(manifest));
+  diagnostics.push(...buildTargetRoutingDiagnostics(manifest));
+
+  return diagnostics;
+}
+
+// A provider that cannot nest prompts (e.g. copilot) has a single root instructions file, so
+// exactly one prompt may own it. Prefer an untargeted prompt; if every prompt is targeted, the
+// first by id wins the root slot (so co-locating your only prompt does not leave the provider
+// with no instructions). Prompts are pre-sorted by id, but sort defensively for callers.
+export function selectRootPromptId(prompts: ReadonlyArray<{ id: string; target?: string }>): string | undefined {
+  if (prompts.length === 0) {
+    return undefined;
+  }
+  const sorted = [...prompts].sort((left, right) => left.id.localeCompare(right.id));
+  return (sorted.find((prompt) => !prompt.target) ?? sorted[0])?.id;
+}
+
+// Prompts are per-provider singletons, so two prompts sharing a target directory (both the
+// repo root when untargeted) would collide on the same CLAUDE.md/AGENTS.md. Surface a clear
+// error at validate time instead of a generic OUTPUT_PATH_COLLISION at apply time.
+function buildPromptTargetConflictDiagnostics(manifest: AgentsManifest): Diagnostic[] {
+  const byTarget = new Map<string, string[]>();
+  for (const entity of manifest.entities) {
+    if (entity.type !== "prompt" || entity.enabled === false) {
+      continue;
+    }
+    const key = entity.target ?? "";
+    byTarget.set(key, [...(byTarget.get(key) ?? []), entity.id]);
+  }
+
+  const diagnostics: Diagnostic[] = [];
+  for (const [key, ids] of byTarget) {
+    if (ids.length > 1) {
+      diagnostics.push({
+        code: "PROMPT_TARGET_CONFLICT",
+        severity: "error",
+        message: `Prompts ${ids.map((id) => `'${id}'`).join(", ")} share target '${key || "<root>"}'; each prompt needs a distinct target directory.`,
+        path: ".harness/manifest.json",
+      });
+    }
+  }
+  return diagnostics;
+}
+
+// Artifact family per entity type, and how a provider that can't nest it behaves when the
+// entity carries a `target` (see PROVIDER_NESTABLE / capability-aware routing).
+const ENTITY_ARTIFACT: Record<EntityType, { artifact: ArtifactType; cardinality: "singleton" | "namespaced" }> = {
+  prompt: { artifact: "prompt", cardinality: "singleton" },
+  skill: { artifact: "skill", cardinality: "namespaced" },
+  mcp_config: { artifact: "mcp", cardinality: "namespaced" },
+  subagent: { artifact: "subagent", cardinality: "namespaced" },
+  hook: { artifact: "hook", cardinality: "namespaced" },
+  command: { artifact: "command", cardinality: "namespaced" },
+  settings: { artifact: "settings", cardinality: "namespaced" },
+};
+
+// Warn/inform when a targeted entity meets an enabled provider that can't co-locate it, so a
+// user understands why the artifact landed at the root (or, for a prompt, was skipped).
+function buildTargetRoutingDiagnostics(manifest: AgentsManifest): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  const enabled = manifest.providers.enabled;
+  const rootPromptId = selectRootPromptId(
+    manifest.entities.filter((entity) => entity.type === "prompt" && entity.enabled !== false),
+  );
+
+  for (const entity of manifest.entities) {
+    if (!entity.target || entity.type === "settings" || entity.enabled === false) {
+      continue;
+    }
+
+    const { artifact, cardinality } = ENTITY_ARTIFACT[entity.type];
+    // For a singleton (prompt), the one that wins the root slot is emitted at root; the rest
+    // are skipped for the provider.
+    const skipped = cardinality === "singleton" && entity.id !== rootPromptId;
+
+    for (const provider of enabled) {
+      // Skip providers that nest this artifact (target honored) or that emit no such artifact
+      // at all (e.g. codex has no command) — a routing note would otherwise be misleading.
+      if (isNestable(provider, artifact) || !providerEmitsArtifact(provider, artifact)) {
+        continue;
+      }
+
+      if (skipped) {
+        diagnostics.push({
+          code: "TARGET_PROMPT_SKIPPED",
+          severity: "warning",
+          message: `Provider '${provider}' has a single instructions file already claimed by prompt '${rootPromptId}', so targeted prompt '${entity.id}' is skipped for it.`,
+          entityId: entity.id,
+          provider,
+        });
+      } else {
+        diagnostics.push({
+          code: "TARGET_ROUTED_TO_ROOT",
+          severity: "info",
+          message: `Provider '${provider}' does not discover ${entity.type} '${entity.id}' nested; its artifact is placed at the repository root instead of '${entity.target}'.`,
+          entityId: entity.id,
+          provider,
+        });
+      }
+    }
   }
 
   return diagnostics;
@@ -424,7 +518,7 @@ async function loadPrompt(
       paths,
       provider,
       entity,
-      entity.overrides?.[provider] ?? defaultPromptOverridePath(provider),
+      entity.overrides?.[provider] ?? defaultPromptOverridePath(entity.id, provider),
       envVars,
     );
     diagnostics.push(...parsedOverride.diagnostics);
@@ -442,6 +536,7 @@ async function loadPrompt(
         id: entity.id,
         body,
         frontmatter: (parsed.data as Record<string, unknown>) ?? {},
+        target: entity.target,
       },
       sourceSha256: sha256(text),
       overrideByProvider,
@@ -538,6 +633,7 @@ async function loadSkill(
       canonical: {
         id: entity.id,
         files: normalizedFiles,
+        target: entity.target,
       },
       filesWithContent: filesWithContent.sort((left, right) => left.path.localeCompare(right.path)),
       sourceSha256: sha256(stableStringify(normalizedFiles)),
@@ -618,6 +714,7 @@ async function loadMcp(
       canonical: {
         id: entity.id,
         json: json as Record<string, unknown>,
+        target: entity.target,
       },
       sourceSha256: sha256(text),
       overrideByProvider,
@@ -740,6 +837,7 @@ async function loadSubagent(
         description,
         body,
         metadata,
+        target: entity.target,
       },
       sourceSha256: sha256(text),
       overrideByProvider,
@@ -806,7 +904,7 @@ async function loadHook(
     diagnostics,
     hook: {
       entity,
-      canonical: withHookId(parsedHook.canonical, entity.id),
+      canonical: { ...withHookId(parsedHook.canonical, entity.id), target: entity.target },
       sourceSha256: sha256(text),
       overrideByProvider,
       overrideShaByProvider,
@@ -959,7 +1057,7 @@ async function loadCommand(
     diagnostics,
     command: {
       entity,
-      canonical: parsedCommand.canonical,
+      canonical: { ...parsedCommand.canonical, target: entity.target },
       sourceSha256: sha256(text),
       overrideByProvider,
       overrideShaByProvider,

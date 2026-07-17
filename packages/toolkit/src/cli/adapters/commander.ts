@@ -462,14 +462,18 @@ export async function runCommanderAdapter(
   addJsonOption(
     addCommand
       .command("prompt")
-      .description("Create the v1 system prompt entity")
+      .description("Create a system prompt entity (id defaults to 'system')")
+      .argument("[id]", "prompt id (defaults to 'system')")
       .option("--registry <registry>", "registry id (defaults to configured default/local)")
-      .action(async (options: { registry?: string; json?: boolean }) => {
+      .option("--target <dir>", "monorepo directory to place generated artifacts under (e.g. packages/web)")
+      .action(async (id: string | undefined, options: { registry?: string; target?: string; json?: boolean }) => {
         await runCommand(
           {
             command: "add.prompt",
+            args: id ? { id } : {},
             options: {
               registry: options.registry,
+              target: options.target,
             },
           },
           options,
@@ -483,7 +487,8 @@ export async function runCommanderAdapter(
       .description("Create a skill entity")
       .argument("<skill-id>", "skill id")
       .option("--registry <registry>", "registry id (defaults to configured default/local)")
-      .action(async (skillId: string, options: { registry?: string; json?: boolean }) => {
+      .option("--target <dir>", "monorepo directory to place generated artifacts under (e.g. packages/web)")
+      .action(async (skillId: string, options: { registry?: string; target?: string; json?: boolean }) => {
         await runCommand(
           {
             command: "add.skill",
@@ -492,6 +497,7 @@ export async function runCommanderAdapter(
             },
             options: {
               registry: options.registry,
+              target: options.target,
             },
           },
           options,
@@ -505,7 +511,8 @@ export async function runCommanderAdapter(
       .description("Create an MCP config entity")
       .argument("<config-id>", "MCP config id")
       .option("--registry <registry>", "registry id (defaults to configured default/local)")
-      .action(async (configId: string, options: { registry?: string; json?: boolean }) => {
+      .option("--target <dir>", "monorepo directory to place generated artifacts under (e.g. packages/web)")
+      .action(async (configId: string, options: { registry?: string; target?: string; json?: boolean }) => {
         await runCommand(
           {
             command: "add.mcp",
@@ -514,6 +521,7 @@ export async function runCommanderAdapter(
             },
             options: {
               registry: options.registry,
+              target: options.target,
             },
           },
           options,
@@ -527,7 +535,8 @@ export async function runCommanderAdapter(
       .description("Create a subagent entity")
       .argument("<subagent-id>", "subagent id")
       .option("--registry <registry>", "registry id (defaults to configured default/local)")
-      .action(async (subagentId: string, options: { registry?: string; json?: boolean }) => {
+      .option("--target <dir>", "monorepo directory to place generated artifacts under (e.g. packages/web)")
+      .action(async (subagentId: string, options: { registry?: string; target?: string; json?: boolean }) => {
         await runCommand(
           {
             command: "add.subagent",
@@ -536,6 +545,7 @@ export async function runCommanderAdapter(
             },
             options: {
               registry: options.registry,
+              target: options.target,
             },
           },
           options,
@@ -549,7 +559,8 @@ export async function runCommanderAdapter(
       .description("Create a lifecycle hook entity")
       .argument("<hook-id>", "hook id")
       .option("--registry <registry>", "registry id (defaults to configured default/local)")
-      .action(async (hookId: string, options: { registry?: string; json?: boolean }) => {
+      .option("--target <dir>", "monorepo directory to place generated artifacts under (e.g. packages/web)")
+      .action(async (hookId: string, options: { registry?: string; target?: string; json?: boolean }) => {
         await runCommand(
           {
             command: "add.hook",
@@ -558,6 +569,7 @@ export async function runCommanderAdapter(
             },
             options: {
               registry: options.registry,
+              target: options.target,
             },
           },
           options,
@@ -593,7 +605,8 @@ export async function runCommanderAdapter(
       .description("Create a command entity")
       .argument("<command-id>", "command id")
       .option("--registry <registry>", "registry id (defaults to configured default/local)")
-      .action(async (commandId: string, options: { registry?: string; json?: boolean }) => {
+      .option("--target <dir>", "monorepo directory to place generated artifacts under (e.g. packages/web)")
+      .action(async (commandId: string, options: { registry?: string; target?: string; json?: boolean }) => {
         await runCommand(
           {
             command: "add.command",
@@ -602,6 +615,7 @@ export async function runCommanderAdapter(
             },
             options: {
               registry: options.registry,
+              target: options.target,
             },
           },
           options,

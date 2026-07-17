@@ -51,16 +51,20 @@ export interface CanonicalPrompt {
   id: string;
   body: string;
   frontmatter: Record<string, unknown>;
+  /** Monorepo target directory the generated artifact is placed under (default: repo root). */
+  target?: string;
 }
 
 export interface CanonicalSkill {
   id: string;
   files: Array<{ path: string; sha256: string }>;
+  target?: string;
 }
 
 export interface CanonicalMcpConfig {
   id: string;
   json: Record<string, unknown>;
+  target?: string;
 }
 
 export interface CanonicalSubagent {
@@ -69,6 +73,7 @@ export interface CanonicalSubagent {
   description: string;
   body: string;
   metadata: Record<string, unknown>;
+  target?: string;
 }
 
 export type CanonicalHookMode = "strict" | "best_effort";
@@ -108,6 +113,7 @@ export interface CanonicalCommand {
   tools?: string[];
   agent?: string;
   body: string;
+  target?: string;
 }
 
 export interface CanonicalSettings {
@@ -121,6 +127,7 @@ export interface CanonicalHook {
   id: string;
   mode: CanonicalHookMode;
   events: Partial<Record<CanonicalHookEvent, CanonicalHookHandler[]>>;
+  target?: string;
 }
 
 export interface RenderedArtifact {
@@ -426,7 +433,7 @@ export interface InternalPlanResult extends PlanResult {
 export interface LoadResult {
   manifest: AgentsManifest;
   diagnostics: Diagnostic[];
-  prompt?: LoadedPrompt;
+  prompts: LoadedPrompt[];
   skills: LoadedSkill[];
   mcps: LoadedMcp[];
   subagents: LoadedSubagent[];

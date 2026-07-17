@@ -5,7 +5,7 @@ import type { ProviderId } from "@madebywild/agent-harness-manifest";
 import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { fetchEntityFromRegistry } from "../entity-registries.js";
 import {
-  DEFAULT_PROMPT_SOURCE_PATH,
+  DEFAULT_PROMPT_ID,
   defaultCommandOverridePath,
   defaultCommandSourcePath,
   defaultHookOverridePath,
@@ -13,6 +13,7 @@ import {
   defaultMcpOverridePath,
   defaultMcpSourcePath,
   defaultPromptOverridePath,
+  defaultPromptSourcePath,
   defaultSettingsSourcePath,
   defaultSkillImportMetadataPath,
   defaultSkillOverridePath,
@@ -73,7 +74,7 @@ export async function ensureOverrideFiles(
   const overrides: Partial<Record<ProviderId, string>> = {};
   const overrideShaByProvider: Partial<Record<ProviderId, string>> = {};
   const defaultOverridePath: Record<Exclude<EntityType, "settings">, (id: string, p: ProviderId) => string> = {
-    prompt: (_id, p) => defaultPromptOverridePath(p),
+    prompt: (id, p) => defaultPromptOverridePath(id, p),
     skill: (id, p) => defaultSkillOverridePath(id, p),
     mcp_config: (id, p) => defaultMcpOverridePath(id, p),
     subagent: (id, p) => defaultSubagentOverridePath(id, p),
@@ -267,17 +268,18 @@ export async function materializeFetchedEntity(
 
 export async function addPromptEntity(
   cwd: string,
-  options?: { registry?: string; sourceText?: string },
+  options?: { registry?: string; sourceText?: string; id?: string; target?: string },
 ): Promise<void> {
+  const promptId = options?.id ?? DEFAULT_PROMPT_ID;
+  validateEntityId(promptId, "prompt");
   const paths = resolveHarnessPaths(cwd);
   const manifest = await readManifestOrThrow(paths);
 
-  const existingPrompt = manifest.entities.find((entity) => entity.type === "prompt");
-  if (existingPrompt) {
-    throw new Error("Prompt entity already exists (v1 supports exactly one prompt)");
+  if (manifest.entities.some((entity) => entity.id === promptId)) {
+    throw new Error(`Entity id '${promptId}' already exists`);
   }
 
-  const sourcePath = DEFAULT_PROMPT_SOURCE_PATH;
+  const sourcePath = defaultPromptSourcePath(promptId);
   const sourceAbs = path.join(cwd, sourcePath);
 
   if (await exists(sourceAbs)) {
@@ -297,7 +299,9 @@ export async function addPromptEntity(
     registryId = registry.id;
 
     if (registry.definition.type === "git") {
-      const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "prompt", "system");
+      // Registries expose a single prompt under the canonical id "system"; the local entity
+      // may be named differently (e.g. a per-package prompt).
+      const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "prompt", DEFAULT_PROMPT_ID);
       if (fetched.type !== "prompt") {
         throw new Error(`REGISTRY_FETCH_FAILED: expected prompt from registry '${registry.id}'`);
       }
@@ -312,14 +316,15 @@ export async function addPromptEntity(
   await ensureParentDir(sourceAbs);
   await fs.writeFile(sourceAbs, sourceText, "utf8");
 
-  const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "prompt", "system");
+  const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "prompt", promptId);
 
   manifest.entities.push({
-    id: "system",
+    id: promptId,
     type: "prompt",
     registry: registryId,
     sourcePath,
     overrides,
+    ...(options?.target ? { target: options.target } : {}),
     enabled: true,
   });
   manifest.entities = sortEntities(manifest.entities);
@@ -327,7 +332,7 @@ export async function addPromptEntity(
   await writeManifest(paths, manifest);
   await writeManagedSourceIndex(paths, manifest);
   await upsertLockEntityRecord(paths, manifest, {
-    id: "system",
+    id: promptId,
     type: "prompt",
     registry: registryId,
     sourceSha256: sha256(sourceText),
@@ -340,7 +345,11 @@ export async function addPromptEntity(
 export async function addSkillEntity(
   cwd: string,
   skillId: string,
-  options?: { registry?: string; files?: Array<{ path: string; content: string; encoding?: "utf8" | "base64" }> },
+  options?: {
+    registry?: string;
+    files?: Array<{ path: string; content: string; encoding?: "utf8" | "base64" }>;
+    target?: string;
+  },
 ): Promise<void> {
   validateEntityId(skillId, "skill");
   const paths = resolveHarnessPaths(cwd);
@@ -420,6 +429,7 @@ export async function addSkillEntity(
     registry: registryId,
     sourcePath,
     overrides,
+    ...(options?.target ? { target: options.target } : {}),
     enabled: true,
   });
   manifest.entities = sortEntities(manifest.entities);
@@ -440,7 +450,7 @@ export async function addSkillEntity(
 export async function addMcpEntity(
   cwd: string,
   configId: string,
-  options?: { registry?: string; sourceJson?: Record<string, unknown> },
+  options?: { registry?: string; sourceJson?: Record<string, unknown>; target?: string },
 ): Promise<void> {
   validateEntityId(configId, "mcp_config");
   const paths = resolveHarnessPaths(cwd);
@@ -500,6 +510,7 @@ export async function addMcpEntity(
     registry: registryId,
     sourcePath,
     overrides,
+    ...(options?.target ? { target: options.target } : {}),
     enabled: true,
   });
   manifest.entities = sortEntities(manifest.entities);
@@ -520,7 +531,7 @@ export async function addMcpEntity(
 export async function addSubagentEntity(
   cwd: string,
   subagentId: string,
-  options?: { registry?: string; sourceText?: string },
+  options?: { registry?: string; sourceText?: string; target?: string },
 ): Promise<void> {
   validateEntityId(subagentId, "subagent");
   const paths = resolveHarnessPaths(cwd);
@@ -574,6 +585,7 @@ export async function addSubagentEntity(
     registry: registryId,
     sourcePath,
     overrides,
+    ...(options?.target ? { target: options.target } : {}),
     enabled: true,
   });
   manifest.entities = sortEntities(manifest.entities);
@@ -594,7 +606,7 @@ export async function addSubagentEntity(
 export async function addHookEntity(
   cwd: string,
   hookId: string,
-  options?: { registry?: string; sourceJson?: Record<string, unknown> },
+  options?: { registry?: string; sourceJson?: Record<string, unknown>; target?: string },
 ): Promise<void> {
   validateEntityId(hookId, "hook");
   const paths = resolveHarnessPaths(cwd);
@@ -657,6 +669,7 @@ export async function addHookEntity(
     registry: registryId,
     sourcePath,
     overrides,
+    ...(options?.target ? { target: options.target } : {}),
     enabled: true,
   });
   manifest.entities = sortEntities(manifest.entities);
@@ -748,7 +761,7 @@ export async function addSettingsEntity(
 export async function addCommandEntity(
   cwd: string,
   commandId: string,
-  options?: { registry?: string; sourceText?: string },
+  options?: { registry?: string; sourceText?: string; target?: string },
 ): Promise<void> {
   validateEntityId(commandId, "command");
   const paths = resolveHarnessPaths(cwd);
@@ -800,6 +813,7 @@ export async function addCommandEntity(
     registry: registryId,
     sourcePath,
     overrides,
+    ...(options?.target ? { target: options.target } : {}),
     enabled: true,
   });
   manifest.entities = sortEntities(manifest.entities);

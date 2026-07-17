@@ -1,4 +1,4 @@
-import type { CanonicalCommand, ProviderAdapter } from "../types.js";
+import type { CanonicalCommand, CanonicalHook, ProviderAdapter } from "../types.js";
 import {
   deepMergeObjects,
   normalizeRelativePath,
@@ -6,10 +6,10 @@ import {
   uniqSorted,
   withSingleTrailingNewline,
 } from "../utils.js";
-import { PROVIDER_DEFAULTS } from "./constants.js";
+import { isNestable, PROVIDER_DEFAULTS } from "./constants.js";
 import { createProviderAdapter } from "./create-adapter.js";
-import { renderClaudeHookSettings, resolveHookTargetPath } from "./hooks.js";
-import { mergeMcpServers, resolveMcpTargetPath } from "./mcp.js";
+import { renderClaudeHookSettings } from "./hooks.js";
+import { groupByOutputPath, resolveOutputPath } from "./paths.js";
 import { createJsonMcpRenderer } from "./renderers.js";
 import { parseClaudeSubagentOptions, renderSubagentMarkdown } from "./subagents.js";
 import type { ProviderDefinition, SkillFileIndex } from "./types.js";
@@ -33,41 +33,29 @@ export function buildClaudeAdapter(skillFilesByEntityId: SkillFileIndex): Provid
         return [];
       }
 
-      if (enabledMcps.length > 0) {
-        const mcpTargetPath = resolveMcpTargetPath(
-          "claude",
-          PROVIDER_DEFAULTS.claude.mcpTarget,
-          enabledMcps,
-          input.mcpOverrideByEntity,
-        );
-        artifacts.push({
-          path: mcpTargetPath,
-          content: CLAUDE_DEFINITION.mcpRenderer.render(mergeMcpServers(enabledMcps)),
-          ownerEntityId: enabledMcps
-            .map((entry) => entry.id)
-            .sort()
-            .join(","),
-          provider: "claude",
-          format: CLAUDE_DEFINITION.mcpRenderer.format,
-        });
+      // MCP: one `.mcp.json` per target group — identical to every provider's base renderMcp.
+      artifacts.push(...((await base.renderMcp?.(input.mcps, input.mcpOverrideByEntity)) ?? []));
+
+      // settings.json: hooks grouped by target; the settings-entity payload rides the root file
+      // (settings entities are root-only, so they never carry a target of their own).
+      const rootSettingsPath = normalizeRelativePath(PROVIDER_DEFAULTS.claude.hookTarget);
+      const hookGroups: Map<string, CanonicalHook[]> =
+        enabledHooks.length > 0
+          ? groupByOutputPath(enabledHooks, "claude", "hook", PROVIDER_DEFAULTS.claude.hookTarget, (id) =>
+              input.hookOverrideByEntity?.get(id),
+            )
+          : new Map();
+      if (settingsPayload && !hookGroups.has(rootSettingsPath)) {
+        hookGroups.set(rootSettingsPath, []);
       }
 
-      if (enabledHooks.length > 0 || settingsPayload) {
-        const settingsTargetPath =
-          enabledHooks.length === 0
-            ? normalizeRelativePath(PROVIDER_DEFAULTS.claude.hookTarget)
-            : resolveHookTargetPath(
-                "claude",
-                PROVIDER_DEFAULTS.claude.hookTarget,
-                enabledHooks.map((entry) => entry.id),
-                input.hookOverrideByEntity,
-              );
-
+      for (const [settingsTargetPath, hooks] of [...hookGroups.entries()].sort(([left], [right]) =>
+        left.localeCompare(right),
+      )) {
         const hookPayload =
-          enabledHooks.length === 0
-            ? {}
-            : (JSON.parse(renderClaudeHookSettings(enabledHooks)) as Record<string, unknown>);
-        const mergedPayload = settingsPayload
+          hooks.length === 0 ? {} : (JSON.parse(renderClaudeHookSettings(hooks)) as Record<string, unknown>);
+        const includeSettings = settingsTargetPath === rootSettingsPath && settingsPayload;
+        const mergedPayload = includeSettings
           ? deepMergeObjects(hookPayload, settingsPayload as Record<string, unknown>)
           : hookPayload;
 
@@ -76,8 +64,8 @@ export function buildClaudeAdapter(skillFilesByEntityId: SkillFileIndex): Provid
             path: settingsTargetPath,
             content: stableStringify(mergedPayload),
             ownerEntityId: uniqSorted([
-              ...enabledHooks.map((entry) => entry.id),
-              ...(input.settings ? [input.settings.id] : []),
+              ...hooks.map((entry) => entry.id),
+              ...(includeSettings && input.settings ? [input.settings.id] : []),
             ]).join(","),
             provider: "claude",
             format: "json",
@@ -92,7 +80,12 @@ export function buildClaudeAdapter(skillFilesByEntityId: SkillFileIndex): Provid
         return [];
       }
 
-      const targetPath = normalizeRelativePath(override?.targetPath ?? `.claude/agents/${input.id}.md`);
+      const targetPath = resolveOutputPath({
+        nestable: isNestable("claude", "subagent"),
+        target: input.target,
+        targetPath: override?.targetPath,
+        defaultRelative: `.claude/agents/${input.id}.md`,
+      });
       const options = parseClaudeSubagentOptions(override);
       return [
         {
@@ -116,8 +109,12 @@ export function buildClaudeAdapter(skillFilesByEntityId: SkillFileIndex): Provid
         return [];
       }
 
-      const defaultTarget = `${PROVIDER_DEFAULTS.claude.commandRoot}/${input.id}.md`;
-      const targetPath = normalizeRelativePath(override?.targetPath ?? defaultTarget);
+      const targetPath = resolveOutputPath({
+        nestable: isNestable("claude", "command"),
+        target: input.target,
+        targetPath: override?.targetPath,
+        defaultRelative: `${PROVIDER_DEFAULTS.claude.commandRoot}/${input.id}.md`,
+      });
       return [
         {
           path: targetPath,

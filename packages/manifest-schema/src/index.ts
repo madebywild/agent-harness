@@ -93,6 +93,9 @@ const entityRefBaseSchema = z
     type: entityTypeSchema,
     registry: registryIdSchema,
     sourcePath: relativePathSchema,
+    // Monorepo support: relative directory the generated artifacts are placed under.
+    // Only relocates output (never sourcePath); applied per (provider, artifact) capability.
+    target: relativePathSchema.optional(),
     overrides: providerRelativePathMapSchema.optional(),
     enabled: z.boolean().optional(),
   })
@@ -245,47 +248,48 @@ export const presetEnableProviderOperationSchema = presetOperationBaseSchema.ext
   provider: providerIdSchema,
 });
 
+const presetEntityIdSchema = z
+  .string()
+  .min(1)
+  .regex(/^[a-zA-Z0-9._-]+$/);
+
 export const presetAddPromptOperationSchema = presetOperationBaseSchema.extend({
   type: z.literal("add_prompt"),
+  // Optional; defaults to "system". Enables per-package prompts in a preset.
+  id: presetEntityIdSchema.optional(),
+  target: relativePathSchema.optional(),
   source: presetEntitySourceSchema.optional(),
 });
 
 export const presetAddSkillOperationSchema = presetOperationBaseSchema.extend({
   type: z.literal("add_skill"),
-  id: z
-    .string()
-    .min(1)
-    .regex(/^[a-zA-Z0-9._-]+$/),
+  id: presetEntityIdSchema,
+  target: relativePathSchema.optional(),
   source: presetEntitySourceSchema.optional(),
 });
 
 export const presetAddMcpOperationSchema = presetOperationBaseSchema.extend({
   type: z.literal("add_mcp"),
-  id: z
-    .string()
-    .min(1)
-    .regex(/^[a-zA-Z0-9._-]+$/),
+  id: presetEntityIdSchema,
+  target: relativePathSchema.optional(),
   source: presetEntitySourceSchema.optional(),
 });
 
 export const presetAddSubagentOperationSchema = presetOperationBaseSchema.extend({
   type: z.literal("add_subagent"),
-  id: z
-    .string()
-    .min(1)
-    .regex(/^[a-zA-Z0-9._-]+$/),
+  id: presetEntityIdSchema,
+  target: relativePathSchema.optional(),
   source: presetEntitySourceSchema.optional(),
 });
 
 export const presetAddHookOperationSchema = presetOperationBaseSchema.extend({
   type: z.literal("add_hook"),
-  id: z
-    .string()
-    .min(1)
-    .regex(/^[a-zA-Z0-9._-]+$/),
+  id: presetEntityIdSchema,
+  target: relativePathSchema.optional(),
   source: presetEntitySourceSchema.optional(),
 });
 
+// Settings are root-only in this version, so add_settings carries no target.
 export const presetAddSettingsOperationSchema = presetOperationBaseSchema.extend({
   type: z.literal("add_settings"),
   provider: providerIdSchema,
@@ -294,10 +298,8 @@ export const presetAddSettingsOperationSchema = presetOperationBaseSchema.extend
 
 export const presetAddCommandOperationSchema = presetOperationBaseSchema.extend({
   type: z.literal("add_command"),
-  id: z
-    .string()
-    .min(1)
-    .regex(/^[a-zA-Z0-9._-]+$/),
+  id: presetEntityIdSchema,
+  target: relativePathSchema.optional(),
   source: presetEntitySourceSchema.optional(),
 });
 
