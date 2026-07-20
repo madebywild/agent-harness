@@ -89,6 +89,13 @@ function readRequiredStringOption(input: CommandInput, key: string): string {
   return value;
 }
 
+// Shared monorepo placement option: relocates generated artifacts under a package directory.
+const TARGET_OPTION: CommandOptionDefinition = {
+  name: "target",
+  description: "monorepo directory to place generated artifacts under (e.g. packages/web)",
+  takesValue: true,
+};
+
 function readBooleanOption(input: CommandInput, key: string, fallback = false): boolean {
   const value = input.options?.[key];
   if (value === undefined) {
@@ -498,18 +505,27 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
   {
     id: "add.prompt",
     path: ["add", "prompt"],
-    description: "Create the v1 system prompt entity",
-    args: [],
+    description: "Create a system prompt entity (id defaults to 'system')",
+    args: [{ name: "id", required: false, description: "prompt id (defaults to 'system')" }],
     options: [
       {
         name: "registry",
         description: "registry id (defaults to configured default/local)",
         takesValue: true,
       },
+      TARGET_OPTION,
     ],
     mutatesWorkspace: true,
     interactiveLabel: "Add prompt",
-    run: (input, context) => handleAddPrompt({ registry: readStringOption(input, "registry") }, context),
+    run: (input, context) =>
+      handleAddPrompt(
+        {
+          id: readStringArg(input, "id", false),
+          registry: readStringOption(input, "registry"),
+          target: readStringOption(input, "target"),
+        },
+        context,
+      ),
   },
   {
     id: "add.skill",
@@ -522,6 +538,7 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         description: "registry id (defaults to configured default/local)",
         takesValue: true,
       },
+      TARGET_OPTION,
     ],
     mutatesWorkspace: true,
     interactiveLabel: "Add skill",
@@ -530,6 +547,7 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         {
           skillId: readStringArg(input, "skillId") ?? "",
           registry: readStringOption(input, "registry"),
+          target: readStringOption(input, "target"),
         },
         context,
       ),
@@ -545,6 +563,7 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         description: "registry id (defaults to configured default/local)",
         takesValue: true,
       },
+      TARGET_OPTION,
     ],
     mutatesWorkspace: true,
     interactiveLabel: "Add MCP config",
@@ -553,6 +572,7 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         {
           configId: readStringArg(input, "configId") ?? "",
           registry: readStringOption(input, "registry"),
+          target: readStringOption(input, "target"),
         },
         context,
       ),
@@ -568,6 +588,7 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         description: "registry id (defaults to configured default/local)",
         takesValue: true,
       },
+      TARGET_OPTION,
     ],
     mutatesWorkspace: true,
     interactiveLabel: "Add subagent",
@@ -576,6 +597,7 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         {
           subagentId: readStringArg(input, "subagentId") ?? "",
           registry: readStringOption(input, "registry"),
+          target: readStringOption(input, "target"),
         },
         context,
       ),
@@ -591,6 +613,7 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         description: "registry id (defaults to configured default/local)",
         takesValue: true,
       },
+      TARGET_OPTION,
     ],
     mutatesWorkspace: true,
     interactiveLabel: "Add hook",
@@ -599,6 +622,7 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         {
           hookId: readStringArg(input, "hookId") ?? "",
           registry: readStringOption(input, "registry"),
+          target: readStringOption(input, "target"),
         },
         context,
       ),
@@ -643,6 +667,7 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         description: "registry id (defaults to configured default/local)",
         takesValue: true,
       },
+      TARGET_OPTION,
     ],
     mutatesWorkspace: true,
     interactiveLabel: "Add command",
@@ -651,6 +676,7 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         {
           commandId: readStringArg(input, "commandId") ?? "",
           registry: readStringOption(input, "registry"),
+          target: readStringOption(input, "target"),
         },
         context,
       ),

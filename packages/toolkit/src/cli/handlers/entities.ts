@@ -4,11 +4,12 @@ import { CLI_ENTITY_TYPES, isCliEntityType } from "../../types.js";
 import type { CliResolvedContext, EntityMutationOutput } from "../contracts.js";
 
 export async function handleAddPrompt(
-  input: { registry?: string },
+  input: { registry?: string; id?: string; target?: string },
   context: CliResolvedContext,
 ): Promise<EntityMutationOutput> {
   const engine = new HarnessEngine(context.cwd);
-  await engine.addPrompt({ registry: input.registry });
+  const promptId = input.id ?? "system";
+  await engine.addPrompt({ registry: input.registry, id: input.id, target: input.target });
 
   return {
     family: "entity-mutation",
@@ -19,18 +20,18 @@ export async function handleAddPrompt(
     data: {
       operation: "add",
       entityType: "prompt",
-      id: "system",
-      message: "Added prompt entity 'system'.",
+      id: promptId,
+      message: `Added prompt entity '${promptId}'.`,
     },
   };
 }
 
 export async function handleAddSkill(
-  input: { skillId: string; registry?: string },
+  input: { skillId: string; registry?: string; target?: string },
   context: CliResolvedContext,
 ): Promise<EntityMutationOutput> {
   const engine = new HarnessEngine(context.cwd);
-  await engine.addSkill(input.skillId, { registry: input.registry });
+  await engine.addSkill(input.skillId, { registry: input.registry, target: input.target });
 
   return {
     family: "entity-mutation",
@@ -48,11 +49,11 @@ export async function handleAddSkill(
 }
 
 export async function handleAddMcp(
-  input: { configId: string; registry?: string },
+  input: { configId: string; registry?: string; target?: string },
   context: CliResolvedContext,
 ): Promise<EntityMutationOutput> {
   const engine = new HarnessEngine(context.cwd);
-  await engine.addMcp(input.configId, { registry: input.registry });
+  await engine.addMcp(input.configId, { registry: input.registry, target: input.target });
 
   return {
     family: "entity-mutation",
@@ -70,11 +71,11 @@ export async function handleAddMcp(
 }
 
 export async function handleAddSubagent(
-  input: { subagentId: string; registry?: string },
+  input: { subagentId: string; registry?: string; target?: string },
   context: CliResolvedContext,
 ): Promise<EntityMutationOutput> {
   const engine = new HarnessEngine(context.cwd);
-  await engine.addSubagent(input.subagentId, { registry: input.registry });
+  await engine.addSubagent(input.subagentId, { registry: input.registry, target: input.target });
 
   return {
     family: "entity-mutation",
@@ -92,11 +93,11 @@ export async function handleAddSubagent(
 }
 
 export async function handleAddHook(
-  input: { hookId: string; registry?: string },
+  input: { hookId: string; registry?: string; target?: string },
   context: CliResolvedContext,
 ): Promise<EntityMutationOutput> {
   const engine = new HarnessEngine(context.cwd);
-  await engine.addHook(input.hookId, { registry: input.registry });
+  await engine.addHook(input.hookId, { registry: input.registry, target: input.target });
 
   return {
     family: "entity-mutation",
@@ -114,11 +115,11 @@ export async function handleAddHook(
 }
 
 export async function handleAddCommand(
-  input: { commandId: string; registry?: string },
+  input: { commandId: string; registry?: string; target?: string },
   context: CliResolvedContext,
 ): Promise<EntityMutationOutput> {
   const engine = new HarnessEngine(context.cwd);
-  await engine.addCommand(input.commandId, { registry: input.registry });
+  await engine.addCommand(input.commandId, { registry: input.registry, target: input.target });
 
   return {
     family: "entity-mutation",

@@ -7,7 +7,9 @@ import type {
   RenderedArtifact,
 } from "../types.js";
 import { normalizeRelativePath, withSingleTrailingNewline } from "../utils.js";
-import { mergeMcpServers, resolveMcpTargetPath } from "./mcp.js";
+import { isNestable } from "./constants.js";
+import { mergeMcpServers } from "./mcp.js";
+import { groupByOutputPath, resolveOutputPath } from "./paths.js";
 import type { ProviderDefinition, SkillFileIndex } from "./types.js";
 
 function inferSkillFormat(filePath: string): RenderedArtifact["format"] {
@@ -27,7 +29,15 @@ export function createProviderAdapter(
         return [];
       }
 
-      const artifactPath = normalizeRelativePath(override?.targetPath ?? defaults.promptTarget);
+      // A non-nesting provider (e.g. copilot) places the prompt at its single root
+      // instructions file. Which prompt "wins" that single slot is decided by the planner
+      // (it sees all prompts); this adapter only renders the prompts it is handed.
+      const artifactPath = resolveOutputPath({
+        nestable: isNestable(provider, "prompt"),
+        target: input.target,
+        targetPath: override?.targetPath,
+        defaultRelative: defaults.promptTarget,
+      });
       const promptContent = withSingleTrailingNewline(input.body);
 
       return [
@@ -47,8 +57,12 @@ export function createProviderAdapter(
       }
 
       const files = skillFilesByEntityId.get(input.id) ?? [];
-      const defaultRoot = `${defaults.skillRoot}/${input.id}`;
-      const targetRoot = normalizeRelativePath(override?.targetPath ?? defaultRoot);
+      const targetRoot = resolveOutputPath({
+        nestable: isNestable(provider, "skill"),
+        target: input.target,
+        targetPath: override?.targetPath,
+        defaultRelative: `${defaults.skillRoot}/${input.id}`,
+      });
 
       return files.map((file) => ({
         path: normalizeRelativePath(`${targetRoot}/${file.path}`),
@@ -72,22 +86,22 @@ export function createProviderAdapter(
         return [];
       }
 
-      const targetPath = resolveMcpTargetPath(provider, defaults.mcpTarget, enabledSources, overrideByEntity);
-      const mergedServers = mergeMcpServers(enabledSources);
-      const content = mcpRenderer.render(mergedServers);
+      const groups = groupByOutputPath(enabledSources, provider, "mcp", defaults.mcpTarget, (id) =>
+        overrideByEntity?.get(id),
+      );
 
-      return [
-        {
+      return [...groups.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([targetPath, sources]) => ({
           path: targetPath,
-          content,
-          ownerEntityId: enabledSources
+          content: mcpRenderer.render(mergeMcpServers(sources)),
+          ownerEntityId: sources
             .map((entry) => entry.id)
             .sort()
             .join(","),
           provider,
           format: mcpRenderer.format,
-        },
-      ];
+        }));
     },
   };
 }

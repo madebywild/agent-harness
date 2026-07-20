@@ -1,7 +1,9 @@
 import path from "node:path";
 import type { ManagedIndex, ManifestLock, ProviderId } from "@madebywild/agent-harness-manifest";
 import { LATEST_VERSION_BY_KIND } from "@madebywild/agent-harness-manifest";
+import { selectRootPromptId } from "./loader.js";
 import type { HarnessPaths } from "./paths.js";
+import { isNestable } from "./provider-adapters/constants.js";
 import { buildBuiltinAdapters } from "./providers.js";
 import { collectManagedSourcePaths } from "./repository.js";
 import type { Diagnostic, InternalPlanResult, LoadResult, Operation, RenderedArtifact } from "./types.js";
@@ -29,21 +31,33 @@ export async function buildPlan(
 
   const enabledProviders = [...loaded.manifest.providers.enabled].sort((left, right) => left.localeCompare(right));
 
+  // A provider that cannot nest prompts has one root instructions file; only the winning prompt
+  // feeds it (the rest are skipped for that provider). Nesting providers receive every prompt.
+  const rootPromptId = selectRootPromptId(
+    loaded.prompts.map((prompt) => ({ id: prompt.entity.id, target: prompt.canonical.target })),
+  );
+
   for (const provider of enabledProviders) {
     const adapter = adapters[provider];
     const providerSettings = loaded.settings.find((entry) => entry.canonical.provider === provider);
 
-    if (loaded.prompt && adapter.renderPrompt) {
+    const promptsForProvider = isNestable(provider, "prompt")
+      ? loaded.prompts
+      : loaded.prompts.filter((prompt) => prompt.entity.id === rootPromptId);
+
+    for (const prompt of promptsForProvider) {
+      if (!adapter.renderPrompt) {
+        continue;
+      }
+
       try {
-        artifacts.push(
-          ...(await adapter.renderPrompt(loaded.prompt.canonical, loaded.prompt.overrideByProvider.get(provider))),
-        );
+        artifacts.push(...(await adapter.renderPrompt(prompt.canonical, prompt.overrideByProvider.get(provider))));
       } catch (error) {
         diagnostics.push({
           code: "PROMPT_RENDER_FAILED",
           severity: "error",
           message: error instanceof Error ? error.message : "Prompt render failed",
-          entityId: loaded.prompt.entity.id,
+          entityId: prompt.entity.id,
           provider,
         });
       }
@@ -311,21 +325,17 @@ export async function buildPlan(
   }
 
   const entityRecords = [
-    ...(loaded.prompt
-      ? [
-          {
-            id: loaded.prompt.entity.id,
-            type: loaded.prompt.entity.type,
-            registry: loaded.prompt.entity.registry,
-            sourceSha256: loaded.prompt.sourceSha256,
-            overrideSha256ByProvider: loaded.prompt.overrideShaByProvider,
-            ...resolvePriorRegistryProvenance(
-              previousEntityByKey.get(`${loaded.prompt.entity.type}:${loaded.prompt.entity.id}`),
-              loaded.prompt.entity.registry,
-            ),
-          },
-        ]
-      : []),
+    ...loaded.prompts.map((prompt) => ({
+      id: prompt.entity.id,
+      type: prompt.entity.type,
+      registry: prompt.entity.registry,
+      sourceSha256: prompt.sourceSha256,
+      overrideSha256ByProvider: prompt.overrideShaByProvider,
+      ...resolvePriorRegistryProvenance(
+        previousEntityByKey.get(`${prompt.entity.type}:${prompt.entity.id}`),
+        prompt.entity.registry,
+      ),
+    })),
     ...loaded.skills.map((skill) => ({
       id: skill.entity.id,
       type: skill.entity.type,

@@ -1,31 +1,5 @@
-import type { CanonicalMcpConfig, ProviderId, ProviderOverride } from "../types.js";
-import { deepEqual, normalizeRelativePath } from "../utils.js";
-
-export function resolveMcpTargetPath(
-  provider: ProviderId,
-  defaultTargetPath: string,
-  configs: ReadonlyArray<CanonicalMcpConfig>,
-  overrideByEntity?: ReadonlyMap<string, ProviderOverride | undefined>,
-): string {
-  const targets = new Set<string>();
-
-  for (const config of configs) {
-    const override = overrideByEntity?.get(config.id);
-    if (override?.targetPath) {
-      targets.add(normalizeRelativePath(override.targetPath));
-    }
-  }
-
-  if (targets.size > 1) {
-    throw new Error(`conflicting MCP targetPath overrides for provider '${provider}': ${[...targets].join(", ")}`);
-  }
-
-  if (targets.size === 1) {
-    return [...targets][0] as string;
-  }
-
-  return normalizeRelativePath(defaultTargetPath);
-}
+import type { CanonicalMcpConfig } from "../types.js";
+import { deepEqual } from "../utils.js";
 
 export function mergeMcpServers(configs: ReadonlyArray<CanonicalMcpConfig>): Record<string, unknown> {
   const merged: Record<string, unknown> = {};

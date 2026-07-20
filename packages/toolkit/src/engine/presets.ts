@@ -5,7 +5,7 @@ import {
   cleanupTempDir,
   fetchEntityFromCheckout,
 } from "../entity-registries.js";
-import { resolveHarnessPaths } from "../paths.js";
+import { DEFAULT_PROMPT_ID, resolveHarnessPaths } from "../paths.js";
 import { summarizePreset } from "../presets.js";
 import { writeManifest } from "../repository.js";
 import type { AgentsManifest, EntityType, PresetApplyResult, PresetOperationResult, ResolvedPreset } from "../types.js";
@@ -27,6 +27,14 @@ export async function applyResolvedPreset(cwd: string, preset: ResolvedPreset): 
   const paths = resolveHarnessPaths(cwd);
   let manifest = await readManifestOrThrow(paths);
   const results: PresetOperationResult[] = [];
+
+  // Embedded/registry preset content exposes a single prompt body, so multiple add_prompt
+  // operations would all scaffold identical content. Reject that until per-id prompt content
+  // is supported.
+  const promptOps = preset.definition.operations.filter((operation) => operation.type === "add_prompt");
+  if (promptOps.length > 1) {
+    throw new Error("PRESET_UNSUPPORTED: a preset may define at most one add_prompt operation in this version");
+  }
 
   // Pre-checkout each unique registry referenced by entity operations so we
   // clone at most once per registry instead of once per operation.
@@ -107,14 +115,16 @@ interface EntityOperationSpec {
 
 function describeEntityOperation(operation: EntityAddOperation, preset: ResolvedPreset): EntityOperationSpec {
   switch (operation.type) {
-    case "add_prompt":
+    case "add_prompt": {
+      const promptId = operation.id ?? DEFAULT_PROMPT_ID;
       return {
         entityType: "prompt",
-        entityId: "system",
-        label: "prompt:system",
+        entityId: promptId,
+        label: `prompt:${promptId}`,
         registry: operation.source?.registry ?? DEFAULT_REGISTRY_ID,
         resolveDesiredSha: () => Promise.resolve(sha256(requireEmbedded(preset, "prompt"))),
       };
+    }
     case "add_skill":
       return {
         entityType: "skill",
@@ -183,9 +193,7 @@ async function applyEntityOperation(
   const spec = describeEntityOperation(operation, preset);
   const { entityType, entityId, label, registry } = spec;
 
-  const existing = manifest.entities.find(
-    (entity) => entity.type === entityType && (entityType === "prompt" || entity.id === entityId),
-  );
+  const existing = manifest.entities.find((entity) => entity.type === entityType && entity.id === entityId);
 
   const desiredSha =
     registry !== DEFAULT_REGISTRY_ID
@@ -201,13 +209,21 @@ async function applyEntityOperation(
     );
   }
 
+  // Third-party (registry-sourced) presets do not dictate a consumer's package layout, so any
+  // declared `target` is dropped and entities scaffold at the root (Decision 11). Local and
+  // built-in presets honor `target`.
+  const declaredTarget = "target" in operation ? operation.target : undefined;
+  const target = preset.source === "registry" ? undefined : declaredTarget;
+
   if (registry !== DEFAULT_REGISTRY_ID) {
-    await addEntityFromRegistry(cwd, entityType, entityId, registry);
+    await addEntityFromRegistry(cwd, entityType, entityId, registry, target);
   } else {
-    await addEntityFromEmbedded(cwd, preset, operation);
+    await addEntityFromEmbedded(cwd, preset, operation, target);
   }
 
-  return appliedResult(operation.type, label, `Added ${entityType} '${entityId}'.`);
+  const droppedNote =
+    declaredTarget && !target ? ` (target '${declaredTarget}' ignored for registry preset; placed at root)` : "";
+  return appliedResult(operation.type, label, `Added ${entityType} '${entityId}'.${droppedNote}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -219,22 +235,23 @@ async function addEntityFromRegistry(
   entityType: EntityType,
   entityId: string,
   registry: string,
+  target?: string,
 ): Promise<void> {
   switch (entityType) {
     case "prompt":
-      return addPromptEntity(cwd, { registry });
+      return addPromptEntity(cwd, { registry, id: entityId, target });
     case "skill":
-      return addSkillEntity(cwd, entityId, { registry });
+      return addSkillEntity(cwd, entityId, { registry, target });
     case "mcp_config":
-      return addMcpEntity(cwd, entityId, { registry });
+      return addMcpEntity(cwd, entityId, { registry, target });
     case "subagent":
-      return addSubagentEntity(cwd, entityId, { registry });
+      return addSubagentEntity(cwd, entityId, { registry, target });
     case "hook":
-      return addHookEntity(cwd, entityId, { registry });
+      return addHookEntity(cwd, entityId, { registry, target });
     case "settings":
       return addSettingsEntity(cwd, entityId as ProviderId, { registry });
     case "command":
-      return addCommandEntity(cwd, entityId, { registry });
+      return addCommandEntity(cwd, entityId, { registry, target });
   }
 }
 
@@ -242,24 +259,31 @@ async function addEntityFromEmbedded(
   cwd: string,
   preset: ResolvedPreset,
   operation: EntityAddOperation,
+  target?: string,
 ): Promise<void> {
   switch (operation.type) {
     case "add_prompt":
-      return addPromptEntity(cwd, { sourceText: requireEmbedded(preset, "prompt") });
+      return addPromptEntity(cwd, { sourceText: requireEmbedded(preset, "prompt"), id: operation.id, target });
     case "add_skill":
-      return addSkillEntity(cwd, operation.id, { files: requireEmbeddedSkillFiles(preset, operation.id) });
+      return addSkillEntity(cwd, operation.id, { files: requireEmbeddedSkillFiles(preset, operation.id), target });
     case "add_mcp":
-      return addMcpEntity(cwd, operation.id, { sourceJson: requireEmbedded(preset, "mcp", operation.id) });
+      return addMcpEntity(cwd, operation.id, { sourceJson: requireEmbedded(preset, "mcp", operation.id), target });
     case "add_subagent":
-      return addSubagentEntity(cwd, operation.id, { sourceText: requireEmbedded(preset, "subagents", operation.id) });
+      return addSubagentEntity(cwd, operation.id, {
+        sourceText: requireEmbedded(preset, "subagents", operation.id),
+        target,
+      });
     case "add_hook":
-      return addHookEntity(cwd, operation.id, { sourceJson: requireEmbedded(preset, "hooks", operation.id) });
+      return addHookEntity(cwd, operation.id, { sourceJson: requireEmbedded(preset, "hooks", operation.id), target });
     case "add_settings":
       return addSettingsEntity(cwd, operation.provider, {
         sourcePayload: requireEmbedded(preset, "settings", operation.provider),
       });
     case "add_command":
-      return addCommandEntity(cwd, operation.id, { sourceText: requireEmbedded(preset, "commands", operation.id) });
+      return addCommandEntity(cwd, operation.id, {
+        sourceText: requireEmbedded(preset, "commands", operation.id),
+        target,
+      });
   }
 }
 

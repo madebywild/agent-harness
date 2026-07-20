@@ -20,7 +20,7 @@ Only enabled providers receive generated artifacts. Supported providers are `cod
 
 Canonical entity types:
 
-- `prompt` (0 or 1 entity; id must be `system`)
+- `prompt` (0 or more; id defaults to `system`; multiple prompts enable per-package `CLAUDE.md`/`AGENTS.md`)
 - `skill`
 - `mcp_config`
 - `subagent`
@@ -28,13 +28,18 @@ Canonical entity types:
 - `settings` (per-provider; id is the provider name)
 - `command`
 
+Every entity accepts an optional `target` (a relative directory such as `packages/web`) that
+relocates its generated artifacts into a sub-project for monorepos. `target` never affects the
+canonical source location, and it is applied per provider capability. See
+[monorepo support](./monorepo.md).
+
 Bootstrap primitive:
 
 - `preset` is intentionally not a canonical manifest entity. It is a bootstrap macro that materializes normal harness state such as registries, enabled providers, and source entities.
 
 Default source locations:
 
-- Prompt: `.harness/src/prompts/system.md`
+- Prompt: `.harness/src/prompts/<id>.md` (default id `system`)
 - Skills: `.harness/src/skills/<id>/SKILL.md`
 - MCP: `.harness/src/mcp/<id>.json`
 - Subagents: `.harness/src/subagents/<id>.md`

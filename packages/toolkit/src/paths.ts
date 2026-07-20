@@ -48,10 +48,16 @@ export function resolveHarnessPaths(rootDir: string): HarnessPaths {
   };
 }
 
-export const DEFAULT_PROMPT_SOURCE_PATH = ".harness/src/prompts/system.md";
+export const DEFAULT_PROMPT_ID = "system";
 
-export function defaultPromptOverridePath(provider: ProviderId): string {
-  return `.harness/src/prompts/system.overrides.${provider}.yaml`;
+export function defaultPromptSourcePath(id: string): string {
+  return `.harness/src/prompts/${id}.md`;
+}
+
+export const DEFAULT_PROMPT_SOURCE_PATH = defaultPromptSourcePath(DEFAULT_PROMPT_ID);
+
+export function defaultPromptOverridePath(id: string, provider: ProviderId): string {
+  return `.harness/src/prompts/${id}.overrides.${provider}.yaml`;
 }
 
 export function defaultSkillSourcePath(skillId: string): string {

@@ -285,32 +285,32 @@ export class HarnessEngine {
     return applyResolvedPreset(this.cwd, preset);
   }
 
-  async addPrompt(options?: { registry?: string }): Promise<void> {
+  async addPrompt(options?: { registry?: string; id?: string; target?: string }): Promise<void> {
     await this.assertWorkspaceVersionCurrent();
     await addPromptEntity(this.cwd, options);
   }
 
-  async addSkill(skillId: string, options?: { registry?: string }): Promise<void> {
+  async addSkill(skillId: string, options?: { registry?: string; target?: string }): Promise<void> {
     await this.assertWorkspaceVersionCurrent();
     await addSkillEntity(this.cwd, skillId, options);
   }
 
-  async addMcp(configId: string, options?: { registry?: string }): Promise<void> {
+  async addMcp(configId: string, options?: { registry?: string; target?: string }): Promise<void> {
     await this.assertWorkspaceVersionCurrent();
     await addMcpEntity(this.cwd, configId, options);
   }
 
-  async addSubagent(subagentId: string, options?: { registry?: string }): Promise<void> {
+  async addSubagent(subagentId: string, options?: { registry?: string; target?: string }): Promise<void> {
     await this.assertWorkspaceVersionCurrent();
     await addSubagentEntity(this.cwd, subagentId, options);
   }
 
-  async addHook(hookId: string, options?: { registry?: string }): Promise<void> {
+  async addHook(hookId: string, options?: { registry?: string; target?: string }): Promise<void> {
     await this.assertWorkspaceVersionCurrent();
     await addHookEntity(this.cwd, hookId, options);
   }
 
-  async addCommand(commandId: string, options?: { registry?: string }): Promise<void> {
+  async addCommand(commandId: string, options?: { registry?: string; target?: string }): Promise<void> {
     await this.assertWorkspaceVersionCurrent();
     await addCommandEntity(this.cwd, commandId, options);
   }

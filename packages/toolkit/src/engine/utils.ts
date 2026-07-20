@@ -109,18 +109,6 @@ export function computeSkillSourceSha(files: Array<{ path: string; sha256: strin
   return sha256(stableStringify(normalized));
 }
 
-export function resolveRemoveTargetId(entityType: CliEntityType, id: string): string {
-  if (entityType !== "prompt") {
-    return id;
-  }
-
-  if (id !== "system") {
-    throw new Error(`Prompt entity id must be 'system', received '${id}'`);
-  }
-
-  return "system";
-}
-
 export function printDiagnostics(diagnostics: Diagnostic[]): void {
   if (diagnostics.length === 0) {
     return;
