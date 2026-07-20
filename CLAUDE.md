@@ -71,7 +71,7 @@ After building: `packages/toolkit/dist/cli.js`
 
 ## Architecture
 
-This is a **pnpm monorepo** with two packages, managed by Turborepo:
+This is a **pnpm monorepo** with three publishable packages, managed by Turborepo:
 
 ### `packages/manifest-schema` (`@madebywild/agent-harness-manifest`)
 
@@ -79,9 +79,13 @@ Zod schemas and TypeScript types for the `.harness/` workspace contract: manifes
 
 Key files: `src/index.ts` (all schemas), `src/versioning.ts` (schema version constants).
 
+### `packages/tui` (`@madebywild/agent-harness-tui`)
+
+Ink/React terminal UI components used by the CLI's interactive renderers. Built on `ink`, `@inkjs/ui`, and `react`. This is a dependency of the toolkit.
+
 ### `packages/toolkit` (`@madebywild/agent-harness-framework`)
 
-The main package containing the CLI and core engine. Key modules:
+The main package containing the CLI and core engine. Depends on `manifest-schema` and `tui`. Key modules:
 
 - **`src/cli.ts`** — CLI entrypoint; delegates to `src/cli/main.ts` which uses Commander.
 - **`src/cli/`** — Command registration, contracts/types, handlers, adapters, and TUI renderers.
@@ -118,7 +122,7 @@ The main package containing the CLI and core engine. Key modules:
 
 ## Release
 
-Both packages are versioned in lockstep. To release: bump `version` in both `packages/*/package.json` to the same semver, merge, then push a `vX.Y.Z` tag. CI publishes manifest-schema first, then framework.
+All three packages are versioned in lockstep. To release: bump `version` in every `packages/*/package.json` to the same semver, merge, then push a `vX.Y.Z` tag. CI publishes in dependency order (manifest-schema, tui, then framework) via `pnpm run release:publish`, which is idempotent and guarded by `release:guard`.
 
 ## Node Version
 
