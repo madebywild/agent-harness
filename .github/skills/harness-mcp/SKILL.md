@@ -128,6 +128,21 @@ The harness source file is a plain JSON object. Use one server-ID key per server
 
 You may define as many servers as needed in one file, or split them across multiple `mcp` entity files. Harness merges all files before rendering — server IDs must be unique across all files.
 
+### Remote server URLs
+
+For `sse` / `http` transport servers, write the endpoint under `url` — every supported provider (Claude Code,
+OpenAI Codex CLI, GitHub Copilot, Cursor) reads a remote server's endpoint from a field named `url`, never
+`serverUrl`. As a compatibility alias, harness accepts `serverUrl` in the source file and rewrites it to `url` in
+every rendered artifact, but new configs should use `url` directly:
+
+```json
+{
+  "figma": {
+    "url": "https://mcp.figma.com/mcp"
+  }
+}
+```
+
 ---
 
 ## Harness CLI commands

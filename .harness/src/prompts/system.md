@@ -57,6 +57,14 @@ pnpm --filter @madebywild/agent-harness-framework exec tsx --test test/hooks.tes
 pnpm --filter @madebywild/agent-harness-framework watch
 ```
 
+### Testing conventions
+
+- Unit tests cover module logic. End-to-end tests under `packages/toolkit/test/e2e/user-journeys/`
+  drive the real CLI (`runHarnessCli`) through a full flow and assert on generated artifacts.
+- A user-facing change (a new CLI flag or command, entity behavior, or provider output) must add
+  or extend an e2e user journey, not only unit tests. Plan the e2e coverage as part of the
+  feature, not as an afterthought.
+
 ### CLI entrypoint (local dev)
 
 After building: `packages/toolkit/dist/cli.js`
