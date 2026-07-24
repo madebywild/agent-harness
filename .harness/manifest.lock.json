@@ -92,7 +92,7 @@
         "copilot": "09bfcc6a14b83e2192b8673677725c84883ee9cd0c70e45c9ec09daa8f2b2847"
       },
       "registry": "local",
-      "sourceSha256": "c381423fa914ac1dce398b15297f3199e17080c48bead3d59593d4311c6d2bfc",
+      "sourceSha256": "fc0a2e432eeaa80860d23495514d3a9c6c12497590f90180501e0043fa9366c9",
       "type": "skill"
     },
     {
@@ -173,7 +173,7 @@
       "type": "subagent"
     }
   ],
-  "generatedAt": "2026-07-24T12:54:50.220Z",
+  "generatedAt": "2026-07-24T15:34:40.961Z",
   "manifestFingerprint": "c11569e235cd153595ef2ef5a54e924270092d626cb1f6b9a75e93b611a6cc3e",
   "outputs": [
     {
@@ -249,7 +249,7 @@
       "provider": "claude"
     },
     {
-      "contentSha256": "1dc18086822c9cf231c3ecd476231b25af6a75f335b01cbebff15c0aebfe3009",
+      "contentSha256": "1df4e9dee4bb64c800d0ab97b627818d9d0016cd56871daf16441a5e7b82328a",
       "ownerEntityIds": ["harness-skill"],
       "path": ".claude/skills/harness-skill/SKILL.md",
       "provider": "claude"
@@ -315,7 +315,7 @@
       "provider": "codex"
     },
     {
-      "contentSha256": "1dc18086822c9cf231c3ecd476231b25af6a75f335b01cbebff15c0aebfe3009",
+      "contentSha256": "1df4e9dee4bb64c800d0ab97b627818d9d0016cd56871daf16441a5e7b82328a",
       "ownerEntityIds": ["harness-skill"],
       "path": ".codex/skills/harness-skill/SKILL.md",
       "provider": "codex"
@@ -405,7 +405,7 @@
       "provider": "copilot"
     },
     {
-      "contentSha256": "1dc18086822c9cf231c3ecd476231b25af6a75f335b01cbebff15c0aebfe3009",
+      "contentSha256": "1df4e9dee4bb64c800d0ab97b627818d9d0016cd56871daf16441a5e7b82328a",
       "ownerEntityIds": ["harness-skill"],
       "path": ".github/skills/harness-skill/SKILL.md",
       "provider": "copilot"

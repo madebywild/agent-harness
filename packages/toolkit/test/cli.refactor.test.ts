@@ -259,13 +259,13 @@ test("runCliArgv returns exitCode for commander-managed --help path", async () =
 
 test("runCliCommand registry.validate defaults to context cwd when path is omitted", async () => {
   const cwd = await mkTmpRepo();
-  await fs.mkdir(path.join(cwd, "skills/reviewer"), { recursive: true });
+  await fs.mkdir(path.join(cwd, "skills/engineering/reviewer"), { recursive: true });
   await fs.writeFile(
     path.join(cwd, "harness-registry.json"),
     JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
     "utf8",
   );
-  await fs.writeFile(path.join(cwd, "skills/reviewer/SKILL.md"), "# reviewer\n\nSkill\n", "utf8");
+  await fs.writeFile(path.join(cwd, "skills/engineering/reviewer/SKILL.md"), "# reviewer\n\nSkill\n", "utf8");
 
   const output = await runCliCommand(
     {
@@ -292,13 +292,13 @@ test("runCliCommand registry.validate defaults to context cwd when path is omitt
 test("runCliArgv registry.validate defaults to invocation cwd when --path is omitted", async () => {
   const cwd = await mkTmpRepo();
   const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
-  await fs.mkdir(path.join(cwd, "skills/reviewer"), { recursive: true });
+  await fs.mkdir(path.join(cwd, "skills/engineering/reviewer"), { recursive: true });
   await fs.writeFile(
     path.join(cwd, "harness-registry.json"),
     JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
     "utf8",
   );
-  await fs.writeFile(path.join(cwd, "skills/reviewer/SKILL.md"), "# reviewer\n\nSkill\n", "utf8");
+  await fs.writeFile(path.join(cwd, "skills/engineering/reviewer/SKILL.md"), "# reviewer\n\nSkill\n", "utf8");
 
   const result = await runCliArgv(["registry", "validate", "--json"], capture.context);
 

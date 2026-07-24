@@ -334,6 +334,9 @@ export const presetDefinitionSchema = z
     name: z.string().min(1),
     description: z.string().min(1),
     recommended: z.boolean().optional(),
+    // Parent preset id to inherit add_skill / add_prompt_section operations from (registry presets
+    // only). Resolved transitively with nearest-wins dedupe; validated for existence + acyclicity.
+    extends: presetEntityIdSchema.optional(),
     registries: z.array(presetRegistryTargetSchema).optional(),
     operations: z.array(presetOperationSchema).min(1),
     metadata: z.record(z.string(), z.unknown()).optional(),

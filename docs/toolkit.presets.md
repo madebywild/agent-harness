@@ -45,7 +45,17 @@ Processes operations sequentially. Each operation type:
 - `enable_provider` — appends to `providers.enabled` (skips if already present).
 - Entity adds (`add_prompt_section`, `add_skill`, `add_mcp`, `add_subagent`, `add_hook`, `add_settings`, `add_command`) — delegates to the standard `add*Entity` functions. `add_prompt_section` requires an `id`. Skips if entity already exists with matching content/provenance; throws `PRESET_CONFLICT` on mismatch.
 
-Re-reads manifest after each mutation to avoid stale state.
+Re-reads manifest after each mutation to avoid stale state. Only `add_skill` / `add_prompt_section` may carry a non-local `source.registry` (strict root); a registry source on any other entity op throws `PRESET_UNSUPPORTED`.
+
+## Preset extension (`extends`)
+
+A registry preset may declare a top-level `extends: <parent-id>`. `resolvePreset` (registry branch) loads every preset in the registry from a single checkout and flattens the chain via `resolvePresetChain`:
+
+- **Inheritable ops**: only `add_skill` and `add_prompt_section` are inherited (transitively). Everything else (`add_mcp`, `add_hook`, `add_subagent`, `add_settings`, `add_command`, `enable_provider`, `register_registry`) comes from the child alone.
+- **Order**: inherited ops are prepended parent-first (root-most ancestor first), then the child's own — this is the composition order for prompt-sections.
+- **Dedupe**: by `(type, id)`, nearest/child definition wins.
+- **Embedded merge**: the parent's embedded `skills` / `promptSections` files are merged forward (child wins per id) so inherited embedded ops resolve.
+- **Errors**: `PRESET_EXTENDS_CYCLE` (cycle), `PRESET_EXTENDS_NOT_FOUND` (unknown parent), `PRESET_EXTENDS_UNSUPPORTED_SOURCE` (a builtin or local preset declaring `extends`).
 
 ## Preset package format
 

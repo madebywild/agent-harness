@@ -423,7 +423,9 @@ test("settings keeps unmanaged-output and cross-provider collision protections",
   assert.ok(collisionApply.diagnostics.some((diagnostic) => diagnostic.code === "OUTPUT_PATH_COLLISION"));
 });
 
-test("registry import/pull and validation support settings entities", async () => {
+test("settings are not registry-sourceable and a root settings/ folder is rejected", async () => {
+  // Strict root: settings live only inside preset packages. A registry can neither expose a root
+  // settings/ folder nor be a source for `add settings`.
   const registry = await fs.mkdtemp(path.join(os.tmpdir(), "settings-registry-"));
   await fs.mkdir(path.join(registry, "settings"), { recursive: true });
   await fs.writeFile(
@@ -433,8 +435,11 @@ test("registry import/pull and validation support settings entities", async () =
   );
   await fs.writeFile(path.join(registry, "settings/codex.toml"), 'model = "gpt-5"\n', "utf8");
 
-  await fs.writeFile(path.join(registry, ".gitignore"), "", "utf8");
-  await fs.writeFile(path.join(registry, ".gitattributes"), "", "utf8");
+  // A root settings/ folder is a strict-root violation.
+  const validation = await validateRegistryRepo({ repoPath: registry });
+  assert.equal(validation.valid, false);
+  assert.ok(validation.diagnostics.some((diagnostic) => diagnostic.code === "REGISTRY_ROOT_ENTITY_FORBIDDEN"));
+
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const execFileAsync = promisify(execFile);
@@ -449,42 +454,8 @@ test("registry import/pull and validation support settings entities", async () =
   const engine = new HarnessEngine(cwd);
   await engine.init();
   await engine.addRegistry("corp", { gitUrl: registry, ref: "main" });
-  await engine.addSettings("codex", { registry: "corp" });
-
-  const imported = await fs.readFile(path.join(cwd, ".harness/src/settings/codex.toml"), "utf8");
-  assert.match(imported, /gpt-5/u);
-
-  await fs.writeFile(path.join(cwd, ".harness/src/settings/codex.toml"), 'model = "local"\n', "utf8");
-  await fs.writeFile(path.join(registry, "settings/codex.toml"), 'model = "gpt-5.4"\n', "utf8");
-  await execFileAsync("git", ["add", "."], { cwd: registry });
-  await execFileAsync("git", ["commit", "-m", "update settings"], { cwd: registry });
-
-  await assert.rejects(() => engine.pullRegistry({ entityType: "settings", id: "codex" }), /REGISTRY_PULL_CONFLICT/u);
-  const pulled = await engine.pullRegistry({ entityType: "settings", id: "codex", force: true });
-  assert.deepEqual(pulled.updatedEntities, [{ type: "settings", id: "codex" }]);
-  const lockAfterPull = await fs.readFile(path.join(cwd, ".harness/manifest.lock.json"), "utf8");
-
-  const postPullApply = await engine.apply();
-  assert.equal(
-    postPullApply.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
-    false,
-    JSON.stringify(postPullApply.diagnostics),
+  await assert.rejects(
+    async () => engine.addSettings("codex", { registry: "corp" }),
+    /REGISTRY_ENTITY_UNSUPPORTED_TYPE/u,
   );
-  const lockAfterApply = await fs.readFile(path.join(cwd, ".harness/manifest.lock.json"), "utf8");
-  assert.equal(lockAfterApply, lockAfterPull);
-
-  const refreshed = await fs.readFile(path.join(cwd, ".harness/src/settings/codex.toml"), "utf8");
-  assert.match(refreshed, /gpt-5\.4/u);
-
-  const validRegistry = await validateRegistryRepo({ repoPath: registry });
-  assert.equal(validRegistry.valid, true);
-
-  await fs.writeFile(path.join(registry, "settings/cursor.json"), '{\n  "cursor.experimental": true\n}\n', "utf8");
-  const validWithCursor = await validateRegistryRepo({ repoPath: registry });
-  assert.equal(validWithCursor.valid, true);
-
-  await fs.writeFile(path.join(registry, "settings/invalid.json"), "{}\n", "utf8");
-  const invalidRegistry = await validateRegistryRepo({ repoPath: registry });
-  assert.equal(invalidRegistry.valid, false);
-  assert.ok(invalidRegistry.diagnostics.some((diagnostic) => diagnostic.code === "REGISTRY_SETTINGS_INVALID"));
 });

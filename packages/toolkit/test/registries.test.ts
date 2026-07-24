@@ -74,7 +74,7 @@ test("add from git registry imports sources and records registry provenance", as
   const registryRepo = await mkTmpGitRegistry({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
-      "skills/reviewer/SKILL.md": "# reviewer\n\nRemote content\n",
+      "skills/engineering/reviewer/SKILL.md": "# reviewer\n\nRemote content\n",
     },
   });
 
@@ -82,6 +82,7 @@ test("add from git registry imports sources and records registry provenance", as
   await engine.init();
   await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
 
+  // Root skills live under a category folder; they are fetched by bare id (unique across categories).
   await engine.addSkill("reviewer", { registry: "corp" });
 
   const localSkill = await fs.readFile(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md"), "utf8");
@@ -112,13 +113,13 @@ test("add from git registry imports sources and records registry provenance", as
   assert.ok(lockEntity?.importedSourceSha256);
 });
 
-test("add from git registry imports subagent and records provenance", async () => {
+test("add from git registry imports prompt-section and records provenance", async () => {
   const cwd = await mkTmpRepo();
   const registryRepo = await mkTmpGitRegistry({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
-      "subagents/researcher.md":
-        "---\nname: researcher\ndescription: Research helper\n---\n\nFocus on synthesis and citations.\n",
+      "prompt-sections/misc/house-style/SECTION.md":
+        "---\nname: house-style\ndescription: House style\n---\n\nWrite terse commit messages.\n",
     },
   });
 
@@ -126,10 +127,11 @@ test("add from git registry imports subagent and records provenance", async () =
   await engine.init();
   await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
 
-  await engine.addSubagent("researcher", { registry: "corp" });
+  // Prompt-sections, like skills, are categorized at the registry root and fetched by bare id.
+  await engine.addPromptSection("house-style", { registry: "corp" });
 
-  const localSubagent = await fs.readFile(path.join(cwd, ".harness/src/subagents/researcher.md"), "utf8");
-  assert.match(localSubagent, /Research helper/u);
+  const localSection = await fs.readFile(path.join(cwd, ".harness/src/prompt-sections/house-style/SECTION.md"), "utf8");
+  assert.match(localSection, /terse commit messages/u);
 
   const lock = await readJson<{
     entities: Array<{
@@ -141,7 +143,7 @@ test("add from git registry imports subagent and records provenance", async () =
     }>;
   }>(cwd, ".harness/manifest.lock.json");
 
-  const lockEntity = lock.entities.find((entry) => entry.type === "subagent" && entry.id === "researcher");
+  const lockEntity = lock.entities.find((entry) => entry.type === "prompt_section" && entry.id === "house-style");
   assert.ok(lockEntity);
   assert.equal(lockEntity?.registry, "corp");
   assert.equal(lockEntity?.registryRevision?.kind, "git");
@@ -150,26 +152,12 @@ test("add from git registry imports subagent and records provenance", async () =
   assert.ok(lockEntity?.importedSourceSha256);
 });
 
-test("add from git registry imports hook and records provenance", async () => {
+test("registry sourcing rejects non-skill / non-prompt-section entity types", async () => {
   const cwd = await mkTmpRepo();
   const registryRepo = await mkTmpGitRegistry({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
-      "hooks/guard.json": JSON.stringify(
-        {
-          mode: "strict",
-          events: {
-            turn_complete: [
-              {
-                type: "notify",
-                command: ["python3", "scripts/on_turn_complete.py"],
-              },
-            ],
-          },
-        },
-        null,
-        2,
-      ),
+      "skills/misc/reviewer/SKILL.md": "# reviewer\n\nRemote content\n",
     },
   });
 
@@ -177,32 +165,60 @@ test("add from git registry imports hook and records provenance", async () => {
   await engine.init();
   await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
 
-  await engine.addHook("guard", { registry: "corp" });
+  // Only skills and prompt-sections are registry-sourceable; every other entity type is embedded in a
+  // preset. Attempting to source one directly from a registry is rejected.
+  await assert.rejects(
+    async () => engine.addSubagent("researcher", { registry: "corp" }),
+    /REGISTRY_ENTITY_UNSUPPORTED_TYPE/u,
+  );
+  await assert.rejects(async () => engine.addHook("guard", { registry: "corp" }), /REGISTRY_ENTITY_UNSUPPORTED_TYPE/u);
+  await assert.rejects(async () => engine.addMcp("server", { registry: "corp" }), /REGISTRY_ENTITY_UNSUPPORTED_TYPE/u);
+});
 
-  const localHook = await readJson<{
-    mode: string;
-    events: Record<string, unknown>;
-  }>(cwd, ".harness/src/hooks/guard.json");
-  assert.equal(localHook.mode, "strict");
-  assert.ok(localHook.events.turn_complete);
+test("registry fetch rejects a skill id that is ambiguous across categories", async () => {
+  const cwd = await mkTmpRepo();
+  const registryRepo = await mkTmpGitRegistry({
+    files: {
+      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
+      "skills/engineering/dup/SKILL.md": "# dup\n\nEngineering copy\n",
+      "skills/pm/dup/SKILL.md": "# dup\n\nPM copy\n",
+    },
+  });
 
-  const lock = await readJson<{
-    entities: Array<{
-      id: string;
-      type: string;
-      registry: string;
-      importedSourceSha256?: string;
-      registryRevision?: { kind: string; ref: string; commit: string };
-    }>;
-  }>(cwd, ".harness/manifest.lock.json");
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+  await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
 
-  const lockEntity = lock.entities.find((entry) => entry.type === "hook" && entry.id === "guard");
-  assert.ok(lockEntity);
-  assert.equal(lockEntity?.registry, "corp");
-  assert.equal(lockEntity?.registryRevision?.kind, "git");
-  assert.equal(lockEntity?.registryRevision?.ref, "main");
-  assert.ok(lockEntity?.registryRevision?.commit);
-  assert.ok(lockEntity?.importedSourceSha256);
+  await assert.rejects(async () => engine.addSkill("dup", { registry: "corp" }), /ambiguous/u);
+});
+
+test("registry pull supports prompt-section entities", async () => {
+  const cwd = await mkTmpRepo();
+  const registryRepo = await mkTmpGitRegistry({
+    files: {
+      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
+      "prompt-sections/misc/house-style/SECTION.md":
+        "---\nname: house-style\ndescription: House style\n---\n\nVersion 1.\n",
+    },
+  });
+
+  const engine = new HarnessEngine(cwd);
+  await engine.init();
+  await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
+  await engine.addPromptSection("house-style", { registry: "corp" });
+
+  await fs.writeFile(
+    path.join(registryRepo, "prompt-sections/misc/house-style/SECTION.md"),
+    "---\nname: house-style\ndescription: House style\n---\n\nVersion 2.\n",
+    "utf8",
+  );
+  await gitCommit(registryRepo, "update section");
+
+  const result = await engine.pullRegistry({ entityType: "prompt-section", id: "house-style" });
+  assert.deepEqual(result.updatedEntities, [{ type: "prompt-section", id: "house-style" }]);
+
+  const refreshed = await fs.readFile(path.join(cwd, ".harness/src/prompt-sections/house-style/SECTION.md"), "utf8");
+  assert.match(refreshed, /Version 2/u);
 });
 
 test("git registry import fails when harness-registry.json is missing", async () => {
@@ -225,7 +241,7 @@ test("registry pull blocks local drift unless --force", async () => {
   const registryRepo = await mkTmpGitRegistry({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
-      "skills/reviewer/SKILL.md": "# reviewer\n\nVersion 1\n",
+      "skills/misc/reviewer/SKILL.md": "# reviewer\n\nVersion 1\n",
     },
   });
 
@@ -236,7 +252,7 @@ test("registry pull blocks local drift unless --force", async () => {
 
   await fs.writeFile(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md"), "# reviewer\n\nLocal edits\n", "utf8");
 
-  await fs.writeFile(path.join(registryRepo, "skills/reviewer/SKILL.md"), "# reviewer\n\nVersion 2\n", "utf8");
+  await fs.writeFile(path.join(registryRepo, "skills/misc/reviewer/SKILL.md"), "# reviewer\n\nVersion 2\n", "utf8");
   await gitCommit(registryRepo, "update skill");
 
   await assert.rejects(
@@ -255,140 +271,13 @@ test("registry pull blocks local drift unless --force", async () => {
   assert.match(refreshed, /Version 2/u);
 });
 
-test("registry pull supports subagent entities", async () => {
-  const cwd = await mkTmpRepo();
-  const registryRepo = await mkTmpGitRegistry({
-    files: {
-      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
-      "subagents/researcher.md":
-        "---\nname: researcher\ndescription: Research helper\n---\n\nVersion 1 instructions.\n",
-    },
-  });
-
-  const engine = new HarnessEngine(cwd);
-  await engine.init();
-  await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
-  await engine.addSubagent("researcher", { registry: "corp" });
-
-  await fs.writeFile(
-    path.join(cwd, ".harness/src/subagents/researcher.md"),
-    "---\nname: researcher\ndescription: Research helper\n---\n\nLocal edits.\n",
-    "utf8",
-  );
-  await fs.writeFile(
-    path.join(registryRepo, "subagents/researcher.md"),
-    "---\nname: researcher\ndescription: Research helper\n---\n\nVersion 2 instructions.\n",
-    "utf8",
-  );
-  await gitCommit(registryRepo, "update subagent");
-
-  await assert.rejects(
-    async () => engine.pullRegistry({ entityType: "subagent", id: "researcher" }),
-    /REGISTRY_PULL_CONFLICT/u,
-  );
-
-  const forced = await engine.pullRegistry({
-    entityType: "subagent",
-    id: "researcher",
-    force: true,
-  });
-  assert.deepEqual(forced.updatedEntities, [{ type: "subagent", id: "researcher" }]);
-
-  const refreshed = await fs.readFile(path.join(cwd, ".harness/src/subagents/researcher.md"), "utf8");
-  assert.match(refreshed, /Version 2 instructions/u);
-});
-
-test("registry pull supports hook entities", async () => {
-  const cwd = await mkTmpRepo();
-  const registryRepo = await mkTmpGitRegistry({
-    files: {
-      "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
-      "hooks/guard.json": JSON.stringify(
-        {
-          mode: "strict",
-          events: {
-            turn_complete: [
-              {
-                type: "notify",
-                command: ["python3", "scripts/version1.py"],
-              },
-            ],
-          },
-        },
-        null,
-        2,
-      ),
-    },
-  });
-
-  const engine = new HarnessEngine(cwd);
-  await engine.init();
-  await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
-  await engine.addHook("guard", { registry: "corp" });
-
-  await fs.writeFile(
-    path.join(cwd, ".harness/src/hooks/guard.json"),
-    JSON.stringify(
-      {
-        mode: "strict",
-        events: {
-          turn_complete: [
-            {
-              type: "notify",
-              command: ["python3", "scripts/local-edits.py"],
-            },
-          ],
-        },
-      },
-      null,
-      2,
-    ),
-    "utf8",
-  );
-  await fs.writeFile(
-    path.join(registryRepo, "hooks/guard.json"),
-    JSON.stringify(
-      {
-        mode: "strict",
-        events: {
-          turn_complete: [
-            {
-              type: "notify",
-              command: ["python3", "scripts/version2.py"],
-            },
-          ],
-        },
-      },
-      null,
-      2,
-    ),
-    "utf8",
-  );
-  await gitCommit(registryRepo, "update hook");
-
-  await assert.rejects(async () => engine.pullRegistry({ entityType: "hook", id: "guard" }), /REGISTRY_PULL_CONFLICT/u);
-
-  const forced = await engine.pullRegistry({
-    entityType: "hook",
-    id: "guard",
-    force: true,
-  });
-  assert.deepEqual(forced.updatedEntities, [{ type: "hook", id: "guard" }]);
-
-  const refreshed = await readJson<{
-    mode: string;
-    events: { turn_complete: Array<{ command: string[] }> };
-  }>(cwd, ".harness/src/hooks/guard.json");
-  assert.deepEqual(refreshed.events.turn_complete[0]?.command, ["python3", "scripts/version2.py"]);
-});
-
 test("registry pull does not conflict when imported skill includes OVERRIDES sidecars", async () => {
   const cwd = await mkTmpRepo();
   const registryRepo = await mkTmpGitRegistry({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
-      "skills/reviewer/SKILL.md": "# reviewer\n\nVersion 1\n",
-      "skills/reviewer/OVERRIDES.codex.yaml": "version: 1\n",
+      "skills/misc/reviewer/SKILL.md": "# reviewer\n\nVersion 1\n",
+      "skills/misc/reviewer/OVERRIDES.codex.yaml": "version: 1\n",
     },
   });
 
@@ -397,7 +286,7 @@ test("registry pull does not conflict when imported skill includes OVERRIDES sid
   await engine.addRegistry("corp", { gitUrl: registryRepo, ref: "main" });
   await engine.addSkill("reviewer", { registry: "corp" });
 
-  await fs.writeFile(path.join(registryRepo, "skills/reviewer/SKILL.md"), "# reviewer\n\nVersion 2\n", "utf8");
+  await fs.writeFile(path.join(registryRepo, "skills/misc/reviewer/SKILL.md"), "# reviewer\n\nVersion 2\n", "utf8");
   await gitCommit(registryRepo, "update skill");
 
   const result = await engine.pullRegistry({
@@ -458,8 +347,8 @@ test("registry pull preflight avoids partial updates when later entity conflicts
   const registryRepo = await mkTmpGitRegistry({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
-      "skills/alpha/SKILL.md": "# alpha\n\nVersion 1\n",
-      "skills/zeta/SKILL.md": "# zeta\n\nVersion 1\n",
+      "skills/misc/alpha/SKILL.md": "# alpha\n\nVersion 1\n",
+      "skills/misc/zeta/SKILL.md": "# zeta\n\nVersion 1\n",
     },
   });
 
@@ -471,8 +360,8 @@ test("registry pull preflight avoids partial updates when later entity conflicts
 
   await fs.writeFile(path.join(cwd, ".harness/src/skills/zeta/SKILL.md"), "# zeta\n\nLocal edits\n", "utf8");
 
-  await fs.writeFile(path.join(registryRepo, "skills/alpha/SKILL.md"), "# alpha\n\nVersion 2\n", "utf8");
-  await fs.writeFile(path.join(registryRepo, "skills/zeta/SKILL.md"), "# zeta\n\nVersion 2\n", "utf8");
+  await fs.writeFile(path.join(registryRepo, "skills/misc/alpha/SKILL.md"), "# alpha\n\nVersion 2\n", "utf8");
+  await fs.writeFile(path.join(registryRepo, "skills/misc/zeta/SKILL.md"), "# zeta\n\nVersion 2\n", "utf8");
   await gitCommit(registryRepo, "update all skills");
 
   await assert.rejects(async () => engine.pullRegistry(), /REGISTRY_PULL_CONFLICT/u);
@@ -567,13 +456,13 @@ if (args[0] === "clone") {
     process.exit(1);
   }
 
-  await fs.mkdir(path.join(checkout, "skills", "reviewer"), { recursive: true });
+  await fs.mkdir(path.join(checkout, "skills", "misc", "reviewer"), { recursive: true });
   await fs.writeFile(
     path.join(checkout, "harness-registry.json"),
     '{"version":1,"title":"Stub Registry","description":"Stub"}\\n',
     "utf8",
   );
-  await fs.writeFile(path.join(checkout, "skills", "reviewer", "SKILL.md"), "# reviewer\\n\\nRemote content\\n", "utf8");
+  await fs.writeFile(path.join(checkout, "skills", "misc", "reviewer", "SKILL.md"), "# reviewer\\n\\nRemote content\\n", "utf8");
   process.exit(0);
 }
 
@@ -654,36 +543,44 @@ test("validateRegistryRepo passes for valid registry layout and metadata", async
       null,
       2,
     ),
+    // Strict root: only skills/, prompt-sections/, and presets/ hold entities. Skills and
+    // prompt-sections are organized into category folders; frontmatter tags are optional.
     "prompt-sections/misc/system/SECTION.md":
       "---\nname: system\ndescription: Base guidance\ntags: [base]\n---\n\n# System Prompt\n\nGuidance\n",
-    "skills/reviewer/SKILL.md": "# reviewer\n\nSkill\n",
-    "mcp/playwright.json": JSON.stringify({ command: "npx", args: ["@playwright/mcp"] }, null, 2),
-    "subagents/researcher.md": "---\nname: researcher\ndescription: Research helper\n---\n\nResearch instructions.\n",
-    "hooks/guard.json": JSON.stringify(
+    "prompt-sections/engineering/code-conventions/SECTION.md":
+      "---\nname: code-conventions\ndescription: TS conventions\n---\n\nUse type over interface.\n",
+    "skills/engineering/reviewer/SKILL.md":
+      "---\nname: reviewer\ndescription: Review skill\ntags: [review]\n---\n\n# reviewer\n",
+    "skills/pm/grill-me/SKILL.md": "# grill-me\n\nInterview relentlessly.\n",
+    "skills/design/.gitkeep": "",
+    "presets/corp-starter/preset.json": JSON.stringify(
       {
-        mode: "strict",
-        events: {
-          turn_complete: [
-            {
-              type: "notify",
-              command: ["python3", "scripts/on_turn_complete.py"],
-            },
-          ],
-        },
+        id: "corp-starter",
+        name: "Corp Starter",
+        description: "Enable Claude and attach a corp skill and an embedded mcp.",
+        operations: [
+          { type: "enable_provider", provider: "claude" },
+          { type: "add_skill", id: "reviewer", source: { registry: "corp" } },
+          { type: "add_mcp", id: "corp-mcp" },
+        ],
       },
       null,
       2,
     ),
-    "commands/review.md":
-      "---\ndescription: Review staged changes\nargument-hint: [path]\n---\n\nReview the diff and summarize findings.\n",
+    "presets/corp-starter/mcp/corp-mcp.json": JSON.stringify(
+      { mcpServers: { corp: { command: "corp-mcp" } } },
+      null,
+      2,
+    ),
   });
 
   const result = await validateRegistryRepo({ repoPath: registryRepo });
-  assert.equal(result.valid, true);
+  assert.equal(result.valid, true, JSON.stringify(result.diagnostics));
   assert.deepEqual(result.diagnostics, []);
 });
 
 test("validateRegistryRepo reports structural and metadata failures", async () => {
+  const M = JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2);
   const cases: Array<{
     name: string;
     files: Record<string, string>;
@@ -700,285 +597,177 @@ test("validateRegistryRepo reports structural and metadata failures", async () =
     },
     {
       name: "manifest missing description",
-      files: {
-        "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry" }, null, 2),
-      },
+      files: { "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry" }, null, 2) },
       expectedCode: "REGISTRY_MANIFEST_INVALID",
       expectedPath: "harness-registry.json",
     },
     {
       name: "prompt-section missing frontmatter name/description",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "prompt-sections/misc/system/SECTION.md": "# System Prompt\n\nBase\n",
-      },
+      files: { "harness-registry.json": M, "prompt-sections/misc/system/SECTION.md": "# System Prompt\n\nBase\n" },
       expectedCode: "REGISTRY_PROMPT_SECTION_INVALID",
       expectedPath: "prompt-sections/misc/system/SECTION.md",
     },
     {
       name: "empty prompt-section content",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "prompt-sections/misc/system/SECTION.md": "\n\n",
-      },
+      files: { "harness-registry.json": M, "prompt-sections/misc/system/SECTION.md": "\n\n" },
       expectedCode: "REGISTRY_PROMPT_SECTION_INVALID",
       expectedPath: "prompt-sections/misc/system/SECTION.md",
     },
     {
-      name: "skill without SKILL.md",
+      name: "prompt-section invalid tags",
       files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "skills/reviewer/readme.md": "# reviewer\n",
+        "harness-registry.json": M,
+        "prompt-sections/misc/system/SECTION.md": "---\nname: system\ndescription: Base\ntags: notalist\n---\n\nBody\n",
       },
+      expectedCode: "REGISTRY_PROMPT_SECTION_INVALID_TAGS",
+      expectedPath: "prompt-sections/misc/system/SECTION.md",
+    },
+    {
+      name: "prompt-section duplicate id across categories",
+      files: {
+        "harness-registry.json": M,
+        "prompt-sections/misc/dup/SECTION.md": "---\nname: dup\ndescription: A\n---\n\nA\n",
+        "prompt-sections/engineering/dup/SECTION.md": "---\nname: dup\ndescription: B\n---\n\nB\n",
+      },
+      expectedCode: "REGISTRY_PROMPT_SECTION_DUPLICATE_ID",
+    },
+    {
+      name: "skill without SKILL.md",
+      files: { "harness-registry.json": M, "skills/engineering/reviewer/readme.md": "# reviewer\n" },
+      expectedCode: "REGISTRY_SKILL_INVALID",
+      expectedPath: "skills/engineering/reviewer/SKILL.md",
+    },
+    {
+      name: "invalid skill id",
+      files: { "harness-registry.json": M, "skills/engineering/bad id/SKILL.md": "# bad\n" },
+      expectedCode: "REGISTRY_SKILL_INVALID",
+      expectedPath: "skills/engineering/bad id",
+    },
+    {
+      name: "skill at wrong depth (missing category)",
+      files: { "harness-registry.json": M, "skills/reviewer/SKILL.md": "# reviewer\n" },
       expectedCode: "REGISTRY_SKILL_INVALID",
       expectedPath: "skills/reviewer/SKILL.md",
     },
     {
-      name: "invalid skill id",
+      name: "skill invalid tags",
       files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "skills/bad id/SKILL.md": "# bad\n",
+        "harness-registry.json": M,
+        "skills/engineering/reviewer/SKILL.md": "---\nname: reviewer\ndescription: r\ntags: nope\n---\n\n# reviewer\n",
       },
-      expectedCode: "REGISTRY_SKILL_INVALID",
-      expectedPath: "skills/bad id",
+      expectedCode: "REGISTRY_SKILL_INVALID_TAGS",
+      expectedPath: "skills/engineering/reviewer/SKILL.md",
     },
     {
-      name: "invalid mcp json",
+      name: "skill duplicate id across categories",
       files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "mcp/playwright.json": "{invalid",
+        "harness-registry.json": M,
+        "skills/engineering/dup/SKILL.md": "# dup\n",
+        "skills/pm/dup/SKILL.md": "# dup\n",
       },
-      expectedCode: "REGISTRY_MCP_INVALID",
-      expectedPath: "mcp/playwright.json",
+      expectedCode: "REGISTRY_SKILL_DUPLICATE_ID",
     },
     {
-      name: "mcp json must be object",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "mcp/playwright.json": "[]",
-      },
-      expectedCode: "REGISTRY_MCP_INVALID",
-      expectedPath: "mcp/playwright.json",
+      name: "forbidden root mcp",
+      files: { "harness-registry.json": M, "mcp/playwright.json": "{}\n" },
+      expectedCode: "REGISTRY_ROOT_ENTITY_FORBIDDEN",
+      expectedPath: "mcp",
     },
     {
-      name: "mcp rejects non-json files",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "mcp/readme.md": "# docs\n",
-      },
-      expectedCode: "REGISTRY_MCP_INVALID",
-      expectedPath: "mcp/readme.md",
+      name: "forbidden root subagents",
+      files: { "harness-registry.json": M, "subagents/researcher.md": "x\n" },
+      expectedCode: "REGISTRY_ROOT_ENTITY_FORBIDDEN",
+      expectedPath: "subagents",
     },
     {
-      name: "subagent missing frontmatter block",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "subagents/researcher.md": "Instructions without frontmatter.\n",
-      },
-      expectedCode: "REGISTRY_SUBAGENT_INVALID",
-      expectedPath: "subagents/researcher.md",
+      name: "forbidden root hooks",
+      files: { "harness-registry.json": M, "hooks/guard.json": "{}\n" },
+      expectedCode: "REGISTRY_ROOT_ENTITY_FORBIDDEN",
+      expectedPath: "hooks",
     },
     {
-      name: "subagent missing required description",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "subagents/researcher.md": "---\nname: researcher\n---\n\nInstructions\n",
-      },
-      expectedCode: "REGISTRY_SUBAGENT_INVALID",
-      expectedPath: "subagents/researcher.md",
+      name: "forbidden root settings",
+      files: { "harness-registry.json": M, "settings/claude.json": "{}\n" },
+      expectedCode: "REGISTRY_ROOT_ENTITY_FORBIDDEN",
+      expectedPath: "settings",
     },
     {
-      name: "subagent rejects non-markdown files",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "subagents/researcher.json": "{}\n",
-      },
-      expectedCode: "REGISTRY_SUBAGENT_INVALID",
-      expectedPath: "subagents/researcher.json",
+      name: "forbidden root commands",
+      files: { "harness-registry.json": M, "commands/review.md": "---\ndescription: r\n---\n\nx\n" },
+      expectedCode: "REGISTRY_ROOT_ENTITY_FORBIDDEN",
+      expectedPath: "commands",
     },
     {
-      name: "hook json must be object",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "hooks/guard.json": "[]",
-      },
-      expectedCode: "REGISTRY_HOOK_INVALID",
-      expectedPath: "hooks/guard.json",
+      name: "forbidden legacy root prompts",
+      files: { "harness-registry.json": M, "prompts/system.md": "# System\n" },
+      expectedCode: "REGISTRY_ROOT_ENTITY_FORBIDDEN",
+      expectedPath: "prompts",
     },
     {
-      name: "hook rejects non-json files",
+      name: "preset op declares registry source on non-skill/section entity",
       files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
+        "harness-registry.json": M,
+        "presets/corp/preset.json": JSON.stringify(
+          {
+            id: "corp",
+            name: "Corp",
+            description: "Bad source usage.",
+            operations: [{ type: "add_mcp", id: "server", source: { registry: "corp" } }],
+          },
           null,
           2,
         ),
-        "hooks/guard.md": "# guard\n",
       },
-      expectedCode: "REGISTRY_HOOK_INVALID",
-      expectedPath: "hooks/guard.md",
+      expectedCode: "REGISTRY_PRESET_INVALID",
+      expectedPath: "presets/corp",
     },
     {
-      name: "command missing required description",
+      name: "preset extends unknown parent",
       files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
+        "harness-registry.json": M,
+        "presets/child/preset.json": JSON.stringify(
+          {
+            id: "child",
+            name: "Child",
+            description: "Extends a missing preset.",
+            extends: "ghost",
+            operations: [{ type: "enable_provider", provider: "claude" }],
+          },
           null,
           2,
         ),
-        "commands/review.md": "---\nargument-hint: '[path]'\n---\n\nReview changes.\n",
       },
-      expectedCode: "REGISTRY_COMMAND_MISSING_DESCRIPTION",
-      expectedPath: "commands/review.md",
+      expectedCode: "REGISTRY_PRESET_EXTENDS_NOT_FOUND",
+      expectedPath: "presets/child",
     },
     {
-      name: "command rejects non-markdown files",
+      name: "preset extends cycle",
       files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
+        "harness-registry.json": M,
+        "presets/a/preset.json": JSON.stringify(
+          {
+            id: "a",
+            name: "A",
+            description: "A.",
+            extends: "b",
+            operations: [{ type: "enable_provider", provider: "claude" }],
+          },
           null,
           2,
         ),
-        "commands/review.json": "{}\n",
-      },
-      expectedCode: "REGISTRY_COMMAND_INVALID_FILE_TYPE",
-      expectedPath: "commands/review.json",
-    },
-    {
-      name: "command invalid id",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "commands/bad id.md": "---\ndescription: Review changes\n---\n\nReview changes.\n",
-      },
-      expectedCode: "REGISTRY_COMMAND_INVALID_ID",
-      expectedPath: "commands/bad id.md",
-    },
-    {
-      name: "command empty file",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "commands/review.md": "\n\n",
-      },
-      expectedCode: "REGISTRY_COMMAND_EMPTY",
-      expectedPath: "commands/review.md",
-    },
-    {
-      name: "command missing frontmatter block",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "commands/review.md": "Review changes.\n",
-      },
-      expectedCode: "REGISTRY_COMMAND_INVALID_FRONTMATTER",
-      expectedPath: "commands/review.md",
-    },
-    {
-      name: "command empty frontmatter block",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "commands/review.md": "---\n---\n\nReview changes.\n",
-      },
-      expectedCode: "REGISTRY_COMMAND_MISSING_DESCRIPTION",
-      expectedPath: "commands/review.md",
-    },
-    {
-      name: "command empty body",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "commands/review.md": "---\ndescription: Review changes\n---\n\n   \n",
-      },
-      expectedCode: "REGISTRY_COMMAND_EMPTY",
-      expectedPath: "commands/review.md",
-    },
-    {
-      name: "command malformed frontmatter",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
-          null,
-          2,
-        ),
-        "commands/review.md": "---\ndescription: [unterminated\n---\n\nReview changes.\n",
-      },
-      expectedCode: "REGISTRY_COMMAND_INVALID_FRONTMATTER",
-      expectedPath: "commands/review.md",
-    },
-    {
-      name: "empty commands directory is acceptable",
-      files: {
-        "harness-registry.json": JSON.stringify(
-          { version: 1, title: "Corp Registry", description: "Internal" },
+        "presets/b/preset.json": JSON.stringify(
+          {
+            id: "b",
+            name: "B",
+            description: "B.",
+            extends: "a",
+            operations: [{ type: "enable_provider", provider: "claude" }],
+          },
           null,
           2,
         ),
       },
-      expectValid: true,
-      setup: async (repo: string) => {
-        await fs.mkdir(path.join(repo, "commands"), { recursive: true });
-      },
+      expectedCode: "REGISTRY_PRESET_EXTENDS_CYCLE",
     },
   ];
 
@@ -1011,7 +800,7 @@ test("validateRegistryRepo reports structural and metadata failures", async () =
 test("registry validate CLI emits json and failure exit code", async () => {
   const validRepo = await mkTmpRegistry({
     "harness-registry.json": JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
-    "skills/reviewer/SKILL.md": "# reviewer\n\nSkill\n",
+    "skills/engineering/reviewer/SKILL.md": "# reviewer\n\nSkill\n",
   });
 
   const validRun = await execFileAsync(

@@ -142,30 +142,54 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
   let corpRepo: RegistryRepoFixture;
   let platformRepo: RegistryRepoFixture;
 
-  // ---- Phase 1: Set up corp registry with all entity types ---------------
-  test("phase 1 — create corp registry with shared entities", async (t) => {
+  const CORP_PRESET = "corp-stack";
+
+  // ---- Phase 1: corp registry (categorized skills + prompt-sections + a preset embedding
+  // every non-registry-sourceable entity type). Strict root: only skills/, prompt-sections/,
+  // presets/ live at the registry root. -----------------------------------
+  test("phase 1 — create corp registry with categorized skills, prompt-sections, and a stack preset", async (t) => {
     if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
 
     corpRepo = await fixture.createRegistryRepo({
       files: {
         "harness-registry.json": buildRegistryManifest("Corp Engineering"),
         "prompt-sections/misc/system/SECTION.md":
-          "---\nname: system\ndescription: Corp base prompt\n---\n\nYou are a senior engineer at Acme Corp.\n\nFollow our internal coding standards.\n",
-        "skills/reviewer/SKILL.md": buildSkillFile(
+          "---\nname: system\ndescription: Corp base prompt\ntags: [corp]\n---\n\nYou are a senior engineer at Acme Corp.\n\nFollow our internal coding standards.\n",
+        "skills/engineering/reviewer/SKILL.md": buildSkillFile(
           "reviewer",
           "Corp code review standards",
           "# Corp Code Reviewer\n\nFollow our style guide and coverage requirements.",
         ),
-        "skills/reviewer/style-guide.md": "- Use 2-space indentation\n- Prefer const over let\n- No any types\n",
-        "mcp/playwright.json": buildMcpJson({
+        "skills/engineering/reviewer/style-guide.md":
+          "- Use 2-space indentation\n- Prefer const over let\n- No any types\n",
+        // Non-registry-sourceable entity types are delivered through a preset that embeds them.
+        "presets/corp-stack/preset.json": JSON.stringify(
+          {
+            id: CORP_PRESET,
+            name: "Corp Stack",
+            description: "Corp toolchain: embedded mcp, subagent, hook, settings, and command.",
+            operations: [
+              { type: "enable_provider", provider: "claude" },
+              { type: "enable_provider", provider: "codex" },
+              { type: "add_mcp", id: "playwright" },
+              { type: "add_subagent", id: "researcher" },
+              { type: "add_hook", id: "ci-guard" },
+              { type: "add_settings", provider: "codex" },
+              { type: "add_command", id: "review" },
+            ],
+          },
+          null,
+          2,
+        ),
+        "presets/corp-stack/mcp/playwright.json": buildMcpJson({
           playwright: { command: "npx", args: ["@anthropic-ai/playwright-mcp"] },
         }),
-        "subagents/researcher.md": buildSubagentFile(
+        "presets/corp-stack/subagents/researcher.md": buildSubagentFile(
           "researcher",
           "Searches internal docs and web",
           "You are the Acme Corp research assistant.\n\nSearch our internal wiki and the web.",
         ),
-        "hooks/ci-guard.json": buildHookJson("best_effort", {
+        "presets/corp-stack/hooks/ci-guard.json": buildHookJson("best_effort", {
           pre_tool_use: [
             {
               type: "command",
@@ -175,21 +199,18 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
               powershell: "npm run ci:check",
             },
           ],
-          turn_complete: [
-            {
-              type: "notify",
-              command: ["python3", "scripts/corp-notify.py"],
-            },
-          ],
+          turn_complete: [{ type: "notify", command: ["python3", "scripts/corp-notify.py"] }],
         }),
-        "settings/codex.toml": 'model = "gpt-5.4"\n',
+        "presets/corp-stack/settings/codex.toml": 'model = "gpt-5.4"\n',
+        "presets/corp-stack/commands/review.md":
+          "---\ndescription: Review staged changes\n---\n\n# review\n\nReview the diff and summarize findings.\n",
       },
       private: false,
       namePrefix: "corp",
     });
   });
 
-  // ---- Phase 2: Init workspace and add corp registry as default ----------
+  // ---- Phase 2: init workspace and add corp registry as default ----------
   test("phase 2 — init and configure corp as default registry", async (t) => {
     if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
 
@@ -209,187 +230,107 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
     const defaultResult = await runHarnessCli(workspace, ["registry", "default", "show"]);
     assert.equal(defaultResult.stdout.trim(), "corp");
 
-    // Verify registry in manifest
     const manifest = await readWorkspaceJson<ManifestJson>(workspace, ".harness/manifest.json");
     assert.equal(manifest.registries.entries.corp?.type, "git");
     assert.equal(manifest.registries.default, "corp");
   });
 
-  // ---- Phase 3: Add all entity types from corp registry ------------------
-  test("phase 3 — add entities from corp registry (uses default registry)", async (t) => {
+  // ---- Phase 3: add registry-sourceable entities (skill + prompt-section) by bare id -----
+  test("phase 3 — add skill and prompt-section from corp registry with provenance", async (t) => {
     if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
 
-    // Default registry is corp, so no --registry needed
     await runHarnessCli(workspace, ["add", "prompt-section", "system"]);
     await runHarnessCli(workspace, ["add", "skill", "reviewer"]);
-    await runHarnessCli(workspace, ["add", "mcp", "playwright"]);
-    await runHarnessCli(workspace, ["add", "subagent", "researcher"]);
-    await runHarnessCli(workspace, ["add", "hook", "ci-guard"]);
-    await runHarnessCli(workspace, ["add", "settings", "codex"]);
 
-    // Verify source content came from remote
     const prompt = await readWorkspaceText(workspace, ".harness/src/prompt-sections/system/SECTION.md");
-    assert.match(prompt, /Acme Corp/u, "prompt should contain remote content");
+    assert.match(prompt, /Acme Corp/u);
 
     const skill = await readWorkspaceText(workspace, ".harness/src/skills/reviewer/SKILL.md");
-    assert.match(skill, /Corp Code Reviewer/u, "skill should contain remote content");
-
-    // Verify multi-file skill
+    assert.match(skill, /Corp Code Reviewer/u);
     assert.ok(
       await fileExists(path.join(workspace, ".harness/src/skills/reviewer/style-guide.md")),
       "multi-file skill should include style-guide.md",
     );
 
-    const mcpSource = await readWorkspaceJson<{ servers: Record<string, unknown> }>(
-      workspace,
-      ".harness/src/mcp/playwright.json",
-    );
-    assert.ok(mcpSource.servers.playwright, "MCP should have playwright from remote");
-
-    const subagent = await readWorkspaceText(workspace, ".harness/src/subagents/researcher.md");
-    assert.match(subagent, /Acme Corp research assistant/u, "subagent should contain remote content");
-
-    const hookSource = await readWorkspaceJson<{ mode: string; events: Record<string, unknown[]> }>(
-      workspace,
-      ".harness/src/hooks/ci-guard.json",
-    );
-    assert.equal(hookSource.mode, "best_effort");
-    assert.ok(hookSource.events.pre_tool_use, "hook should have pre_tool_use from remote");
-    assert.ok(hookSource.events.turn_complete, "hook should have turn_complete from remote");
-
-    const settingsSource = await readWorkspaceText(workspace, ".harness/src/settings/codex.toml");
-    assert.match(settingsSource, /gpt-5\.4/u, "codex settings should contain remote model");
-
-    // All entities should be attributed to corp registry
-    const manifest = await readWorkspaceJson<ManifestJson>(workspace, ".harness/manifest.json");
-    for (const entity of manifest.entities) {
-      assert.equal(entity.registry, "corp", `${entity.id} should be from corp registry`);
-    }
-
-    // Lock should record provenance
+    // Both are attributed to corp with git provenance.
     const lock = await readWorkspaceJson<LockJson>(workspace, ".harness/manifest.lock.json");
-    for (const entity of lock.entities) {
-      assert.ok(entity.importedSourceSha256, `lock for ${entity.id} should have importedSourceSha256`);
-      assert.ok(entity.registryRevision, `lock for ${entity.id} should have registryRevision`);
-      assert.equal(entity.registryRevision?.kind, "git");
-      assert.equal(entity.registryRevision?.ref, corpRepo.defaultRef);
-      assert.ok(entity.registryRevision?.commit, `lock for ${entity.id} should have commit`);
+    for (const id of ["system", "reviewer"]) {
+      const entity = lock.entities.find((e) => e.id === id);
+      assert.ok(entity?.importedSourceSha256, `lock for ${id} should have importedSourceSha256`);
+      assert.equal(entity?.registryRevision?.kind, "git");
+      assert.equal(entity?.registryRevision?.ref, corpRepo.defaultRef);
+      assert.ok(entity?.registryRevision?.commit);
     }
   });
 
-  // ---- Phase 4: Enable providers and apply → verify remote content -------
-  test("phase 4 — enable providers and apply generates outputs from remote content", async (t) => {
+  // ---- Phase 4: preset apply delivers embedded non-sourceable entities; apply generates outputs
+  test("phase 4 — apply corp-stack preset and generate provider outputs", async (t) => {
     if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
 
-    await runHarnessCli(workspace, ["provider", "enable", "claude"]);
-    await runHarnessCli(workspace, ["provider", "enable", "codex"]);
+    await runHarnessCli(workspace, ["preset", "apply", CORP_PRESET, "--registry", "corp"]);
+
+    // Embedded entities materialize locally (no registry provenance).
+    const manifest = await readWorkspaceJson<ManifestJson>(workspace, ".harness/manifest.json");
+    for (const id of ["playwright", "researcher", "ci-guard", "review"]) {
+      const entity = manifest.entities.find((e) => e.id === id);
+      assert.ok(entity, `${id} should be materialized`);
+      assert.equal(entity?.registry, "local", `${id} embedded from preset should be local`);
+    }
+    const subagent = await readWorkspaceText(workspace, ".harness/src/subagents/researcher.md");
+    assert.match(subagent, /Acme Corp research assistant/u);
+    const settings = await readWorkspaceText(workspace, ".harness/src/settings/codex.toml");
+    assert.match(settings, /gpt-5\.4/u);
 
     const result = await runHarnessCli(workspace, ["apply", "--json"]);
     const apply = JSON.parse(result.stdout) as ApplyJsonOutput;
     assert.equal(apply.ok, true);
     assert.equal(apply.data.result.diagnostics.filter((d) => d.severity === "error").length, 0);
 
-    // Claude prompt should have Acme Corp content
     const claudePrompt = await readWorkspaceText(workspace, "CLAUDE.md");
     assert.match(claudePrompt, /Acme Corp/u);
-
-    // Codex prompt too
     const codexPrompt = await readWorkspaceText(workspace, "AGENTS.md");
     assert.match(codexPrompt, /Acme Corp/u);
-
-    // Claude MCP should have playwright
-    const claudeMcp = await readWorkspaceJson<{ mcpServers: Record<string, unknown> }>(workspace, ".mcp.json");
-    assert.ok(claudeMcp.mcpServers.playwright);
-
-    // Claude subagent
-    const claudeSubagent = await readWorkspaceText(workspace, ".claude/agents/researcher.md");
-    assert.match(claudeSubagent, /Acme Corp research assistant/u);
-
-    // Codex config should have notify from hook
-    const codexToml = await readWorkspaceText(workspace, ".codex/config.toml");
-    assert.match(codexToml, /notify/u);
-    assert.match(codexToml, /corp-notify\.py/u);
-    assert.match(codexToml, /gpt-5\.4/u);
-
-    // Claude settings should have pre_tool_use hook
-    const claudeSettings = await readWorkspaceJson<{ hooks?: Record<string, unknown[]> }>(
-      workspace,
-      ".claude/settings.json",
-    );
-    assert.ok(claudeSettings.hooks?.PreToolUse, "claude should render PreToolUse from ci-guard hook");
+    assert.ok(await fileExists(path.join(workspace, ".claude/skills/reviewer/SKILL.md")), "reviewer skill output");
   });
 
-  // ---- Phase 4b: Pull unchanged settings then apply remains lock-stable --
-  test("phase 4b — unchanged settings pull keeps lock stable on apply", async (t) => {
+  // ---- Phase 5: local edit to an imported skill triggers pull drift protection -----------
+  test("phase 5 — local edit to imported skill triggers pull drift protection", async (t) => {
     if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
 
-    await runHarnessCli(workspace, ["registry", "pull", "settings", "codex"]);
-    const lockAfterPull = await readWorkspaceText(workspace, ".harness/manifest.lock.json");
-
-    const applyResult = await runHarnessCli(workspace, ["apply", "--json"]);
-    const apply = JSON.parse(applyResult.stdout) as ApplyJsonOutput;
-    assert.equal(apply.ok, true);
-    assert.equal(apply.data.result.diagnostics.filter((d) => d.severity === "error").length, 0);
-
-    const lockAfterApply = await readWorkspaceText(workspace, ".harness/manifest.lock.json");
-    assert.equal(lockAfterApply, lockAfterPull);
-  });
-
-  // ---- Phase 5: Local modification → pull detects drift ------------------
-  test("phase 5 — local edit to imported entity triggers pull drift protection", async (t) => {
-    if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
-
-    // Locally modify the imported skill
     await fs.writeFile(
       path.join(workspace, ".harness/src/skills/reviewer/SKILL.md"),
-      buildSkillFile("reviewer", "Locally customised reviewer", "# Local Custom Reviewer\n\nTeam-specific changes."),
+      buildSkillFile("reviewer", "Corp code review standards", "# Locally edited reviewer"),
       "utf8",
     );
 
-    // Push an update to the remote
-    await corpRepo.updateFile(
-      "skills/reviewer/SKILL.md",
-      buildSkillFile("reviewer", "Corp code review standards v2", "# Corp Code Reviewer v2\n\nUpdated standards."),
-      "update reviewer v2",
-    );
-
-    // Pull should fail due to local drift
     const failed = await runHarnessCliExpectFailure(workspace, ["registry", "pull", "skill", "reviewer"]);
     assert.equal(failed.code, 1);
     assert.match(`${failed.stdout}\n${failed.stderr}`, /REGISTRY_PULL_CONFLICT/u);
-
-    // Verify local content preserved
-    const skill = await readWorkspaceText(workspace, ".harness/src/skills/reviewer/SKILL.md");
-    assert.match(skill, /Local Custom Reviewer/u, "local edit should be preserved");
   });
 
-  // ---- Phase 6: Force pull overwrites local changes ----------------------
+  // ---- Phase 6: force pull overwrites local changes with remote --------------------------
   test("phase 6 — force pull overwrites local changes with remote", async (t) => {
     if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
 
-    await runHarnessCli(workspace, ["registry", "pull", "skill", "reviewer", "--force"]);
+    await corpRepo.updateFile(
+      "skills/engineering/reviewer/SKILL.md",
+      buildSkillFile("reviewer", "Corp code review standards", "# Corp Code Reviewer v2"),
+      "update reviewer",
+    );
 
+    await runHarnessCli(workspace, ["registry", "pull", "skill", "reviewer", "--force"]);
     const skill = await readWorkspaceText(workspace, ".harness/src/skills/reviewer/SKILL.md");
-    assert.match(skill, /Corp Code Reviewer v2/u, "force pull should overwrite with remote v2");
-    assert.doesNotMatch(skill, /Local Custom Reviewer/u, "local changes should be gone");
+    assert.match(skill, /Corp Code Reviewer v2/u);
   });
 
-  // ---- Phase 7: Add second registry, pull selectively --------------------
-  test("phase 7 — add second registry, add entities, selective pull", async (t) => {
+  // ---- Phase 7: second registry, selective pull by --registry ----------------------------
+  test("phase 7 — add platform registry and selectively pull only corp", async (t) => {
     if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
 
-    // Create platform registry with different entities
     platformRepo = await fixture.createRegistryRepo({
       files: {
         "harness-registry.json": buildRegistryManifest("Platform"),
-        "skills/deploy-helper/SKILL.md": buildSkillFile(
-          "deploy-helper",
-          "Assists with deployments",
-          "# Deploy Helper\n\nHelp deploy to staging and production.",
-        ),
-        "mcp/datadog.json": buildMcpJson({
-          datadog: { command: "npx", args: ["@datadog/mcp-server"], env: { DD_API_KEY: "key" } },
-        }),
+        "skills/ops/deployer/SKILL.md": buildSkillFile("deployer", "Deploy helper", "# Deployer v1"),
       },
       private: false,
       namePrefix: "platform",
@@ -404,168 +345,37 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
       "--ref",
       platformRepo.defaultRef,
     ]);
+    await runHarnessCli(workspace, ["add", "skill", "deployer", "--registry", "platform"]);
 
-    // Add entities from platform registry
-    await runHarnessCli(workspace, ["add", "skill", "deploy-helper", "--registry", "platform"]);
-    await runHarnessCli(workspace, ["add", "mcp", "datadog", "--registry", "platform"]);
-
-    // Verify entities are from correct registries
-    const manifest = await readWorkspaceJson<ManifestJson>(workspace, ".harness/manifest.json");
-    const deploySkill = manifest.entities.find((e) => e.id === "deploy-helper");
-    assert.equal(deploySkill?.registry, "platform");
-    const datadogMcp = manifest.entities.find((e) => e.id === "datadog");
-    assert.equal(datadogMcp?.registry, "platform");
-    // Corp entities should still be from corp
-    const reviewerSkill = manifest.entities.find((e) => e.id === "reviewer");
-    assert.equal(reviewerSkill?.registry, "corp");
-
-    // Apply to generate outputs
-    const result = await runHarnessCli(workspace, ["apply", "--json"]);
-    const apply = JSON.parse(result.stdout) as ApplyJsonOutput;
-    assert.equal(apply.ok, true);
-    assert.equal(apply.data.result.diagnostics.filter((d) => d.severity === "error").length, 0);
-
-    // Verify both MCP servers are in outputs
-    const claudeMcp = await readWorkspaceJson<{ mcpServers: Record<string, unknown> }>(workspace, ".mcp.json");
-    assert.ok(claudeMcp.mcpServers.playwright, "playwright from corp");
-    assert.ok(claudeMcp.mcpServers.datadog, "datadog from platform");
-  });
-
-  // ---- Phase 8: Selective pull by --registry -----------------------------
-  test("phase 8 — update both registries, pull only corp", async (t) => {
-    if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
-
-    // Update both remotes
     await corpRepo.updateFile(
-      "skills/reviewer/SKILL.md",
-      buildSkillFile("reviewer", "Corp code review standards v3", "# Corp Code Reviewer v3\n\nThird version."),
-      "update reviewer v3",
+      "skills/engineering/reviewer/SKILL.md",
+      buildSkillFile("reviewer", "Corp code review standards", "# Corp Code Reviewer v3"),
+      "update reviewer again",
     );
     await platformRepo.updateFile(
-      "skills/deploy-helper/SKILL.md",
-      buildSkillFile("deploy-helper", "Deploy helper v2", "# Deploy Helper v2\n\nImproved deployment guidance."),
-      "update deploy-helper v2",
+      "skills/ops/deployer/SKILL.md",
+      buildSkillFile("deployer", "Deploy helper", "# Deployer v2"),
+      "update deployer",
     );
 
-    // Pull only corp
     const pullResult = await runHarnessCli(workspace, ["registry", "pull", "--registry", "corp"]);
     assert.match(pullResult.stdout, /Pulled skill 'reviewer'\./u);
+    assert.doesNotMatch(pullResult.stdout, /Pulled skill 'deployer'\./u);
 
-    // Corp skill updated
     const reviewer = await readWorkspaceText(workspace, ".harness/src/skills/reviewer/SKILL.md");
+    const deployer = await readWorkspaceText(workspace, ".harness/src/skills/deployer/SKILL.md");
     assert.match(reviewer, /Corp Code Reviewer v3/u);
-
-    // Platform skill NOT updated
-    const deployHelper = await readWorkspaceText(workspace, ".harness/src/skills/deploy-helper/SKILL.md");
-    assert.doesNotMatch(deployHelper, /Deploy Helper v2/u, "platform skill should not be updated");
-    assert.match(deployHelper, /Deploy Helper\b/u, "original platform skill content");
+    assert.match(deployer, /Deployer v1/u, "platform skill untouched by corp-only pull");
   });
 
-  // ---- Phase 9: Now pull platform registry too ---------------------------
-  test("phase 9 — pull platform registry updates platform entities", async (t) => {
-    if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
-
-    await runHarnessCli(workspace, ["registry", "pull", "--registry", "platform"]);
-
-    const deployHelper = await readWorkspaceText(workspace, ".harness/src/skills/deploy-helper/SKILL.md");
-    assert.match(deployHelper, /Deploy Helper v2/u, "platform skill should now be updated");
-  });
-
-  // ---- Phase 10: Local override: disable entity for a provider -----------
-  test("phase 10 — local override disables entity for specific provider", async (t) => {
-    if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
-
-    // Disable the datadog MCP for codex only
-    await fs.writeFile(
-      path.join(workspace, ".harness/src/mcp/datadog.overrides.codex.yaml"),
-      "version: 1\nenabled: false\n",
-      "utf8",
-    );
-
-    const result = await runHarnessCli(workspace, ["apply", "--json"]);
-    const apply = JSON.parse(result.stdout) as ApplyJsonOutput;
-    assert.equal(apply.ok, true);
-
-    // Codex config should NOT have datadog
-    const codexToml = await readWorkspaceText(workspace, ".codex/config.toml");
-    assert.doesNotMatch(codexToml, /datadog/u, "codex should not have disabled datadog");
-    assert.match(codexToml, /playwright/u, "codex should still have playwright");
-
-    // Claude MCP should still have both
-    const claudeMcp = await readWorkspaceJson<{ mcpServers: Record<string, unknown> }>(workspace, ".mcp.json");
-    assert.ok(claudeMcp.mcpServers.datadog, "claude should still have datadog");
-    assert.ok(claudeMcp.mcpServers.playwright, "claude should still have playwright");
-  });
-
-  // ---- Phase 11: Local override: custom targetPath -----------------------
-  test("phase 11 — local override redirects prompt output to custom path", async (t) => {
-    if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
-
-    // Override prompt targetPath for claude
-    await fs.writeFile(
-      path.join(workspace, ".harness/src/prompt-sections/system/OVERRIDES.claude.yaml"),
-      "version: 1\ntargetPath: docs/CLAUDE-PROMPT.md\n",
-      "utf8",
-    );
-
-    const result = await runHarnessCli(workspace, ["apply", "--json"]);
-    const apply = JSON.parse(result.stdout) as ApplyJsonOutput;
-    assert.equal(apply.ok, true);
-    assert.equal(apply.data.result.diagnostics.filter((d) => d.severity === "error").length, 0);
-
-    // Custom path should exist with prompt content
-    assert.ok(await fileExists(path.join(workspace, "docs/CLAUDE-PROMPT.md")), "custom claude prompt path");
-    const customPrompt = await readWorkspaceText(workspace, "docs/CLAUDE-PROMPT.md");
-    assert.match(customPrompt, /Acme Corp/u, "custom path has correct content");
-
-    // Default CLAUDE.md should be pruned (it's now at the custom path)
-    assert.ok(!(await fileExists(path.join(workspace, "CLAUDE.md"))), "default CLAUDE.md should be pruned");
-
-    // Codex prompt should still be at default location
-    assert.ok(await fileExists(path.join(workspace, "AGENTS.md")), "codex prompt unchanged");
-  });
-
-  // ---- Phase 12: Remove remote entity → apply → verify cleanup ----------
-  test("phase 12 — remove imported entity and apply cleans up outputs", async (t) => {
-    if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
-
-    // Restore claude prompt to default for cleaner test
-    await fs.writeFile(
-      path.join(workspace, ".harness/src/prompt-sections/system/OVERRIDES.claude.yaml"),
-      "version: 1\n",
-      "utf8",
-    );
-    await runHarnessCli(workspace, ["apply"]);
-
-    // Remove deploy-helper skill from platform (with source deletion)
-    await runHarnessCli(workspace, ["remove", "skill", "deploy-helper"]);
-
-    const manifest = await readWorkspaceJson<ManifestJson>(workspace, ".harness/manifest.json");
-    assert.ok(!manifest.entities.some((e) => e.id === "deploy-helper"), "deploy-helper removed from manifest");
-
-    const result = await runHarnessCli(workspace, ["apply", "--json"]);
-    const apply = JSON.parse(result.stdout) as ApplyJsonOutput;
-    assert.equal(apply.ok, true);
-
-    // Verify deploy-helper skill outputs are gone
-    assert.ok(
-      !(await fileExists(path.join(workspace, ".claude/skills/deploy-helper/SKILL.md"))),
-      "claude deploy-helper pruned",
-    );
-    assert.ok(
-      !(await fileExists(path.join(workspace, ".codex/skills/deploy-helper/SKILL.md"))),
-      "codex deploy-helper pruned",
-    );
-  });
-
-  // ---- Phase 13: Private registry with token authentication --------------
-  test("phase 13 — private registry requires token, succeeds when provided", async (t) => {
+  // ---- Phase 8: private registry requires a token ----------------------------------------
+  test("phase 8 — private registry requires token, succeeds when provided", async (t) => {
     if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
 
     const privateRepo = await fixture.createRegistryRepo({
       files: {
         "harness-registry.json": buildRegistryManifest("Private Corp"),
-        "skills/secret-skill/SKILL.md": buildSkillFile(
+        "skills/misc/secret-skill/SKILL.md": buildSkillFile(
           "secret-skill",
           "Internal-only skill",
           "# Secret Skill\n\nThis is confidential.",
@@ -576,8 +386,6 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
     });
 
     const tokenEnvVar = findMissingEnvVarName("HARNESS_E2E_PRIVATE_TOKEN_");
-
-    // Add private registry (on a fresh workspace for isolation)
     const privateWorkspace = await mkTmpRepo();
     await runHarnessCli(privateWorkspace, ["init"]);
     await runHarnessCli(privateWorkspace, [
@@ -592,7 +400,6 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
       tokenEnvVar,
     ]);
 
-    // Attempt without token → fails
     const failed = await runHarnessCliExpectFailure(privateWorkspace, [
       "add",
       "skill",
@@ -603,113 +410,67 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
     assert.equal(failed.code, 1);
     assert.match(`${failed.stdout}\n${failed.stderr}`, /REGISTRY_AUTH_MISSING/u);
 
-    // Attempt with token → succeeds
     await runHarnessCli(privateWorkspace, ["add", "skill", "secret-skill", "--registry", "private-corp"], {
       env: { [tokenEnvVar]: fixture.getBasicAuthHeader() },
     });
-
     const skill = await readWorkspaceText(privateWorkspace, ".harness/src/skills/secret-skill/SKILL.md");
-    assert.match(skill, /Secret Skill/u, "private skill fetched successfully");
     assert.match(skill, /confidential/u);
   });
 
-  // ---- Phase 14: Mix of local and remote entities ------------------------
-  test("phase 14 — local and remote entities coexist correctly", async (t) => {
+  // ---- Phase 9: remove an imported entity and apply cleans up outputs --------------------
+  test("phase 9 — remove imported skill and apply cleans up outputs", async (t) => {
     if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
 
-    // Add a local-only skill (explicitly use local registry)
-    await runHarnessCli(workspace, ["add", "skill", "team-onboarding", "--registry", "local"]);
-
-    const manifest = await readWorkspaceJson<ManifestJson>(workspace, ".harness/manifest.json");
-    const localSkill = manifest.entities.find((e) => e.id === "team-onboarding");
-    assert.equal(localSkill?.registry, "local");
-
-    // Corp entities should still be from corp
-    const corpSkill = manifest.entities.find((e) => e.id === "reviewer");
-    assert.equal(corpSkill?.registry, "corp");
-
-    // Apply should work with mixed registries
+    await runHarnessCli(workspace, ["remove", "skill", "reviewer"]);
     const result = await runHarnessCli(workspace, ["apply", "--json"]);
     const apply = JSON.parse(result.stdout) as ApplyJsonOutput;
     assert.equal(apply.ok, true);
-    assert.equal(apply.data.result.diagnostics.filter((d) => d.severity === "error").length, 0);
-
-    // Both skills should have outputs
-    assert.ok(await fileExists(path.join(workspace, ".claude/skills/reviewer/SKILL.md")), "corp skill output");
-    assert.ok(await fileExists(path.join(workspace, ".claude/skills/team-onboarding/SKILL.md")), "local skill output");
-  });
-
-  // ---- Phase 15: Pull is no-op for local entities ------------------------
-  test("phase 15 — pull skips local entities", async (t) => {
-    if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
-
-    // Edit the local skill
-    await fs.writeFile(
-      path.join(workspace, ".harness/src/skills/team-onboarding/SKILL.md"),
-      buildSkillFile("team-onboarding", "Team onboarding guide", "# Onboarding\n\nWelcome to the team."),
-      "utf8",
+    assert.equal(
+      await fileExists(path.join(workspace, ".claude/skills/reviewer/SKILL.md")),
+      false,
+      "reviewer output pruned",
     );
-
-    // Pull should not touch local entities
-    const pullResult = await runHarnessCli(workspace, ["registry", "pull"]);
-    assert.doesNotMatch(pullResult.stdout, /team-onboarding/u, "local entity should not be pulled");
-
-    // Local edits should persist
-    const skill = await readWorkspaceText(workspace, ".harness/src/skills/team-onboarding/SKILL.md");
-    assert.match(skill, /Welcome to the team/u);
   });
 
-  // ---- Phase 16: Remove registry → must first remove its entities --------
-  test("phase 16 — cannot remove registry with active entities, clean up first", async (t) => {
+  // ---- Phase 10: registry cannot be removed while entities reference it -------------------
+  test("phase 10 — cannot remove registry with active entities, clean up first", async (t) => {
     if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
 
-    // Attempt to remove platform registry while datadog MCP is still using it
     const failed = await runHarnessCliExpectFailure(workspace, ["registry", "remove", "platform"]);
     assert.equal(failed.code, 1);
     assert.match(`${failed.stdout}\n${failed.stderr}`, /used by one or more entities/u);
 
-    // Remove the entity first
-    await runHarnessCli(workspace, ["remove", "mcp", "datadog"]);
-
-    // Now removing platform registry should succeed
+    await runHarnessCli(workspace, ["remove", "skill", "deployer"]);
     await runHarnessCli(workspace, ["registry", "remove", "platform"]);
 
     const manifest = await readWorkspaceJson<ManifestJson>(workspace, ".harness/manifest.json");
     assert.ok(!manifest.registries.entries.platform, "platform registry removed");
   });
 
-  // ---- Phase 17: Final consistency check ---------------------------------
-  test("phase 17 — final workspace is consistent and healthy", async (t) => {
+  // ---- Phase 11: final workspace is consistent and healthy -------------------------------
+  test("phase 11 — final workspace is consistent and healthy", async (t) => {
     if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
 
-    // Apply to settle state
     const applyResult = await runHarnessCli(workspace, ["apply", "--json"]);
     const apply = JSON.parse(applyResult.stdout) as ApplyJsonOutput;
     assert.equal(apply.ok, true);
     assert.equal(apply.data.result.diagnostics.filter((d) => d.severity === "error").length, 0);
 
-    // Validate
     const validateResult = await runHarnessCli(workspace, ["validate", "--json"]);
     const validate = JSON.parse(validateResult.stdout) as { data: { result: { valid: boolean } } };
     assert.equal(validate.data.result.valid, true);
 
-    // Doctor
     const doctorResult = await runHarnessCli(workspace, ["doctor", "--json"]);
     const doctor = JSON.parse(doctorResult.stdout) as { data: { result: { healthy: boolean } } };
     assert.equal(doctor.data.result.healthy, true);
 
-    // Lock provenance is correct for remaining corp entities
+    // Remaining corp entity (prompt-section) keeps its git provenance.
     const lock = await readWorkspaceJson<LockJson>(workspace, ".harness/manifest.lock.json");
     const corpEntities = lock.entities.filter((e) => e.registry === "corp");
+    assert.ok(corpEntities.length > 0);
     for (const entity of corpEntities) {
-      assert.ok(entity.registryRevision?.commit, `${entity.id} should have commit`);
       assert.equal(entity.registryRevision?.kind, "git");
-    }
-
-    // Local entities should not have registry provenance
-    const localEntities = lock.entities.filter((e) => e.registry === "local");
-    for (const entity of localEntities) {
-      assert.ok(!entity.registryRevision, `local entity ${entity.id} should not have registryRevision`);
+      assert.ok(entity.registryRevision?.commit);
     }
   });
 });

@@ -213,7 +213,8 @@ After `npx harness apply` this produces:
 ## Harness CLI reference
 
 ```bash
-npx harness add skill <skill-id>          # scaffold .harness/src/skills/<skill-id>/SKILL.md
+npx harness add skill <skill-id>              # scaffold .harness/src/skills/<skill-id>/SKILL.md
+npx harness add skill <skill-id> --registry <name>  # fetch a shared skill from a registry (by bare id)
 npx harness apply                          # generate provider skill artifacts for all enabled providers
 npx harness plan                           # dry run: show what apply would write
 npx harness remove skill <skill-id>        # remove skill entity and source files
@@ -222,6 +223,20 @@ npx harness provider enable claude         # ensure the claude provider is enabl
 npx harness provider enable codex          # ensure the codex provider is enabled
 npx harness provider enable copilot        # ensure the copilot provider is enabled
 ```
+
+## Registry skills: categories and tags
+
+Locally, a skill is always addressed by its `id` and lives flat at `.harness/src/skills/<skill-id>/`. In a **git registry**, root skills are organized into dynamic **category** folders:
+
+```
+skills/<category>/<skill-id>/SKILL.md
+```
+
+- The **category** is the folder directly under `skills/` (e.g. `engineering`, `pm`). It is folder-derived — never put it in frontmatter. Add a category by adding a folder.
+- Skill **ids are globally unique across categories**, so you always `add`/`pull` a registry skill by its bare id (`npx harness add skill commit-create --registry wild`); the category is an organizing device only. Two skills sharing an id in different categories is a `registry validate` error (`REGISTRY_SKILL_DUPLICATE_ID`).
+- `SKILL.md` frontmatter may include an optional free-form `tags: [git, workflow]` array (validated as `string[]`).
+- Uniqueness is per entity kind: a skill and a prompt-section may share an id.
+- Only skills and prompt-sections are registry-sourceable; other entity types are delivered by applying a preset that embeds them.
 
 ---
 

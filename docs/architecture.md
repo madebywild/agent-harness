@@ -145,9 +145,22 @@ Manifest registries:
 - Optional git registries with `{ url, ref, rootPath?, tokenEnvVar? }`
 - Every entity carries a `registry` field
 
-`add` can materialize from git registries (not only local scaffolding), including hook entities (`hooks/<id>.json` in registry layout).
+### Registry repository layout (strict root)
 
-Registries may also expose preset packages under `presets/<id>/`.
+A git registry's root holds **only** three things: skills, prompt-sections, and preset packages.
+
+- `skills/<category>/<id>/SKILL.md` — root skills, grouped into dynamic **category** folders. Category is the folder segment directly under `skills/` (folder-derived, never in frontmatter). Ids are globally unique across categories, so `add`/`pull` reference a skill by its bare `id`. Empty category folders (a lone `.gitkeep`) are allowed.
+- `prompt-sections/<category>/<id>/SECTION.md` — root prompt-sections, same category layout. The prompt-section category tree is independent of the skill tree, and an id may be shared between a skill and a prompt-section (uniqueness is per entity kind).
+- `presets/<id>/` — preset packages (see below).
+- `harness-registry.json` — required registry manifest.
+
+`SKILL.md` / `SECTION.md` frontmatter may carry an optional `tags: string[]`. `registry validate` rejects a root `mcp/`, `subagents/`, `hooks/`, `settings/`, `commands/`, or legacy `prompts/` folder (`REGISTRY_ROOT_ENTITY_FORBIDDEN`) — those entity kinds exist only **inside preset packages**.
+
+Only **skills** and **prompt-sections** are registry-sourceable: `add <skill|prompt-section> --registry <name>` and `registry pull` operate on them (and fetching any other type throws `REGISTRY_ENTITY_UNSUPPORTED_TYPE`). Every other entity type reaches a workspace by applying a preset that embeds it (materialized as a `local` entity).
+
+### Preset extension (`extends`)
+
+A registry preset may declare a top-level `extends: <parent-id>`. The child inherits only the parent's `add_skill` and `add_prompt_section` operations (transitively up the chain), prepended parent-first before the child's own; all other operation kinds are never inherited. Inherited ops are deduped by `(kind, id)` with the nearest/child definition winning, and the parent's embedded skill/prompt-section files are merged forward so inherited embedded ops resolve. Cycles (`PRESET_EXTENDS_CYCLE`) and unknown parents (`PRESET_EXTENDS_NOT_FOUND`) are errors. `extends` is registry-only; a builtin or local preset that declares it fails with `PRESET_EXTENDS_UNSUPPORTED_SOURCE`.
 
 CLI registry commands:
 

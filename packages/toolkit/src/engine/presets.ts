@@ -183,6 +183,14 @@ async function applyEntityOperation(
   const spec = describeEntityOperation(operation, preset);
   const { entityType, entityId, label, registry } = spec;
 
+  // Strict root: only skills and prompt-sections may be registry-sourced; every other entity kind is
+  // embedded in the preset package.
+  if (registry !== DEFAULT_REGISTRY_ID && entityType !== "skill" && entityType !== "prompt_section") {
+    throw new Error(
+      `PRESET_UNSUPPORTED: operation for ${entityType} '${entityId}' cannot use a registry source; only skills and prompt-sections may (other entities are embedded)`,
+    );
+  }
+
   const existing = manifest.entities.find((entity) => entity.type === entityType && entity.id === entityId);
 
   const desiredSha =
