@@ -13,11 +13,13 @@ export const BUILTIN_PRESETS: readonly ResolvedPreset[] = [
         { type: "enable_provider", provider: "claude" },
         { type: "enable_provider", provider: "codex" },
         { type: "enable_provider", provider: "copilot" },
-        { type: "add_prompt" },
+        { type: "add_prompt_section", id: "system" },
       ],
     },
     content: {
-      prompt: buildDelegatedBootstrapPrompt(),
+      promptSections: {
+        system: buildDelegatedBootstrapPrompt(),
+      },
     },
   },
   {
@@ -31,16 +33,21 @@ export const BUILTIN_PRESETS: readonly ResolvedPreset[] = [
         { type: "enable_provider", provider: "claude" },
         { type: "enable_provider", provider: "codex" },
         { type: "enable_provider", provider: "copilot" },
-        { type: "add_prompt" },
+        { type: "add_prompt_section", id: "system" },
         { type: "add_skill", id: "reviewer" },
         { type: "add_command", id: "fix-issue" },
       ],
     },
     content: {
-      prompt: `# System Prompt
+      promptSections: {
+        system: `---
+name: system
+description: Baseline behavior for the assistant.
+---
 
 Be precise, implementation-focused, and explicit about trade-offs. Prefer inspecting the repository before proposing changes, keep edits minimal, and explain any blockers directly.
 `,
+      },
       skills: {
         reviewer: [
           {
@@ -79,15 +86,20 @@ Analyze the reported issue, confirm the failing behavior, inspect the relevant c
         { type: "enable_provider", provider: "claude" },
         { type: "enable_provider", provider: "codex" },
         { type: "enable_provider", provider: "copilot" },
-        { type: "add_prompt" },
+        { type: "add_prompt_section", id: "system" },
         { type: "add_subagent", id: "research-assistant" },
       ],
     },
     content: {
-      prompt: `# System Prompt
+      promptSections: {
+        system: `---
+name: system
+description: Baseline behavior for the assistant.
+---
 
 Prefer evidence-driven analysis. Separate facts from assumptions, cite the files and commands you used, and keep recommendations actionable.
 `,
+      },
       subagents: {
         "research-assistant": `---
 name: Research Assistant
@@ -110,17 +122,22 @@ You are a research-focused subagent. Collect the minimum set of repository conte
         { type: "enable_provider", provider: "claude" },
         { type: "enable_provider", provider: "codex" },
         { type: "enable_provider", provider: "copilot" },
-        { type: "add_prompt" },
+        { type: "add_prompt_section", id: "system" },
         { type: "add_settings", provider: "claude" },
         { type: "add_settings", provider: "codex" },
         { type: "add_settings", provider: "copilot" },
       ],
     },
     content: {
-      prompt: `# System Prompt
+      promptSections: {
+        system: `---
+name: system
+description: Baseline behavior for the assistant.
+---
 
 You have full autonomy. Proceed without asking for confirmation — read, write, execute, and search freely. Prefer action over discussion.
 `,
+      },
       settings: {
         claude: {
           permissions: {

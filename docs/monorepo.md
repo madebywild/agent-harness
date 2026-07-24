@@ -11,7 +11,7 @@ Add `target` to any entity in `manifest.json`, or pass `--target <dir>` when sca
 
 ```bash
 npx harness add skill api-testing --target packages/api
-npx harness add prompt web --target packages/web   # id is optional; defaults to "system"
+npx harness add prompt-section web --target packages/web   # id is required
 ```
 
 ```json
@@ -34,27 +34,30 @@ Rules:
 To move an entity later, edit its `target` in `manifest.json` and run `npx harness apply`;
 the stale artifact at the old location is pruned automatically.
 
-## Multiple prompts
+## Prompt sections
 
-The single-`system`-prompt restriction is lifted. Define a root prompt plus one per package:
+Prompt sections compose into one system prompt per provider. Give a section a `target` to route
+its content into a package's own instructions file, while root sections fill the root file:
 
 ```bash
-npx harness add prompt                                 # -> CLAUDE.md, AGENTS.md at root
-npx harness add prompt web --target packages/web       # -> packages/web/CLAUDE.md, packages/web/AGENTS.md
+npx harness add prompt-section base                       # -> CLAUDE.md, AGENTS.md at root
+npx harness add prompt-section web --target packages/web  # -> packages/web/CLAUDE.md, packages/web/AGENTS.md
 ```
 
-Each prompt id maps to `.harness/src/prompts/<id>.md`.
+Each section id maps to `.harness/src/prompt-sections/<id>/SECTION.md`. Sections that resolve to
+the same output path merge into one file (see [Aggregated artifacts](#aggregated-artifacts)),
+concatenated in `order` then id, so co-locating one section never conflicts with the root prompt.
 
 ## Capability-aware routing
 
 Providers differ in what they discover when co-located. `target` is applied **only** for the
-providers that actually nest a given artifact; for the rest the artifact stays at the root
-(or, for a provider's single instructions file, a targeted prompt is skipped for that
-provider). This is automatic: a single `target` does the right thing per provider.
+providers that actually nest a given artifact; for the rest the artifact stays at the root. For a
+non-nesting provider, every prompt section (targeted or not) collapses into that provider's single
+root instructions file. This is automatic: a single `target` does the right thing per provider.
 
 | Artifact | Claude | Codex | Copilot | Cursor |
 | --- | --- | --- | --- | --- |
-| prompt (`CLAUDE.md` / `AGENTS.md`) | nests | nests | root only (one prompt fills it) | root only (one prompt fills it) |
+| prompt (`CLAUDE.md` / `AGENTS.md`) | nests | nests | root only (all sections merge) | n/a (no prompt) |
 | skill | nests | root | root | root |
 | subagent / command | nests | n/a¹ / root | root | root |
 | mcp / hook | nests² | root (`config.toml`) | root | root |
@@ -65,18 +68,15 @@ when Claude starts in that directory.
 So co-location pays off most for **Claude** (all artifacts) and **Codex prompts**. For a
 root-only provider the harness emits a non-blocking diagnostic:
 
-- `TARGET_ROUTED_TO_ROOT` (info) — a namespaced/aggregated artifact (or the prompt that owns a
-  non-nesting provider's single root file) was placed at the root instead of the target.
-- `TARGET_PROMPT_SKIPPED` (warning) — a targeted prompt was skipped for a provider because
-  another prompt already claims that provider's single root instructions file. A non-nesting
-  provider's root file is filled by the untargeted prompt if there is one, otherwise by the
-  first targeted prompt — so co-locating your only prompt never leaves the provider empty.
+- `TARGET_ROUTED_TO_ROOT` (info) — a namespaced/aggregated artifact (including a targeted prompt
+  section for a non-nesting provider) was placed at the root instead of the target.
 
 ## Aggregated artifacts
 
-`.mcp.json`, `.claude/settings.json`, and codex `config.toml` merge multiple entities into one
-file. They are grouped by resolved target: each distinct target directory gets its own merged
-file, and entities that route to the root collapse into the single root file.
+The system prompt (`CLAUDE.md` / `AGENTS.md` / `.github/copilot-instructions.md`), `.mcp.json`,
+`.claude/settings.json`, and codex `config.toml` merge multiple entities into one file. They are
+grouped by resolved target: each distinct target directory gets its own merged file, and entities
+that route to the root collapse into the single root file.
 
 ## Settings
 
@@ -86,15 +86,10 @@ entities instead — they render into a per-package `.claude/settings.json`.
 
 ## Presets
 
-Local and built-in presets honor `target` on their `add_*` operations (and an optional `id` on
-`add_prompt`). Third-party presets resolved from a **registry** cannot know a consumer's
+Local and built-in presets honor `target` on their `add_*` operations (`add_prompt_section`
+requires an `id`). Third-party presets resolved from a **registry** cannot know a consumer's
 package layout, so their `target` is stripped and entities scaffold at the root; relocate them
 afterward by editing `manifest.json`.
 
-A preset may declare at most one `add_prompt` operation in this version — embedded preset
-content carries a single prompt body, so multiple prompt operations are rejected
-(`PRESET_UNSUPPORTED`) rather than scaffolding duplicate content.
-
-Two prompts that resolve to the same directory (for example two untargeted prompts, both at
-the root) are rejected at validation with `PROMPT_TARGET_CONFLICT`; give each prompt a distinct
-`target`.
+A preset may attach any number of prompt-sections. Sections that resolve to the same output path
+merge into one file rather than conflicting, so no target-conflict check is needed.

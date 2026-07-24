@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -43,8 +44,8 @@ export interface FetchedEntityBase {
   readonly importedSourceSha256: string;
 }
 
-export interface FetchedPromptEntity extends FetchedEntityBase {
-  readonly type: "prompt";
+export interface FetchedPromptSectionEntity extends FetchedEntityBase {
+  readonly type: "prompt_section";
   readonly sourceText: string;
 }
 
@@ -86,7 +87,7 @@ export interface FetchedSettingsEntity extends FetchedEntityBase {
 }
 
 export type FetchedRegistryEntity =
-  | FetchedPromptEntity
+  | FetchedPromptSectionEntity
   | FetchedSkillEntity
   | FetchedMcpEntity
   | FetchedSubagentEntity
@@ -125,19 +126,23 @@ export async function fetchEntityFromCheckout(
 ): Promise<FetchedRegistryEntity> {
   const { checkoutDir, registryManifest, registryRevision, rootPath } = checkout;
 
-  if (entityType === "prompt") {
-    if (id !== "system") {
-      throw new RegistryError("REGISTRY_ENTITY_NOT_FOUND", registryId, `Prompt id must be 'system', received '${id}'`);
-    }
-
-    const sourceText = await readFileWithNotFound(
-      path.join(checkoutDir, rootPath, "prompts", "system.md"),
+  if (entityType === "prompt_section") {
+    // Root prompt-sections live under a category folder: prompt-sections/<category>/<id>/SECTION.md.
+    // Ids are globally unique across categories, so resolve the id to its (single) category dir.
+    const sectionDir = await resolveCategorizedEntityDir(
+      path.join(checkoutDir, rootPath, "prompt-sections"),
+      id,
       registryId,
-      `Prompt 'system' not found in registry '${registryId}'`,
+      "prompt-section",
+    );
+    const sourceText = await readFileWithNotFound(
+      path.join(sectionDir, "SECTION.md"),
+      registryId,
+      `Prompt-section '${id}' is missing SECTION.md in registry '${registryId}'`,
     );
 
     return {
-      type: "prompt",
+      type: "prompt_section",
       id,
       registry: registryId,
       sourceText,
@@ -503,6 +508,62 @@ async function readRegistryManifest(checkoutDir: string, registryId: string): Pr
       REGISTRY_MANIFEST_FILE,
     );
   }
+}
+
+// Root skills and prompt-sections live under a dynamic category folder (`<base>/<category>/<id>/`).
+// Ids are globally unique across categories, so scan the one level of category dirs and return the
+// single matching `<id>` directory. Errors on zero or multiple matches so resolution is unambiguous.
+async function resolveCategorizedEntityDir(
+  baseDir: string,
+  id: string,
+  registryId: string,
+  kind: string,
+): Promise<string> {
+  let categories: Dirent[];
+  try {
+    categories = await fs.readdir(baseDir, { withFileTypes: true });
+  } catch {
+    throw new RegistryError(
+      "REGISTRY_ENTITY_NOT_FOUND",
+      registryId,
+      `No ${kind} directory in registry '${registryId}'`,
+    );
+  }
+
+  const matches: string[] = [];
+  for (const category of categories) {
+    if (!category.isDirectory()) {
+      continue;
+    }
+    const candidate = path.join(baseDir, category.name, id);
+    try {
+      const stat = await fs.stat(candidate);
+      if (stat.isDirectory()) {
+        matches.push(candidate);
+      }
+    } catch {
+      // not in this category
+    }
+  }
+
+  if (matches.length === 0) {
+    throw new RegistryError(
+      "REGISTRY_ENTITY_NOT_FOUND",
+      registryId,
+      `${kind} '${id}' not found in registry '${registryId}'`,
+    );
+  }
+  if (matches.length > 1) {
+    throw new RegistryError(
+      "REGISTRY_FETCH_FAILED",
+      registryId,
+      `${kind} '${id}' is ambiguous in registry '${registryId}' (found in multiple categories: ${matches
+        .map((match) => path.relative(baseDir, match))
+        .join(", ")})`,
+    );
+  }
+
+  return matches[0] as string;
 }
 
 async function readSkillFiles(skillDir: string, registryId: string, skillId: string): Promise<FetchedSkillFile[]> {

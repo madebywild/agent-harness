@@ -149,7 +149,8 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
     corpRepo = await fixture.createRegistryRepo({
       files: {
         "harness-registry.json": buildRegistryManifest("Corp Engineering"),
-        "prompts/system.md": "You are a senior engineer at Acme Corp.\n\nFollow our internal coding standards.\n",
+        "prompt-sections/misc/system/SECTION.md":
+          "---\nname: system\ndescription: Corp base prompt\n---\n\nYou are a senior engineer at Acme Corp.\n\nFollow our internal coding standards.\n",
         "skills/reviewer/SKILL.md": buildSkillFile(
           "reviewer",
           "Corp code review standards",
@@ -219,7 +220,7 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
     if (skipIfContainerRuntimeUnavailable(t, unavailableReason)) return;
 
     // Default registry is corp, so no --registry needed
-    await runHarnessCli(workspace, ["add", "prompt"]);
+    await runHarnessCli(workspace, ["add", "prompt-section", "system"]);
     await runHarnessCli(workspace, ["add", "skill", "reviewer"]);
     await runHarnessCli(workspace, ["add", "mcp", "playwright"]);
     await runHarnessCli(workspace, ["add", "subagent", "researcher"]);
@@ -227,7 +228,7 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
     await runHarnessCli(workspace, ["add", "settings", "codex"]);
 
     // Verify source content came from remote
-    const prompt = await readWorkspaceText(workspace, ".harness/src/prompts/system.md");
+    const prompt = await readWorkspaceText(workspace, ".harness/src/prompt-sections/system/SECTION.md");
     assert.match(prompt, /Acme Corp/u, "prompt should contain remote content");
 
     const skill = await readWorkspaceText(workspace, ".harness/src/skills/reviewer/SKILL.md");
@@ -502,7 +503,7 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
 
     // Override prompt targetPath for claude
     await fs.writeFile(
-      path.join(workspace, ".harness/src/prompts/system.overrides.claude.yaml"),
+      path.join(workspace, ".harness/src/prompt-sections/system/OVERRIDES.claude.yaml"),
       "version: 1\ntargetPath: docs/CLAUDE-PROMPT.md\n",
       "utf8",
     );
@@ -530,7 +531,7 @@ describe("registry-backed workflow journey", { timeout: 300_000, concurrency: fa
 
     // Restore claude prompt to default for cleaner test
     await fs.writeFile(
-      path.join(workspace, ".harness/src/prompts/system.overrides.claude.yaml"),
+      path.join(workspace, ".harness/src/prompt-sections/system/OVERRIDES.claude.yaml"),
       "version: 1\n",
       "utf8",
     );

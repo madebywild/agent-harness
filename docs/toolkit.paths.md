@@ -6,10 +6,8 @@ Centralizes path conventions for `.harness` workspace files and canonical source
 
 ## Key exports
 
-- `HarnessPaths`: resolved absolute path set for workspace files/directories, including `hookDir`, `presetsDir`, `importsDir`, `skillImportDir`, `envFile`, and `rootEnvFile`.
+- `HarnessPaths`: resolved absolute path set for workspace files/directories, including `promptSectionDir`, `hookDir`, `presetsDir`, `importsDir`, `skillImportDir`, `envFile`, and `rootEnvFile`.
 - `resolveHarnessPaths(rootDir)`: computes absolute paths for `.harness` files.
-- `DEFAULT_PROMPT_ID`: `system` (default id for a scaffolded prompt).
-- `DEFAULT_PROMPT_SOURCE_PATH`: `.harness/src/prompts/system.md` (= `defaultPromptSourcePath(DEFAULT_PROMPT_ID)`).
 
 Env file paths:
 
@@ -18,7 +16,7 @@ Env file paths:
 
 Source path helpers:
 
-- `defaultPromptSourcePath(id)` → `.harness/src/prompts/<id>.md`
+- `defaultPromptSectionSourcePath(id)` → `.harness/src/prompt-sections/<id>/SECTION.md`
 - `defaultSkillSourcePath(skillId)`
 - `defaultMcpSourcePath(id)`
 - `defaultSubagentSourcePath(id)`
@@ -29,7 +27,7 @@ Source path helpers:
 
 Override path helpers:
 
-- `defaultPromptOverridePath(id, provider)`
+- `defaultPromptSectionOverridePath(id, provider)` → `.harness/src/prompt-sections/<id>/OVERRIDES.<provider>.yaml`
 - `defaultSkillOverridePath(skillId, provider)`
 - `defaultMcpOverridePath(id, provider)`
 - `defaultSubagentOverridePath(id, provider)`

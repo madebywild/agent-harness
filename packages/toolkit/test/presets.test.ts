@@ -28,7 +28,7 @@ test("applyPreset materializes delegated init preset with a shared bootstrap pro
   assert.ok(result.results.some((entry) => entry.type === "enable_provider" && entry.target === "claude"));
   assert.ok(result.results.some((entry) => entry.type === "enable_provider" && entry.target === "codex"));
   assert.ok(result.results.some((entry) => entry.type === "enable_provider" && entry.target === "copilot"));
-  assert.ok(result.results.some((entry) => entry.type === "add_prompt" && entry.outcome === "applied"));
+  assert.ok(result.results.some((entry) => entry.type === "add_prompt_section" && entry.outcome === "applied"));
 
   const manifest = JSON.parse(await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8")) as {
     providers: { enabled: string[] };
@@ -36,9 +36,9 @@ test("applyPreset materializes delegated init preset with a shared bootstrap pro
   };
 
   assert.deepEqual(manifest.providers.enabled, ["claude", "codex", "copilot"]);
-  assert.ok(manifest.entities.some((entity) => entity.type === "prompt" && entity.id === "system"));
+  assert.ok(manifest.entities.some((entity) => entity.type === "prompt_section" && entity.id === "system"));
 
-  const prompt = await fs.readFile(path.join(cwd, ".harness/src/prompts/system.md"), "utf8");
+  const prompt = await fs.readFile(path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md"), "utf8");
   assert.match(prompt, /This is a temporary bootstrap prompt for agent-harness\./u);
   assert.match(prompt, /pnpm harness <command>/u);
   assert.match(prompt, /npx harness <command>/u);
@@ -57,7 +57,7 @@ test("applyPreset materializes bundled preset content and enables providers", as
 
   assert.equal(result.preset.id, "starter");
   assert.ok(result.results.some((entry) => entry.type === "enable_provider" && entry.outcome === "applied"));
-  assert.ok(result.results.some((entry) => entry.type === "add_prompt" && entry.outcome === "applied"));
+  assert.ok(result.results.some((entry) => entry.type === "add_prompt_section" && entry.outcome === "applied"));
 
   const manifest = JSON.parse(await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8")) as {
     providers: { enabled: string[] };
@@ -65,11 +65,11 @@ test("applyPreset materializes bundled preset content and enables providers", as
   };
 
   assert.deepEqual(manifest.providers.enabled, ["claude", "codex", "copilot"]);
-  assert.ok(manifest.entities.some((entity) => entity.type === "prompt" && entity.id === "system"));
+  assert.ok(manifest.entities.some((entity) => entity.type === "prompt_section" && entity.id === "system"));
   assert.ok(manifest.entities.some((entity) => entity.type === "skill" && entity.id === "reviewer"));
   assert.ok(manifest.entities.some((entity) => entity.type === "command" && entity.id === "fix-issue"));
 
-  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/prompts/system.md")));
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/commands/fix-issue.md")));
 });
@@ -82,7 +82,7 @@ test("applyPreset materializes yolo preset with settings for all providers", asy
   const result = await engine.applyPreset("yolo");
 
   assert.equal(result.preset.id, "yolo");
-  assert.ok(result.results.some((entry) => entry.type === "add_prompt" && entry.outcome === "applied"));
+  assert.ok(result.results.some((entry) => entry.type === "add_prompt_section" && entry.outcome === "applied"));
   assert.ok(result.results.some((entry) => entry.type === "add_settings" && entry.target === "settings:claude"));
   assert.ok(result.results.some((entry) => entry.type === "add_settings" && entry.target === "settings:codex"));
   assert.ok(result.results.some((entry) => entry.type === "add_settings" && entry.target === "settings:copilot"));
@@ -154,16 +154,22 @@ test("applyPreset loads local preset packages from .harness/presets", async () =
       {
         id: "local-docs",
         name: "Local Docs Preset",
-        description: "Adds a prompt and docs helper command.",
-        operations: [{ type: "add_prompt" }, { type: "add_command", id: "update-docs" }],
+        description: "Adds a prompt-section and docs helper command.",
+        operations: [
+          { type: "add_prompt_section", id: "system" },
+          { type: "add_command", id: "update-docs" },
+        ],
       },
       null,
       2,
     ),
     "utf8",
   );
+  await fs.mkdir(path.join(cwd, ".harness/presets/local-docs/prompt-sections/system"), {
+    recursive: true,
+  });
   await fs.writeFile(
-    path.join(cwd, ".harness/presets/local-docs/prompt.md"),
+    path.join(cwd, ".harness/presets/local-docs/prompt-sections/system/SECTION.md"),
     "# System Prompt\n\nOptimize for documentation maintenance.\n",
     "utf8",
   );

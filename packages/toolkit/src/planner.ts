@@ -1,9 +1,7 @@
 import path from "node:path";
 import type { ManagedIndex, ManifestLock, ProviderId } from "@madebywild/agent-harness-manifest";
 import { LATEST_VERSION_BY_KIND } from "@madebywild/agent-harness-manifest";
-import { selectRootPromptId } from "./loader.js";
 import type { HarnessPaths } from "./paths.js";
-import { isNestable } from "./provider-adapters/constants.js";
 import { buildBuiltinAdapters } from "./providers.js";
 import { collectManagedSourcePaths } from "./repository.js";
 import type { Diagnostic, InternalPlanResult, LoadResult, Operation, RenderedArtifact } from "./types.js";
@@ -31,33 +29,30 @@ export async function buildPlan(
 
   const enabledProviders = [...loaded.manifest.providers.enabled].sort((left, right) => left.localeCompare(right));
 
-  // A provider that cannot nest prompts has one root instructions file; only the winning prompt
-  // feeds it (the rest are skipped for that provider). Nesting providers receive every prompt.
-  const rootPromptId = selectRootPromptId(
-    loaded.prompts.map((prompt) => ({ id: prompt.entity.id, target: prompt.canonical.target })),
-  );
-
   for (const provider of enabledProviders) {
     const adapter = adapters[provider];
     const providerSettings = loaded.settings.find((entry) => entry.canonical.provider === provider);
 
-    const promptsForProvider = isNestable(provider, "prompt")
-      ? loaded.prompts
-      : loaded.prompts.filter((prompt) => prompt.entity.id === rootPromptId);
-
-    for (const prompt of promptsForProvider) {
-      if (!adapter.renderPrompt) {
-        continue;
-      }
-
+    // Prompt-sections compose into a single system-prompt artifact per output path; the adapter
+    // orders and merges every enabled section it is handed.
+    if (adapter.renderPromptSections) {
       try {
-        artifacts.push(...(await adapter.renderPrompt(prompt.canonical, prompt.overrideByProvider.get(provider))));
+        const overrideByEntity = new Map(
+          loaded.promptSections.map(
+            (section) => [section.entity.id, section.overrideByProvider.get(provider)] as const,
+          ),
+        );
+        artifacts.push(
+          ...(await adapter.renderPromptSections(
+            loaded.promptSections.map((section) => section.canonical),
+            overrideByEntity,
+          )),
+        );
       } catch (error) {
         diagnostics.push({
           code: "PROMPT_RENDER_FAILED",
           severity: "error",
           message: error instanceof Error ? error.message : "Prompt render failed",
-          entityId: prompt.entity.id,
           provider,
         });
       }
@@ -325,15 +320,15 @@ export async function buildPlan(
   }
 
   const entityRecords = [
-    ...loaded.prompts.map((prompt) => ({
-      id: prompt.entity.id,
-      type: prompt.entity.type,
-      registry: prompt.entity.registry,
-      sourceSha256: prompt.sourceSha256,
-      overrideSha256ByProvider: prompt.overrideShaByProvider,
+    ...loaded.promptSections.map((section) => ({
+      id: section.entity.id,
+      type: section.entity.type,
+      registry: section.entity.registry,
+      sourceSha256: section.sourceSha256,
+      overrideSha256ByProvider: section.overrideShaByProvider,
       ...resolvePriorRegistryProvenance(
-        previousEntityByKey.get(`${prompt.entity.type}:${prompt.entity.id}`),
-        prompt.entity.registry,
+        previousEntityByKey.get(`${section.entity.type}:${section.entity.id}`),
+        section.entity.registry,
       ),
     })),
     ...loaded.skills.map((skill) => ({

@@ -19,9 +19,9 @@ export async function readPresetPackageFromDir(presetDir: string): Promise<Loade
 
   const content: ResolvedPresetSource = {};
 
-  const promptPath = path.join(presetDir, "prompt.md");
-  if (await exists(promptPath)) {
-    content.prompt = await fs.readFile(promptPath, "utf8");
+  const promptSectionsDir = path.join(presetDir, "prompt-sections");
+  if (await exists(promptSectionsDir)) {
+    content.promptSections = await loadPresetPromptSections(promptSectionsDir);
   }
 
   const skillsDir = path.join(presetDir, "skills");
@@ -67,6 +67,28 @@ export async function listPresetDirectories(rootDir: string): Promise<string[]> 
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(rootDir, entry.name))
     .sort((left, right) => left.localeCompare(right));
+}
+
+// Embedded prompt-sections live at presets/<preset>/prompt-sections/<id>/SECTION.md (flat, no
+// category folders — categories are a registry-root organizing device only).
+async function loadPresetPromptSections(
+  sectionsDir: string,
+): Promise<NonNullable<ResolvedPresetSource["promptSections"]>> {
+  const entries = await fs.readdir(sectionsDir, { withFileTypes: true });
+  const sections: NonNullable<ResolvedPresetSource["promptSections"]> = {};
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const sectionPath = path.join(sectionsDir, entry.name, "SECTION.md");
+    if (!(await exists(sectionPath))) {
+      continue;
+    }
+    sections[entry.name] = await fs.readFile(sectionPath, "utf8");
+  }
+
+  return sections;
 }
 
 async function loadPresetSkills(skillsDir: string): Promise<NonNullable<ResolvedPresetSource["skills"]>> {

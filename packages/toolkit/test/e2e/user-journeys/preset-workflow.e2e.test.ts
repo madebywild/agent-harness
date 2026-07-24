@@ -111,17 +111,17 @@ describe("preset workflow: starter preset lifecycle", { timeout: 120_000 }, () =
     assert.deepEqual(manifest.providers.enabled, ["claude", "codex", "copilot"]);
 
     const entityKeys = manifest.entities.map((e) => `${e.type}:${e.id}`);
-    assert.ok(entityKeys.includes("prompt:system"));
+    assert.ok(entityKeys.includes("prompt_section:system"));
     assert.ok(entityKeys.includes("skill:reviewer"));
     assert.ok(entityKeys.includes("command:fix-issue"));
 
     // Source files materialized from embedded content
-    assert.ok(await fileExists(path.join(workspace, ".harness/src/prompts/system.md")));
+    assert.ok(await fileExists(path.join(workspace, ".harness/src/prompt-sections/system/SECTION.md")));
     assert.ok(await fileExists(path.join(workspace, ".harness/src/skills/reviewer/SKILL.md")));
     assert.ok(await fileExists(path.join(workspace, ".harness/src/commands/fix-issue.md")));
 
     // Source content matches embedded preset
-    const prompt = await readWorkspaceText(workspace, ".harness/src/prompts/system.md");
+    const prompt = await readWorkspaceText(workspace, ".harness/src/prompt-sections/system/SECTION.md");
     assert.match(prompt, /implementation-focused/u);
     const skill = await readWorkspaceText(workspace, ".harness/src/skills/reviewer/SKILL.md");
     assert.match(skill, /rigorous code review/u);
@@ -157,7 +157,7 @@ describe("preset workflow: starter preset lifecycle", { timeout: 120_000 }, () =
   // ---- Phase 3: customise the preset-provided prompt ---------------------
   test("phase 3 — customise preset prompt, re-apply propagates to all providers", async () => {
     await fs.writeFile(
-      path.join(workspace, ".harness/src/prompts/system.md"),
+      path.join(workspace, ".harness/src/prompt-sections/system/SECTION.md"),
       "You are a backend systems engineer.\n\nFocus on correctness, observability, and graceful degradation.\n",
       "utf8",
     );
@@ -332,7 +332,7 @@ describe("preset workflow: yolo preset with permissive settings", { timeout: 120
     assert.deepEqual(manifest.providers.enabled, ["claude", "codex", "copilot"]);
 
     const entityKeys = manifest.entities.map((e) => `${e.type}:${e.id}`);
-    assert.ok(entityKeys.includes("prompt:system"));
+    assert.ok(entityKeys.includes("prompt_section:system"));
     assert.ok(entityKeys.includes("settings:claude"));
     assert.ok(entityKeys.includes("settings:codex"));
     assert.ok(entityKeys.includes("settings:copilot"));
@@ -360,7 +360,7 @@ describe("preset workflow: yolo preset with permissive settings", { timeout: 120
     assert.equal(copilotSettings["chat.autopilot.enabled"], true);
 
     // Prompt source
-    const prompt = await readWorkspaceText(workspace, ".harness/src/prompts/system.md");
+    const prompt = await readWorkspaceText(workspace, ".harness/src/prompt-sections/system/SECTION.md");
     assert.match(prompt, /full autonomy/u);
   });
 

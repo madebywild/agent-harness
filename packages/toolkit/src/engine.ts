@@ -7,7 +7,7 @@ import {
   addCommandEntity,
   addHookEntity,
   addMcpEntity,
-  addPromptEntity,
+  addPromptSectionEntity,
   addSettingsEntity,
   addSkillEntity,
   addSubagentEntity,
@@ -101,7 +101,7 @@ export class HarnessEngine {
       await fs.rm(paths.agentsDir, { recursive: true, force: true });
     }
 
-    await fs.mkdir(paths.promptDir, { recursive: true });
+    await fs.mkdir(paths.promptSectionDir, { recursive: true });
     await fs.mkdir(paths.skillDir, { recursive: true });
     await fs.mkdir(paths.mcpDir, { recursive: true });
     await fs.mkdir(paths.subagentDir, { recursive: true });
@@ -285,9 +285,9 @@ export class HarnessEngine {
     return applyResolvedPreset(this.cwd, preset);
   }
 
-  async addPrompt(options?: { registry?: string; id?: string; target?: string }): Promise<void> {
+  async addPromptSection(sectionId: string, options?: { registry?: string; target?: string }): Promise<void> {
     await this.assertWorkspaceVersionCurrent();
-    await addPromptEntity(this.cwd, options);
+    await addPromptSectionEntity(this.cwd, sectionId, options);
   }
 
   async addSkill(skillId: string, options?: { registry?: string; target?: string }): Promise<void> {

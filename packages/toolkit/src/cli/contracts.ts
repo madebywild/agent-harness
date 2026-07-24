@@ -36,7 +36,7 @@ export type CommandId =
   | "preset.apply"
   | "skill.find"
   | "skill.import"
-  | "add.prompt"
+  | "add.prompt-section"
   | "add.skill"
   | "add.mcp"
   | "add.subagent"

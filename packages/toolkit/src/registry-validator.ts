@@ -69,49 +69,20 @@ export async function validateRegistryRepo(options: RegistryValidationOptions = 
     }
   }
 
-  const promptsDir = path.join(rootAbs, "prompts");
-  let promptEntries: Dirent[] | null = null;
-  try {
-    promptEntries = await fs.readdir(promptsDir, { withFileTypes: true });
-  } catch (err) {
-    if (!isNotFoundError(err)) {
-      throw err;
-    }
-  }
-
-  if (promptEntries) {
-    let hasSystemPrompt = false;
-    for (const entry of promptEntries) {
-      const entryPath = toPosixRelative(path.join(promptsDir, entry.name), repoPath);
-      if (entry.name === "system.md" && entry.isFile()) {
-        hasSystemPrompt = true;
-        continue;
-      }
-      diagnostics.push(error("REGISTRY_PROMPT_INVALID", "Only prompts/system.md is allowed in prompts/", entryPath));
-    }
-
-    const systemPromptPath = path.join(promptsDir, "system.md");
-    if (!hasSystemPrompt) {
-      diagnostics.push(
-        error(
-          "REGISTRY_PROMPT_INVALID",
-          "Missing required prompts/system.md",
-          toPosixRelative(systemPromptPath, repoPath),
-        ),
-      );
-    } else {
-      const text = await readTextIfExists(systemPromptPath);
-      if (text === null || text.trim().length === 0) {
-        diagnostics.push(
-          error(
-            "REGISTRY_PROMPT_INVALID",
-            "prompts/system.md must be non-empty",
-            toPosixRelative(systemPromptPath, repoPath),
-          ),
-        );
-      }
-    }
-  }
+  await validateCategoryEntities(
+    {
+      baseDir: path.join(rootAbs, "prompt-sections"),
+      repoPath,
+      requiredFile: "SECTION.md",
+      requireFrontmatter: true,
+      codes: {
+        invalid: "REGISTRY_PROMPT_SECTION_INVALID",
+        duplicateId: "REGISTRY_PROMPT_SECTION_DUPLICATE_ID",
+        invalidTags: "REGISTRY_PROMPT_SECTION_INVALID_TAGS",
+      },
+    },
+    diagnostics,
+  );
 
   const skillsDir = path.join(rootAbs, "skills");
   let skillEntries: Dirent[] | null = null;
@@ -520,6 +491,120 @@ function error(code: string, message: string, pathValue?: string): Diagnostic {
     message,
     path: pathValue,
   };
+}
+
+interface CategoryValidationSpec {
+  baseDir: string;
+  repoPath: string;
+  requiredFile: string;
+  // When true, the required file must carry `name`/`description` frontmatter (prompt-sections).
+  requireFrontmatter: boolean;
+  codes: { invalid: string; duplicateId: string; invalidTags: string };
+}
+
+// Validates a root entity tree organized into dynamic category folders:
+// `<baseDir>/<category>/<id>/<requiredFile>`. Ids must be globally unique across categories. Empty
+// category folders (only a `.gitkeep`) are allowed. Shared by root skills and prompt-sections.
+async function validateCategoryEntities(spec: CategoryValidationSpec, diagnostics: Diagnostic[]): Promise<void> {
+  const { baseDir, repoPath, requiredFile, requireFrontmatter, codes } = spec;
+
+  let categories: Dirent[];
+  try {
+    categories = await fs.readdir(baseDir, { withFileTypes: true });
+  } catch (err) {
+    if (!isNotFoundError(err)) {
+      throw err;
+    }
+    return;
+  }
+
+  const idToPath = new Map<string, string>();
+  for (const category of categories) {
+    if (category.name === ".gitkeep") {
+      continue;
+    }
+    const categoryAbs = path.join(baseDir, category.name);
+    const categoryRel = toPosixRelative(categoryAbs, repoPath);
+    if (!category.isDirectory()) {
+      diagnostics.push(
+        error(
+          codes.invalid,
+          `${toPosixRelative(baseDir, repoPath)} may only contain category directories`,
+          categoryRel,
+        ),
+      );
+      continue;
+    }
+
+    const idEntries = await fs.readdir(categoryAbs, { withFileTypes: true });
+    for (const idEntry of idEntries) {
+      if (idEntry.name === ".gitkeep") {
+        continue;
+      }
+      const idAbs = path.join(categoryAbs, idEntry.name);
+      const idRel = toPosixRelative(idAbs, repoPath);
+      if (!idEntry.isDirectory()) {
+        diagnostics.push(error(codes.invalid, `${categoryRel} may only contain entity directories`, idRel));
+        continue;
+      }
+      if (!isValidEntityId(idEntry.name)) {
+        diagnostics.push(error(codes.invalid, `Invalid id '${idEntry.name}'`, idRel));
+      }
+
+      const existing = idToPath.get(idEntry.name);
+      if (existing) {
+        diagnostics.push(
+          error(codes.duplicateId, `Duplicate id '${idEntry.name}' found in '${existing}' and '${idRel}'`, idRel),
+        );
+      } else {
+        idToPath.set(idEntry.name, idRel);
+      }
+
+      const requiredAbs = path.join(idAbs, requiredFile);
+      const requiredRel = toPosixRelative(requiredAbs, repoPath);
+      const text = await readTextIfExists(requiredAbs);
+      if (text === null) {
+        diagnostics.push(
+          error(codes.invalid, `'${idEntry.name}' must contain ${requiredFile} at its root`, requiredRel),
+        );
+        continue;
+      }
+      if (text.trim().length === 0) {
+        diagnostics.push(error(codes.invalid, `${requiredFile} must be non-empty`, requiredRel));
+        continue;
+      }
+
+      const data = matter(text).data as Record<string, unknown>;
+      if (requireFrontmatter) {
+        if (typeof data.name !== "string" || data.name.trim().length === 0) {
+          diagnostics.push(
+            error(codes.invalid, `${requiredFile} frontmatter must include a non-empty 'name'`, requiredRel),
+          );
+        }
+        if (typeof data.description !== "string" || data.description.trim().length === 0) {
+          diagnostics.push(
+            error(codes.invalid, `${requiredFile} frontmatter must include a non-empty 'description'`, requiredRel),
+          );
+        }
+      }
+      const tagsError = validateTagsField(data.tags);
+      if (tagsError) {
+        diagnostics.push(error(codes.invalidTags, `${requiredFile} ${tagsError}`, requiredRel));
+      }
+    }
+  }
+}
+
+// Optional `tags` frontmatter must be an array of strings when present. Returns an error message or
+// null. Shared by prompt-sections (this pass) and skills.
+function validateTagsField(tags: unknown): string | null {
+  if (tags === undefined) {
+    return null;
+  }
+  if (!Array.isArray(tags) || tags.some((tag) => typeof tag !== "string")) {
+    return "frontmatter 'tags' must be an array of strings";
+  }
+  return null;
 }
 
 async function readJsonObject(

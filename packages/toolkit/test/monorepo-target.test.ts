@@ -48,53 +48,56 @@ test("capability-aware routing: targeted skill nests for claude but roots for co
   );
 });
 
-test("multiple prompts generate a root and a per-package CLAUDE.md", async () => {
+test("prompt-sections compose into a root and a per-package CLAUDE.md by target", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
   await engine.enableProvider("claude");
-  await engine.addPrompt();
-  await engine.addPrompt({ id: "web", target: "packages/web" });
+  await engine.addPromptSection("system");
+  await engine.addPromptSection("web", { target: "packages/web" });
 
   await engine.apply();
 
+  // Claude nests prompts, so sections group by target: the untargeted one composes at the root,
+  // the targeted one into the package directory.
   assert.ok(await fileExists(path.join(cwd, "CLAUDE.md")));
   assert.ok(await fileExists(path.join(cwd, "packages/web/CLAUDE.md")));
 });
 
-test("targeted prompt is skipped for copilot but root prompt still feeds it", async () => {
+test("targeted section composes into the single root file for a non-nesting provider", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
   await engine.enableProvider("copilot");
-  await engine.addPrompt();
-  await engine.addPrompt({ id: "web", target: "packages/web" });
+  await engine.addPromptSection("system");
+  await engine.addPromptSection("web", { target: "packages/web" });
 
   const result = await engine.apply();
 
+  // Copilot does not nest the prompt, so every section composes into the one root instructions file.
   assert.ok(await fileExists(path.join(cwd, ".github/copilot-instructions.md")));
   assert.ok(!(await fileExists(path.join(cwd, "packages/web/.github/copilot-instructions.md"))));
   assert.ok(
     result.diagnostics.some(
-      (d) => d.code === "TARGET_PROMPT_SKIPPED" && d.provider === "copilot" && d.entityId === "web",
+      (d) => d.code === "TARGET_ROUTED_TO_ROOT" && d.provider === "copilot" && d.entityId === "web",
     ),
   );
 });
 
-test("targeting the only prompt still gives a non-nesting provider its root instructions", async () => {
+test("targeting the only section still gives a non-nesting provider its root instructions", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
   await engine.enableProvider("claude");
   await engine.enableProvider("copilot");
-  await engine.addPrompt({ id: "web", target: "packages/web" }); // the ONLY prompt, targeted
+  await engine.addPromptSection("web", { target: "packages/web" }); // the ONLY section, targeted
 
   const result = await engine.apply();
 
-  // Claude nests it; Copilot (no untargeted prompt to claim root) still gets the root file.
+  // Claude nests it into the package; Copilot composes it into the root instructions file.
   assert.ok(await fileExists(path.join(cwd, "packages/web/CLAUDE.md")));
   assert.ok(await fileExists(path.join(cwd, ".github/copilot-instructions.md")));
   assert.ok(result.diagnostics.some((d) => d.code === "TARGET_ROUTED_TO_ROOT" && d.provider === "copilot"));
@@ -214,37 +217,22 @@ test("registry preset strips the operation target (scaffolds at root)", async ()
   assert.equal(skill.target, undefined);
 });
 
-test("two prompts sharing a target report a clear PROMPT_TARGET_CONFLICT", async () => {
+test("two untargeted prompt-sections compose into one root CLAUDE.md (no conflict)", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
   await engine.enableProvider("claude");
-  await engine.addPrompt();
-  await engine.addPrompt({ id: "web" }); // no target -> also root, collides with system
+  await engine.addPromptSection("system");
+  await engine.addPromptSection("web"); // no target -> also root, composes with system
 
   const result = await engine.apply();
-  assert.ok(result.diagnostics.some((d) => d.code === "PROMPT_TARGET_CONFLICT"));
-  assert.equal(result.writtenArtifacts.length, 0);
-});
-
-test("a preset with more than one add_prompt operation is rejected", async () => {
-  const cwd = await mkTmpRepo();
-  const engine = new HarnessEngine(cwd);
-
-  await engine.init();
-  const preset: ResolvedPreset = {
-    source: "local",
-    definition: {
-      id: "twoprompts",
-      name: "Two",
-      description: "two prompts",
-      operations: [{ type: "add_prompt" }, { type: "add_prompt", id: "web", target: "packages/web" }],
-    },
-    content: { prompt: "# shared\n" },
-  };
-
-  await assert.rejects(() => applyResolvedPreset(cwd, preset), /PRESET_UNSUPPORTED/u);
+  assert.ok(!result.diagnostics.some((d) => d.severity === "error"));
+  assert.ok(await fileExists(path.join(cwd, "CLAUDE.md")));
+  const composed = await fs.readFile(path.join(cwd, "CLAUDE.md"), "utf8");
+  // Both section bodies are present in the single composed file.
+  assert.ok(composed.includes("system"));
+  assert.ok(composed.includes("web"));
 });
 
 test("routing diagnostic is not emitted for providers that produce no such artifact", async () => {

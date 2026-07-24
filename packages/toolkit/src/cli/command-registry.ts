@@ -8,7 +8,7 @@ import {
   handleAddCommand,
   handleAddHook,
   handleAddMcp,
-  handleAddPrompt,
+  handleAddPromptSection,
   handleAddSettings,
   handleAddSkill,
   handleAddSubagent,
@@ -503,10 +503,10 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
       ),
   },
   {
-    id: "add.prompt",
-    path: ["add", "prompt"],
-    description: "Create a system prompt entity (id defaults to 'system')",
-    args: [{ name: "id", required: false, description: "prompt id (defaults to 'system')" }],
+    id: "add.prompt-section",
+    path: ["add", "prompt-section"],
+    description: "Create a prompt-section entity (composed into the system prompt)",
+    args: [{ name: "sectionId", required: true, description: "prompt-section id" }],
     options: [
       {
         name: "registry",
@@ -516,11 +516,11 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
       TARGET_OPTION,
     ],
     mutatesWorkspace: true,
-    interactiveLabel: "Add prompt",
+    interactiveLabel: "Add prompt-section",
     run: (input, context) =>
-      handleAddPrompt(
+      handleAddPromptSection(
         {
-          id: readStringArg(input, "id", false),
+          sectionId: readStringArg(input, "sectionId") ?? "",
           registry: readStringOption(input, "registry"),
           target: readStringOption(input, "target"),
         },

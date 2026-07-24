@@ -3,14 +3,15 @@
     {
       "enabled": true,
       "id": "system",
+      "order": 0,
       "overrides": {
-        "claude": ".harness/src/prompts/system.overrides.claude.yaml",
-        "codex": ".harness/src/prompts/system.overrides.codex.yaml",
-        "copilot": ".harness/src/prompts/system.overrides.copilot.yaml"
+        "claude": ".harness/src/prompt-sections/system/OVERRIDES.claude.yaml",
+        "codex": ".harness/src/prompt-sections/system/OVERRIDES.codex.yaml",
+        "copilot": ".harness/src/prompt-sections/system/OVERRIDES.copilot.yaml"
       },
       "registry": "local",
-      "sourcePath": ".harness/src/prompts/system.md",
-      "type": "prompt"
+      "sourcePath": ".harness/src/prompt-sections/system/SECTION.md",
+      "type": "prompt_section"
     },
     {
       "enabled": true,
@@ -62,14 +63,14 @@
     },
     {
       "enabled": true,
-      "id": "harness-prompt",
+      "id": "harness-prompt-section",
       "overrides": {
-        "claude": ".harness/src/skills/harness-prompt/OVERRIDES.claude.yaml",
-        "codex": ".harness/src/skills/harness-prompt/OVERRIDES.codex.yaml",
-        "copilot": ".harness/src/skills/harness-prompt/OVERRIDES.copilot.yaml"
+        "claude": ".harness/src/skills/harness-prompt-section/OVERRIDES.claude.yaml",
+        "codex": ".harness/src/skills/harness-prompt-section/OVERRIDES.codex.yaml",
+        "copilot": ".harness/src/skills/harness-prompt-section/OVERRIDES.copilot.yaml"
       },
       "registry": "local",
-      "sourcePath": ".harness/src/skills/harness-prompt/SKILL.md",
+      "sourcePath": ".harness/src/skills/harness-prompt-section/SKILL.md",
       "type": "skill"
     },
     {

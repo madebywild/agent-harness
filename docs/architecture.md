@@ -20,7 +20,7 @@ Only enabled providers receive generated artifacts. Supported providers are `cod
 
 Canonical entity types:
 
-- `prompt` (0 or more; id defaults to `system`; multiple prompts enable per-package `CLAUDE.md`/`AGENTS.md`)
+- `prompt_section` (0 or more; each carries an integer `order`; sections compose into a single system prompt per provider)
 - `skill`
 - `mcp_config`
 - `subagent`
@@ -39,7 +39,7 @@ Bootstrap primitive:
 
 Default source locations:
 
-- Prompt: `.harness/src/prompts/<id>.md` (default id `system`)
+- Prompt sections: `.harness/src/prompt-sections/<id>/SECTION.md`
 - Skills: `.harness/src/skills/<id>/SKILL.md`
 - MCP: `.harness/src/mcp/<id>.json`
 - Subagents: `.harness/src/subagents/<id>.md`
@@ -104,11 +104,14 @@ Notes:
 
 ## Provider mapping rules
 
-### Prompt
+### Prompt sections
 
+- Every enabled `prompt_section` composes into one system-prompt artifact per provider. Section
+  bodies (frontmatter stripped) are joined with a blank line, in `order` then id.
 - `codex -> AGENTS.md`
 - `claude -> CLAUDE.md`
 - `copilot -> .github/copilot-instructions.md`
+- `cursor` emits no prompt artifact. Zero sections means no prompt artifact for any provider.
 
 ### Skill
 
@@ -189,7 +192,7 @@ Core commands:
 
 - `init`
 - `provider enable|disable`
-- `add prompt|skill|mcp|subagent|hook`
+- `add prompt-section|skill|mcp|subagent|hook`
 - `remove <entity-type> <id>`
 - `registry ...` (management + pull)
 - `skill find|import` (third-party discovery/import through pinned `skills@1.4.6`)
@@ -206,7 +209,7 @@ Core commands:
 Preset packages are self-contained directories used by bundled, local, and registry presets:
 
 - `preset.json` — preset metadata and ordered operations
-- `prompt.md` — optional embedded prompt source
+- `prompt-sections/<id>/SECTION.md` — optional embedded prompt-section sources (any number)
 - `skills/<id>/**` — optional embedded skill content
 - `mcp/<id>.json` — optional embedded MCP config content
 - `subagents/<id>.md` — optional embedded subagent content

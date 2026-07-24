@@ -33,9 +33,9 @@ Implements the preset system: discovery, resolution, and application of bootstra
 | ID | Name | Description |
 | --- | --- | --- |
 | `delegate` | Delegated Prompt Init | Enables all providers + seeds a bootstrap prompt for delegated authoring. |
-| `starter` | Starter Workspace | Enables all providers + adds a prompt, `reviewer` skill, and `fix-issue` command. |
-| `researcher` | Research Assistant | Enables all providers + adds a prompt and `research-assistant` subagent. |
-| `yolo` | YOLO Mode | Enables all providers + adds a prompt and permissive settings for all providers. |
+| `starter` | Starter Workspace | Enables all providers + adds a prompt-section, `reviewer` skill, and `fix-issue` command. |
+| `researcher` | Research Assistant | Enables all providers + adds a prompt-section and `research-assistant` subagent. |
+| `yolo` | YOLO Mode | Enables all providers + adds a prompt-section and permissive settings for all providers. |
 
 ## Preset application (`applyResolvedPreset`)
 
@@ -43,7 +43,7 @@ Processes operations sequentially. Each operation type:
 
 - `register_registry` — adds registry entry to manifest (skips if identical, throws on conflict).
 - `enable_provider` — appends to `providers.enabled` (skips if already present).
-- Entity adds (`add_prompt`, `add_skill`, `add_mcp`, `add_subagent`, `add_hook`, `add_settings`, `add_command`) — delegates to the standard `add*Entity` functions. Skips if entity already exists with matching content/provenance; throws `PRESET_CONFLICT` on mismatch.
+- Entity adds (`add_prompt_section`, `add_skill`, `add_mcp`, `add_subagent`, `add_hook`, `add_settings`, `add_command`) — delegates to the standard `add*Entity` functions. `add_prompt_section` requires an `id`. Skips if entity already exists with matching content/provenance; throws `PRESET_CONFLICT` on mismatch.
 
 Re-reads manifest after each mutation to avoid stale state.
 
@@ -52,7 +52,7 @@ Re-reads manifest after each mutation to avoid stale state.
 A preset package directory contains:
 
 - `preset.json` — required, validated against `presetDefinitionSchema`.
-- `prompt.md` — optional embedded prompt.
+- `prompt-sections/<id>/SECTION.md` — optional embedded prompt-sections (any number).
 - `skills/<id>/**` — optional embedded skill directories.
 - `mcp/<id>.json` — optional embedded MCP configs.
 - `subagents/<id>.md` — optional embedded subagents.

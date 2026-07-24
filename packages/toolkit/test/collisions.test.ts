@@ -10,7 +10,7 @@ test("apply fails on unmanaged output collision", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.enableProvider("codex");
 
   await fs.writeFile(path.join(cwd, "AGENTS.md"), "manual\n", "utf8");
@@ -24,17 +24,17 @@ test("apply fails when different providers target the same output path", async (
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.enableProvider("codex");
   await engine.enableProvider("claude");
 
   await fs.writeFile(
-    path.join(cwd, ".harness/src/prompts/system.overrides.codex.yaml"),
+    path.join(cwd, ".harness/src/prompt-sections/system/OVERRIDES.codex.yaml"),
     "version: 1\ntargetPath: shared/AGENTS.md\n",
     "utf8",
   );
   await fs.writeFile(
-    path.join(cwd, ".harness/src/prompts/system.overrides.claude.yaml"),
+    path.join(cwd, ".harness/src/prompt-sections/system/OVERRIDES.claude.yaml"),
     "version: 1\ntargetPath: shared/AGENTS.md\n",
     "utf8",
   );

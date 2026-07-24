@@ -11,7 +11,7 @@ import {
   addCommandEntity,
   addHookEntity,
   addMcpEntity,
-  addPromptEntity,
+  addPromptSectionEntity,
   addSettingsEntity,
   addSkillEntity,
   addSubagentEntity,
@@ -47,7 +47,7 @@ const DEFAULT_EXEC_FILE_RUNNER: ExecFileRunner = async (file, args, options) => 
 export const U_HAUL_DEFAULT_PRECEDENCE = ["claude", "codex", "copilot"] as const satisfies readonly ProviderId[];
 
 const U_HAUL_TYPE_ORDER: readonly CliEntityType[] = [
-  "prompt",
+  "prompt-section",
   "skill",
   "mcp",
   "subagent",
@@ -130,7 +130,7 @@ interface CandidateBase {
 }
 
 interface PromptCandidate extends CandidateBase {
-  type: "prompt";
+  type: "prompt-section";
   sourceText: string;
   fixedId: true;
 }
@@ -407,8 +407,8 @@ async function buildUHaulPlan(cwd: string, precedence: readonly ProviderId[]): P
 
 async function importCandidate(cwd: string, candidate: SelectedCandidate): Promise<void> {
   switch (candidate.type) {
-    case "prompt": {
-      await addPromptEntity(cwd, { sourceText: candidate.sourceText });
+    case "prompt-section": {
+      await addPromptSectionEntity(cwd, candidate.assignedId, { sourceText: candidate.sourceText });
       return;
     }
     case "skill": {
@@ -477,7 +477,7 @@ async function parsePromptFile(
   }
 
   pushCandidate(collection, {
-    type: "prompt",
+    type: "prompt-section",
     provider,
     id: "system",
     sourcePath: relativePath,
@@ -1558,7 +1558,7 @@ function compareAssignmentPriority(
 }
 
 function fixedIdPriority(candidate: UHaulCandidate): number {
-  if (candidate.type === "prompt") {
+  if (candidate.type === "prompt-section") {
     return 0;
   }
 
@@ -1615,7 +1615,7 @@ function pushParseError(collection: CandidateCollection, sourcePath: string, mes
 
 function assertValidEntityId(
   collection: CandidateCollection,
-  type: Exclude<CliEntityType, "prompt" | "settings">,
+  type: Exclude<CliEntityType, "prompt-section" | "settings">,
   id: string,
   sourcePath: string,
 ): boolean {
@@ -1741,7 +1741,7 @@ function countByType(candidates: ReadonlyArray<{ type: CliEntityType }>): UHaulE
 
 function emptyCounts(): UHaulEntityCounts {
   return {
-    prompt: 0,
+    "prompt-section": 0,
     skill: 0,
     mcp: 0,
     subagent: 0,

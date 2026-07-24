@@ -9,7 +9,7 @@ Defines shared toolkit interfaces for canonical entities, provider adapters, dia
 - Schema-backed aliases:
   - `AgentsManifest`, `EntityRef`, `EntityType`, `ManifestLock`, `ManagedIndex`, `ProviderId`, `ProviderOverride`
 - Canonical models:
-  - `CanonicalPrompt`, `CanonicalSkill`, `CanonicalMcpConfig`, `CanonicalSubagent`, `CanonicalHook`
+  - `CanonicalPromptSection`, `CanonicalSkill`, `CanonicalMcpConfig`, `CanonicalSubagent`, `CanonicalHook`
   - Hook enums/unions: `CanonicalHookMode`, `CanonicalHookEvent`, `CanonicalHookHandler`
 - Rendering contracts:
   - `RenderedArtifact`, `ProviderAdapter`, `ProviderStateInput`
@@ -25,10 +25,11 @@ Defines shared toolkit interfaces for canonical entities, provider adapters, dia
 - Versioning models:
   - `VersionStatus`, `VersionDiagnostic`, `MigrationAction`
 - Loader/planner internal models:
-  - `LoadedPrompt`, `LoadedSkillFile`, `LoadedSkill`, `LoadedMcp`, `LoadedSubagent`, `LoadedHook`, `LoadResult`, `InternalPlanResult`
+  - `LoadedPromptSection`, `LoadedSkillFile`, `LoadedSkill`, `LoadedMcp`, `LoadedSubagent`, `LoadedHook`, `LoadResult`, `InternalPlanResult`
 
 ## Notes
 
+- `ProviderAdapter.renderPromptSections` composes all canonical prompt-sections (with an optional per-entity override map) into one system-prompt artifact per resolved output path.
 - `ProviderAdapter.renderMcp` accepts all canonical MCP configs and optional per-entity override map.
 - `ProviderAdapter.renderSubagent` renders provider-native subagent artifacts for providers with per-subagent files.
 - `ProviderAdapter.renderHooks` renders provider-native hook artifacts for providers with dedicated hook outputs.

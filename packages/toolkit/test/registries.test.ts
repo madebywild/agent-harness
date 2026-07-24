@@ -419,13 +419,17 @@ test("registry validation accepts preset packages and registry presets can be li
         {
           id: "corp-starter",
           name: "Corp Starter",
-          description: "Enable Claude and add a corp prompt.",
-          operations: [{ type: "enable_provider", provider: "claude" }, { type: "add_prompt" }],
+          description: "Enable Claude and add a corp prompt-section.",
+          operations: [
+            { type: "enable_provider", provider: "claude" },
+            { type: "add_prompt_section", id: "system" },
+          ],
         },
         null,
         2,
       ),
-      "presets/corp-starter/prompt.md": "# System Prompt\n\nUse the corporate coding conventions.\n",
+      "presets/corp-starter/prompt-sections/system/SECTION.md":
+        "# System Prompt\n\nUse the corporate coding conventions.\n",
     },
   });
 
@@ -443,9 +447,9 @@ test("registry validation accepts preset packages and registry presets can be li
     registry: "corp",
   });
   assert.equal(applied.preset.id, "corp-starter");
-  assert.ok(applied.results.some((entry) => entry.target === "prompt:system" && entry.outcome === "applied"));
+  assert.ok(applied.results.some((entry) => entry.target === "prompt-section:system" && entry.outcome === "applied"));
 
-  const prompt = await fs.readFile(path.join(cwd, ".harness/src/prompts/system.md"), "utf8");
+  const prompt = await fs.readFile(path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md"), "utf8");
   assert.match(prompt, /corporate coding conventions/u);
 });
 
@@ -650,7 +654,8 @@ test("validateRegistryRepo passes for valid registry layout and metadata", async
       null,
       2,
     ),
-    "prompts/system.md": "# System Prompt\n\nGuidance\n",
+    "prompt-sections/misc/system/SECTION.md":
+      "---\nname: system\ndescription: Base guidance\ntags: [base]\n---\n\n# System Prompt\n\nGuidance\n",
     "skills/reviewer/SKILL.md": "# reviewer\n\nSkill\n",
     "mcp/playwright.json": JSON.stringify({ command: "npx", args: ["@playwright/mcp"] }, null, 2),
     "subagents/researcher.md": "---\nname: researcher\ndescription: Research helper\n---\n\nResearch instructions.\n",
@@ -702,31 +707,30 @@ test("validateRegistryRepo reports structural and metadata failures", async () =
       expectedPath: "harness-registry.json",
     },
     {
-      name: "prompts contains extra file",
+      name: "prompt-section missing frontmatter name/description",
       files: {
         "harness-registry.json": JSON.stringify(
           { version: 1, title: "Corp Registry", description: "Internal" },
           null,
           2,
         ),
-        "prompts/system.md": "# System Prompt\n\nBase\n",
-        "prompts/extra.md": "# Extra\n",
+        "prompt-sections/misc/system/SECTION.md": "# System Prompt\n\nBase\n",
       },
-      expectedCode: "REGISTRY_PROMPT_INVALID",
-      expectedPath: "prompts/extra.md",
+      expectedCode: "REGISTRY_PROMPT_SECTION_INVALID",
+      expectedPath: "prompt-sections/misc/system/SECTION.md",
     },
     {
-      name: "empty prompt content",
+      name: "empty prompt-section content",
       files: {
         "harness-registry.json": JSON.stringify(
           { version: 1, title: "Corp Registry", description: "Internal" },
           null,
           2,
         ),
-        "prompts/system.md": "\n\n",
+        "prompt-sections/misc/system/SECTION.md": "\n\n",
       },
-      expectedCode: "REGISTRY_PROMPT_INVALID",
-      expectedPath: "prompts/system.md",
+      expectedCode: "REGISTRY_PROMPT_SECTION_INVALID",
+      expectedPath: "prompt-sections/misc/system/SECTION.md",
     },
     {
       name: "skill without SKILL.md",

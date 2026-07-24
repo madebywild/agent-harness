@@ -17,13 +17,17 @@ Supported providers:
 
 | Entity Type | Codex | Claude | Copilot | Cursor |
 | --- | --- | --- | --- | --- |
-| `prompt` | Yes | Yes | Yes | No (v1) |
+| `prompt_section` | Yes | Yes | Yes | No (v1) |
 | `skill` | Yes | Yes | Yes | Yes |
 | `mcp_config` | Yes | Yes | Yes | Yes |
 | `subagent` | Yes | Yes | Yes | Yes |
 | `hook` | Yes (`[hooks]` + `notify`) | Yes | Yes | Yes |
 | `settings` | Yes | Yes | Yes | No (v1) |
 | `command` | No | Yes | Yes | No (v1) |
+
+The "Prompt" output rows below are the single system-prompt artifact each provider generates. All
+enabled `prompt_section` entities compose into it (bodies joined in `order` then id). Cursor emits
+no prompt artifact.
 
 Authoring examples: [Hook Authoring Guide](./hook-authoring.md)
 

@@ -66,11 +66,13 @@ test("add commands without --registry use local registry", async () => {
   const workspace = await mkTmpRepo();
 
   await runHarnessCli(workspace, ["init"]);
-  await runHarnessCli(workspace, ["add", "prompt"]);
+  await runHarnessCli(workspace, ["add", "prompt-section", "system"]);
   await runHarnessCli(workspace, ["add", "skill", "reviewer"]);
   await runHarnessCli(workspace, ["add", "mcp", "playwright"]);
 
-  await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/prompts/system.md")));
+  await assert.doesNotReject(async () =>
+    fs.stat(path.join(workspace, ".harness/src/prompt-sections/system/SECTION.md")),
+  );
   await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/skills/reviewer/SKILL.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/mcp/playwright.json")));
 
@@ -78,7 +80,7 @@ test("add commands without --registry use local registry", async () => {
     entities: Array<{ type: string; id: string; registry: string }>;
   }>(workspace, ".harness/manifest.json");
 
-  const promptEntity = manifest.entities.find((entity) => entity.type === "prompt" && entity.id === "system");
+  const promptEntity = manifest.entities.find((entity) => entity.type === "prompt_section" && entity.id === "system");
   const skillEntity = manifest.entities.find((entity) => entity.type === "skill" && entity.id === "reviewer");
   const mcpEntity = manifest.entities.find((entity) => entity.type === "mcp_config" && entity.id === "playwright");
 
@@ -203,14 +205,17 @@ test("registry pull --registry only updates targeted registry", { concurrency: f
   assert.match(altSkill, /Alt version 1/u);
 });
 
-test("registry add + add prompt imports remote prompt and records provenance", { concurrency: false }, async (t) => {
+test("registry add + add prompt-section imports remote section and records provenance", {
+  concurrency: false,
+}, async (t) => {
   if (skipIfContainerRuntimeUnavailable(t)) return;
 
   const workspace = await mkTmpRepo();
   const repo = await fixture.createRegistryRepo({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp", description: "Registry" }, null, 2),
-      "prompts/system.md": "# System Prompt\n\nRemote public prompt\n",
+      "prompt-sections/misc/system/SECTION.md":
+        "---\nname: system\ndescription: Remote\n---\n\n# System Prompt\n\nRemote public prompt\n",
     },
     private: false,
     namePrefix: "prompt",
@@ -218,15 +223,15 @@ test("registry add + add prompt imports remote prompt and records provenance", {
 
   await runHarnessCli(workspace, ["init"]);
   await runHarnessCli(workspace, ["registry", "add", "corp", "--git-url", repo.readOnlyUrl, "--ref", repo.defaultRef]);
-  await runHarnessCli(workspace, ["add", "prompt", "--registry", "corp"]);
+  await runHarnessCli(workspace, ["add", "prompt-section", "system", "--registry", "corp"]);
 
-  const prompt = await readWorkspaceText(workspace, ".harness/src/prompts/system.md");
+  const prompt = await readWorkspaceText(workspace, ".harness/src/prompt-sections/system/SECTION.md");
   assert.match(prompt, /Remote public prompt/u);
 
   const manifest = await readWorkspaceJson<{
     entities: Array<{ type: string; id: string; registry: string }>;
   }>(workspace, ".harness/manifest.json");
-  const promptEntity = manifest.entities.find((entity) => entity.type === "prompt" && entity.id === "system");
+  const promptEntity = manifest.entities.find((entity) => entity.type === "prompt_section" && entity.id === "system");
   assert.equal(promptEntity?.registry, "corp");
 
   const lock = await readWorkspaceJson<{
@@ -239,7 +244,7 @@ test("registry add + add prompt imports remote prompt and records provenance", {
     }>;
   }>(workspace, ".harness/manifest.lock.json");
 
-  const lockEntity = lock.entities.find((entity) => entity.type === "prompt" && entity.id === "system");
+  const lockEntity = lock.entities.find((entity) => entity.type === "prompt_section" && entity.id === "system");
   assert.equal(lockEntity?.registry, "corp");
   assert.equal(lockEntity?.registryRevision?.kind, "git");
   assert.equal(lockEntity?.registryRevision?.ref, repo.defaultRef);

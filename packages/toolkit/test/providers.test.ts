@@ -10,7 +10,7 @@ test("apply warns when entities exist but no providers are enabled", async () =>
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
 
   const apply = await engine.apply();
   assert.equal(apply.writtenArtifacts.length, 0);
@@ -27,7 +27,7 @@ test("provider enablement controls generated outputs", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.addSkill("reviewer");
   await engine.addMcp("playwright");
   await engine.enableProvider("codex");
@@ -51,7 +51,7 @@ test("claude provider generates correct output files", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.addSkill("reviewer");
   await engine.addMcp("playwright");
   await engine.enableProvider("claude");
@@ -99,7 +99,7 @@ test("copilot provider generates correct output files", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.addSkill("reviewer");
   await engine.addMcp("playwright");
   await engine.enableProvider("copilot");
@@ -148,7 +148,7 @@ test("cursor provider generates only supported native outputs", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.addSkill("reviewer");
   await engine.addMcp("playwright");
   await engine.addSubagent("researcher");
@@ -207,7 +207,7 @@ test("multiple providers generate all expected outputs", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.addSkill("shared-skill");
   await engine.addMcp("test-server");
   await engine.enableProvider("codex");

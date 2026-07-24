@@ -10,7 +10,7 @@ test("validate fails when unmanaged source candidate exists", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
 
   await fs.writeFile(path.join(cwd, ".harness/src/mcp/manual.json"), "{}\n", "utf8");
 
@@ -24,7 +24,7 @@ test("validate fails when unmanaged override sidecar exists", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
 
   await fs.writeFile(path.join(cwd, ".harness/src/mcp/manual.overrides.codex.yaml"), "version: 1\n", "utf8");
 
@@ -43,7 +43,7 @@ test("validate fails when unmanaged command source candidate exists", async () =
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
 
   await fs.writeFile(path.join(cwd, ".harness/src/commands/manual.md"), "---\ndescription: x\n---\n\nBody\n", "utf8");
 
@@ -62,7 +62,7 @@ test("validate fails when unmanaged command override sidecar exists", async () =
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
 
   await fs.writeFile(path.join(cwd, ".harness/src/commands/manual.overrides.codex.yaml"), "version: 1\n", "utf8");
 

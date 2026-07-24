@@ -20,8 +20,8 @@ import {
   defaultHookOverridePath,
   defaultHookSourcePath,
   defaultMcpOverridePath,
-  defaultPromptOverridePath,
-  defaultPromptSourcePath,
+  defaultPromptSectionOverridePath,
+  defaultPromptSectionSourcePath,
   defaultSettingsSourcePath,
   defaultSkillOverridePath,
   defaultSubagentOverridePath,
@@ -38,7 +38,7 @@ import type {
   LoadedCommand,
   LoadedHook,
   LoadedMcp,
-  LoadedPrompt,
+  LoadedPromptSection,
   LoadedSettings,
   LoadedSkill,
   LoadedSubagent,
@@ -69,13 +69,15 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
     }
   }
 
-  const promptEntities = manifest.entities.filter((entity) => entity.type === "prompt" && entity.enabled !== false);
-  const prompts: LoadedPrompt[] = [];
-  for (const promptEntity of promptEntities) {
-    const loadedPrompt = await loadPrompt(paths, promptEntity, envVars);
-    diagnostics.push(...loadedPrompt.diagnostics);
-    if (loadedPrompt.prompt) {
-      prompts.push(loadedPrompt.prompt);
+  const promptSectionEntities = manifest.entities.filter(
+    (entity) => entity.type === "prompt_section" && entity.enabled !== false,
+  );
+  const promptSections: LoadedPromptSection[] = [];
+  for (const sectionEntity of promptSectionEntities) {
+    const loadedSection = await loadPromptSection(paths, sectionEntity, envVars);
+    diagnostics.push(...loadedSection.diagnostics);
+    if (loadedSection.section) {
+      promptSections.push(loadedSection.section);
     }
   }
 
@@ -142,7 +144,9 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   return {
     manifest,
     diagnostics,
-    prompts: prompts.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
+    promptSections: promptSections.sort(
+      (left, right) => left.canonical.order - right.canonical.order || left.entity.id.localeCompare(right.entity.id),
+    ),
     skills: skills.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     mcps: mcps.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     subagents: subagents.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
@@ -236,13 +240,13 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
     }
 
     const sourcePath = normalizeRelativePath(entity.sourcePath);
-    if (entity.type === "prompt") {
-      const expectedPath = defaultPromptSourcePath(entity.id);
+    if (entity.type === "prompt_section") {
+      const expectedPath = defaultPromptSectionSourcePath(entity.id);
       if (sourcePath !== expectedPath) {
         diagnostics.push({
-          code: "PROMPT_SOURCE_INVALID",
+          code: "PROMPT_SECTION_SOURCE_INVALID",
           severity: "error",
-          message: `Prompt '${entity.id}' sourcePath must be '${expectedPath}'`,
+          message: `Prompt-section '${entity.id}' sourcePath must be '${expectedPath}'`,
           path: sourcePath,
           entityId: entity.id,
         });
@@ -350,81 +354,36 @@ export function validateManifestSemantics(manifest: AgentsManifest): Diagnostic[
     }
   }
 
-  diagnostics.push(...buildPromptTargetConflictDiagnostics(manifest));
   diagnostics.push(...buildTargetRoutingDiagnostics(manifest));
 
   return diagnostics;
 }
 
-// A provider that cannot nest prompts (e.g. copilot) has a single root instructions file, so
-// exactly one prompt may own it. Prefer an untargeted prompt; if every prompt is targeted, the
-// first by id wins the root slot (so co-locating your only prompt does not leave the provider
-// with no instructions). Prompts are pre-sorted by id, but sort defensively for callers.
-export function selectRootPromptId(prompts: ReadonlyArray<{ id: string; target?: string }>): string | undefined {
-  if (prompts.length === 0) {
-    return undefined;
-  }
-  const sorted = [...prompts].sort((left, right) => left.id.localeCompare(right.id));
-  return (sorted.find((prompt) => !prompt.target) ?? sorted[0])?.id;
-}
-
-// Prompts are per-provider singletons, so two prompts sharing a target directory (both the
-// repo root when untargeted) would collide on the same CLAUDE.md/AGENTS.md. Surface a clear
-// error at validate time instead of a generic OUTPUT_PATH_COLLISION at apply time.
-function buildPromptTargetConflictDiagnostics(manifest: AgentsManifest): Diagnostic[] {
-  const byTarget = new Map<string, string[]>();
-  for (const entity of manifest.entities) {
-    if (entity.type !== "prompt" || entity.enabled === false) {
-      continue;
-    }
-    const key = entity.target ?? "";
-    byTarget.set(key, [...(byTarget.get(key) ?? []), entity.id]);
-  }
-
-  const diagnostics: Diagnostic[] = [];
-  for (const [key, ids] of byTarget) {
-    if (ids.length > 1) {
-      diagnostics.push({
-        code: "PROMPT_TARGET_CONFLICT",
-        severity: "error",
-        message: `Prompts ${ids.map((id) => `'${id}'`).join(", ")} share target '${key || "<root>"}'; each prompt needs a distinct target directory.`,
-        path: ".harness/manifest.json",
-      });
-    }
-  }
-  return diagnostics;
-}
-
-// Artifact family per entity type, and how a provider that can't nest it behaves when the
-// entity carries a `target` (see PROVIDER_NESTABLE / capability-aware routing).
-const ENTITY_ARTIFACT: Record<EntityType, { artifact: ArtifactType; cardinality: "singleton" | "namespaced" }> = {
-  prompt: { artifact: "prompt", cardinality: "singleton" },
-  skill: { artifact: "skill", cardinality: "namespaced" },
-  mcp_config: { artifact: "mcp", cardinality: "namespaced" },
-  subagent: { artifact: "subagent", cardinality: "namespaced" },
-  hook: { artifact: "hook", cardinality: "namespaced" },
-  command: { artifact: "command", cardinality: "namespaced" },
-  settings: { artifact: "settings", cardinality: "namespaced" },
+// Artifact family per entity type. All entity kinds are namespaced: prompt-sections compose into
+// the single system-prompt artifact rather than owning it as a singleton, so multiple sections may
+// share a target (they merge into one file) without conflict.
+const ENTITY_ARTIFACT: Record<EntityType, { artifact: ArtifactType }> = {
+  prompt_section: { artifact: "prompt" },
+  skill: { artifact: "skill" },
+  mcp_config: { artifact: "mcp" },
+  subagent: { artifact: "subagent" },
+  hook: { artifact: "hook" },
+  command: { artifact: "command" },
+  settings: { artifact: "settings" },
 };
 
-// Warn/inform when a targeted entity meets an enabled provider that can't co-locate it, so a
-// user understands why the artifact landed at the root (or, for a prompt, was skipped).
+// Inform when a targeted entity meets an enabled provider that can't co-locate it, so a user
+// understands why the artifact landed at the repository root instead of its target directory.
 function buildTargetRoutingDiagnostics(manifest: AgentsManifest): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const enabled = manifest.providers.enabled;
-  const rootPromptId = selectRootPromptId(
-    manifest.entities.filter((entity) => entity.type === "prompt" && entity.enabled !== false),
-  );
 
   for (const entity of manifest.entities) {
     if (!entity.target || entity.type === "settings" || entity.enabled === false) {
       continue;
     }
 
-    const { artifact, cardinality } = ENTITY_ARTIFACT[entity.type];
-    // For a singleton (prompt), the one that wins the root slot is emitted at root; the rest
-    // are skipped for the provider.
-    const skipped = cardinality === "singleton" && entity.id !== rootPromptId;
+    const { artifact } = ENTITY_ARTIFACT[entity.type];
 
     for (const provider of enabled) {
       // Skip providers that nest this artifact (target honored) or that emit no such artifact
@@ -433,23 +392,13 @@ function buildTargetRoutingDiagnostics(manifest: AgentsManifest): Diagnostic[] {
         continue;
       }
 
-      if (skipped) {
-        diagnostics.push({
-          code: "TARGET_PROMPT_SKIPPED",
-          severity: "warning",
-          message: `Provider '${provider}' has a single instructions file already claimed by prompt '${rootPromptId}', so targeted prompt '${entity.id}' is skipped for it.`,
-          entityId: entity.id,
-          provider,
-        });
-      } else {
-        diagnostics.push({
-          code: "TARGET_ROUTED_TO_ROOT",
-          severity: "info",
-          message: `Provider '${provider}' does not discover ${entity.type} '${entity.id}' nested; its artifact is placed at the repository root instead of '${entity.target}'.`,
-          entityId: entity.id,
-          provider,
-        });
-      }
+      diagnostics.push({
+        code: "TARGET_ROUTED_TO_ROOT",
+        severity: "info",
+        message: `Provider '${provider}' does not discover ${entity.type} '${entity.id}' nested; its artifact is placed at the repository root instead of '${entity.target}'.`,
+        entityId: entity.id,
+        provider,
+      });
     }
   }
 
@@ -471,11 +420,11 @@ function validateGitRegistryEntry(registryId: string, definition: RegistryDefini
   }
 }
 
-async function loadPrompt(
+async function loadPromptSection(
   paths: HarnessPaths,
   entity: EntityRef,
   envVars: Map<string, string>,
-): Promise<{ prompt?: LoadedPrompt; diagnostics: Diagnostic[] }> {
+): Promise<{ section?: LoadedPromptSection; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
   const sourceAbs = path.join(paths.root, sourcePath);
@@ -485,9 +434,9 @@ async function loadPrompt(
     text = await fs.readFile(sourceAbs, "utf8");
   } catch (error) {
     diagnostics.push({
-      code: "PROMPT_SOURCE_MISSING",
+      code: "PROMPT_SECTION_SOURCE_MISSING",
       severity: "error",
-      message: `Prompt source file '${sourcePath}' could not be read`,
+      message: `Prompt-section source file '${sourcePath}' could not be read`,
       path: sourcePath,
       entityId: entity.id,
       hint: error instanceof Error ? error.message : undefined,
@@ -498,13 +447,15 @@ async function loadPrompt(
   const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
   pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
 
+  // Prompt-sections are opaque locally: strip frontmatter only to obtain the composable body.
+  // name/description/tags are registry-side metadata and are not parsed or stored here.
   const parsed = matter(substitutedText);
   const body = parsed.content.trim();
   if (!body) {
     diagnostics.push({
-      code: "PROMPT_EMPTY",
+      code: "PROMPT_SECTION_EMPTY",
       severity: "error",
-      message: `Prompt '${entity.id}' cannot be empty`,
+      message: `Prompt-section '${entity.id}' cannot be empty`,
       path: sourcePath,
       entityId: entity.id,
     });
@@ -518,7 +469,7 @@ async function loadPrompt(
       paths,
       provider,
       entity,
-      entity.overrides?.[provider] ?? defaultPromptOverridePath(entity.id, provider),
+      entity.overrides?.[provider] ?? defaultPromptSectionOverridePath(entity.id, provider),
       envVars,
     );
     diagnostics.push(...parsedOverride.diagnostics);
@@ -530,12 +481,12 @@ async function loadPrompt(
 
   return {
     diagnostics,
-    prompt: {
+    section: {
       entity,
       canonical: {
         id: entity.id,
         body,
-        frontmatter: (parsed.data as Record<string, unknown>) ?? {},
+        order: entity.type === "prompt_section" ? (entity.order ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER,
         target: entity.target,
       },
       sourceSha256: sha256(text),

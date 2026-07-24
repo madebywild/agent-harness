@@ -409,12 +409,12 @@ test("settings keeps unmanaged-output and cross-provider collision protections",
   const collisionCwd = await mkTmpRepo();
   const collisionEngine = new HarnessEngine(collisionCwd);
   await collisionEngine.init();
-  await collisionEngine.addPrompt();
+  await collisionEngine.addPromptSection("system");
   await collisionEngine.addSettings("copilot");
   await collisionEngine.enableProvider("codex");
   await collisionEngine.enableProvider("copilot");
   await fs.writeFile(
-    path.join(collisionCwd, ".harness/src/prompts/system.overrides.codex.yaml"),
+    path.join(collisionCwd, ".harness/src/prompt-sections/system/OVERRIDES.codex.yaml"),
     "version: 1\ntargetPath: .vscode/settings.json\n",
     "utf8",
   );

@@ -68,16 +68,16 @@ describe("monorepo target journey", { timeout: 180_000 }, () => {
 
   // ---- Phase 2: add a root prompt plus targeted entities ----------------
   test("phase 2 — add root prompt and per-package targeted entities", async () => {
-    await runHarnessCli(workspace, ["add", "prompt"]); // system, root
-    await runHarnessCli(workspace, ["add", "prompt", "web", "--target", "packages/web"]);
+    await runHarnessCli(workspace, ["add", "prompt-section", "system"]); // system, root
+    await runHarnessCli(workspace, ["add", "prompt-section", "web", "--target", "packages/web"]);
     await runHarnessCli(workspace, ["add", "skill", "api-testing", "--target", "packages/api"]);
     await runHarnessCli(workspace, ["add", "mcp", "web-mcp", "--target", "packages/web"]);
     await runHarnessCli(workspace, ["add", "hook", "guard", "--target", "packages/web"]);
 
     // Canonical sources stay central regardless of target.
     for (const source of [
-      ".harness/src/prompts/system.md",
-      ".harness/src/prompts/web.md",
+      ".harness/src/prompt-sections/system/SECTION.md",
+      ".harness/src/prompt-sections/web/SECTION.md",
       ".harness/src/skills/api-testing/SKILL.md",
       ".harness/src/mcp/web-mcp.json",
       ".harness/src/hooks/guard.json",
@@ -89,7 +89,7 @@ describe("monorepo target journey", { timeout: 180_000 }, () => {
     const manifest = JSON.parse(
       await fs.readFile(path.join(workspace, ".harness/manifest.json"), "utf8"),
     ) as ManifestJson;
-    assert.equal(manifest.entities.find((e) => e.id === "web" && e.type === "prompt")?.target, "packages/web");
+    assert.equal(manifest.entities.find((e) => e.id === "web" && e.type === "prompt_section")?.target, "packages/web");
     assert.equal(manifest.entities.find((e) => e.id === "api-testing")?.target, "packages/api");
     assert.equal(manifest.entities.find((e) => e.id === "system")?.target, undefined);
   });
@@ -127,8 +127,8 @@ describe("monorepo target journey", { timeout: 180_000 }, () => {
     assert.ok(await fileExists(path.join(workspace, ".codex/config.toml")), "codex config at root");
     assert.ok(!(await fileExists(path.join(workspace, "packages/web/.codex/config.toml"))), "no nested codex config");
 
-    // Copilot never nests: skill routes to root, and the untargeted prompt owns the single
-    // instructions file (the targeted `web` prompt is skipped for copilot).
+    // Copilot never nests: skill routes to root, and every prompt-section composes into the single
+    // instructions file (the targeted `web` section is routed to root for copilot).
     assert.ok(await fileExists(path.join(workspace, ".github/skills/api-testing/SKILL.md")), "copilot skill at root");
     assert.ok(
       await fileExists(path.join(workspace, ".github/copilot-instructions.md")),
@@ -150,8 +150,8 @@ describe("monorepo target journey", { timeout: 180_000 }, () => {
       "expected TARGET_ROUTED_TO_ROOT info",
     );
     assert.ok(
-      diags.some((d) => d.code === "TARGET_PROMPT_SKIPPED" && d.provider === "copilot" && d.entityId === "web"),
-      "expected TARGET_PROMPT_SKIPPED for copilot/web",
+      diags.some((d) => d.code === "TARGET_ROUTED_TO_ROOT" && d.provider === "copilot" && d.entityId === "web"),
+      "expected TARGET_ROUTED_TO_ROOT for copilot/web",
     );
   });
 
@@ -178,16 +178,16 @@ describe("monorepo target journey", { timeout: 180_000 }, () => {
     );
   });
 
-  // ---- Phase 5: PROMPT_TARGET_CONFLICT guardrail ------------------------
-  test("phase 5 — a second untargeted prompt is rejected with PROMPT_TARGET_CONFLICT", async () => {
-    await runHarnessCli(workspace, ["add", "prompt", "dupe"]); // untargeted -> collides with system at root
+  // ---- Phase 5: a second untargeted prompt-section composes (no conflict) ---
+  test("phase 5 — a second untargeted prompt-section composes into the root file", async () => {
+    await runHarnessCli(workspace, ["add", "prompt-section", "dupe"]); // untargeted -> composes with system at root
 
-    const failed = await runHarnessCliExpectFailure(workspace, ["plan", "--json"]);
-    const plan = JSON.parse(failed.stdout) as ApplyJsonOutput;
-    assert.ok(plan.data.result.diagnostics.some((d) => d.code === "PROMPT_TARGET_CONFLICT"));
+    const result = await runHarnessCli(workspace, ["plan", "--json"]);
+    const plan = JSON.parse(result.stdout) as ApplyJsonOutput;
+    assert.ok(!plan.data.result.diagnostics.some((d) => d.severity === "error"));
 
-    // Clean up so later phases operate on a valid workspace.
-    await runHarnessCli(workspace, ["remove", "prompt", "dupe"]);
+    // Clean up so later phases operate on the original workspace shape.
+    await runHarnessCli(workspace, ["remove", "prompt-section", "dupe"]);
   });
 
   // ---- Phase 6: SETTINGS_TARGET_UNSUPPORTED guardrail -------------------
@@ -215,7 +215,7 @@ describe("monorepo target — only prompt targeted", { timeout: 120_000 }, () =>
     await runHarnessCli(workspace, ["init"]);
     await runHarnessCli(workspace, ["provider", "enable", "claude"]);
     await runHarnessCli(workspace, ["provider", "enable", "copilot"]);
-    await runHarnessCli(workspace, ["add", "prompt", "--target", "packages/web"]);
+    await runHarnessCli(workspace, ["add", "prompt-section", "system", "--target", "packages/web"]);
 
     const result = await runHarnessCli(workspace, ["apply", "--json"]);
     const apply = JSON.parse(result.stdout) as ApplyJsonOutput;
