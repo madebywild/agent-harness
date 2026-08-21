@@ -79,6 +79,41 @@ test("non-current workspace blocks plan/apply/validate and mutating commands", a
   await assert.rejects(async () => engine.addSkill("blocked"), /MANIFEST_VERSION_OUTDATED/u);
 });
 
+test("legacy 'prompt' entity surfaces PROMPT_ENTITY_REMOVED, not a raw schema error", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addPromptSection("system");
+
+  // Simulate a pre-refactor workspace: an entity whose type is the removed 'prompt'.
+  const manifest = await readJson<{ entities: Array<Record<string, unknown>> }>(cwd, ".harness/manifest.json");
+  const entity = manifest.entities.find((e) => e.type === "prompt_section");
+  assert.ok(entity, "expected a prompt_section entity to mutate");
+  entity.type = "prompt";
+  await writeJson(cwd, ".harness/manifest.json", manifest);
+
+  const hasFriendly = (diagnostics: Array<{ code: string }>) =>
+    diagnostics.some((d) => d.code === "PROMPT_ENTITY_REMOVED");
+  const hasRaw = (diagnostics: Array<{ code: string }>) => diagnostics.some((d) => d.code === "MANIFEST_INVALID");
+
+  const plan = await engine.plan();
+  assert.ok(hasFriendly(plan.diagnostics), "plan should surface PROMPT_ENTITY_REMOVED");
+  assert.ok(!hasRaw(plan.diagnostics), "plan should not leak the raw MANIFEST_INVALID error");
+
+  const validation = await engine.validate();
+  assert.equal(validation.valid, false);
+  assert.ok(hasFriendly(validation.diagnostics), "validate should surface PROMPT_ENTITY_REMOVED");
+
+  const apply = await engine.apply();
+  assert.ok(hasFriendly(apply.diagnostics), "apply should surface PROMPT_ENTITY_REMOVED");
+  assert.equal(apply.writtenArtifacts.length, 0);
+
+  const doctor = await engine.doctor();
+  const manifestFile = doctor.files.find((file) => file.path === ".harness/manifest.json");
+  assert.equal(manifestFile?.code, "PROMPT_ENTITY_REMOVED");
+});
+
 test("doctor flags mixed-version state as migration incomplete", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);

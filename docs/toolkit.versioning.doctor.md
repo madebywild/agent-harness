@@ -18,3 +18,4 @@ Performs workspace schema-version health checks and produces per-file version di
 - `DoctorResult.migrationPossible` is `false` when any file is `unsupported`, `invalid`, or `missing`.
 - Unsupported/newer schema files emit `*_VERSION_NEWER_THAN_CLI` with CLI-upgrade hints.
 - Mixed-version states (at least one `outdated` plus at least one `current`) emit `MIGRATION_INCOMPLETE` guidance.
+- Manifest inspection checks for the removed legacy `prompt` entity (`detectLegacyPromptEntity`) before schema parsing, emitting `PROMPT_ENTITY_REMOVED` (status `invalid`) with the actionable rename steps instead of a cryptic `MANIFEST_INVALID`. This runs at the preflight choke point, so `plan`/`apply`/`validate`/`doctor` all report it consistently.

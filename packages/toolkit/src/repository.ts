@@ -87,7 +87,7 @@ export async function loadManifest(paths: HarnessPaths): Promise<{
 // The `prompt` entity was removed in favor of composable `prompt_section` entities. Surface a
 // targeted, actionable diagnostic instead of a cryptic Zod discriminated-union error when an older
 // workspace is opened with a newer CLI. (No automatic migration is provided.)
-function detectLegacyPromptEntity(parsed: unknown): Diagnostic | null {
+export function detectLegacyPromptEntity(parsed: unknown): Diagnostic | null {
   if (!parsed || typeof parsed !== "object") {
     return null;
   }
@@ -110,7 +110,8 @@ function detectLegacyPromptEntity(parsed: unknown): Diagnostic | null {
       "The 'prompt' entity was removed in favor of composable 'prompt_section' entities. " +
       `Move '.harness/src/prompts/${id}.md' to '.harness/src/prompt-sections/${id}/SECTION.md', rename its ` +
       `override sidecars to '.harness/src/prompt-sections/${id}/OVERRIDES.<provider>.yaml', and change the ` +
-      "manifest entity 'type' to 'prompt_section' (add an integer 'order', e.g. 0). No automatic migration is provided.",
+      "manifest entity 'type' to 'prompt_section' (composition order follows the entities array). " +
+      "No automatic migration is provided.",
     path: ".harness/manifest.json",
     entityId: id,
   };

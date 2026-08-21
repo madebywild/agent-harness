@@ -9,13 +9,13 @@
 
 Unified AI agent configuration management for Codex, Claude, Copilot, and Cursor. The Shadcn for agent harnesses.
 
-Agent Harness is a TypeScript CLI tool and library that manages AI agent configurations (prompts, skills, MCP server configs, and subagents) from a single source of truth, generating provider-specific outputs for OpenAI Codex, Anthropic Claude Code, GitHub Copilot, and Cursor.
+Agent Harness is a TypeScript CLI tool and library that manages AI agent configurations (composable prompt sections, skills, MCP server configs, and subagents) from a single source of truth, generating provider-specific outputs for OpenAI Codex, Anthropic Claude Code, GitHub Copilot, and Cursor.
 
 Like [shadcn/ui](https://ui.shadcn.com/) does for UI components, Agent Harness gives you full ownership of your agent configuration. Pull shared entities from external git registries into your project as full source code — not as opaque library imports. You can inspect, modify, and version every file. The CLI manages the plumbing; you own the content.
 
 ## How it works
 
-Install Agent Harness in a project, then add a skill, prompt, MCP config, subagent, or hook once under `.harness/src/`. Run `npx harness apply` and it renders that single source into the native config file each provider expects:
+Install Agent Harness in a project, then add a skill, prompt section, MCP config, subagent, or hook once under `.harness/src/`. Run `npx harness apply` and it renders that single source into the native config file each provider expects:
 
 ```
 .harness/src/skills/my-skill/SKILL.md
@@ -28,7 +28,7 @@ Install Agent Harness in a project, then add a skill, prompt, MCP config, subage
 skills/     skills/     skills/     skills/
 ```
 
-No copy-pasting a skill or prompt into every provider's own format by hand, and no drift between them once you do. Edit the source once, run `apply`, and every enabled provider stays in sync.
+No copy-pasting a skill or prompt section into every provider's own format by hand, and no drift between them once you do. Edit the source once, run `apply`, and every enabled provider stays in sync.
 
 On top of that, `npx harness registry` lets a team pull any of the above from a shared git repo, and `npx harness preset apply` bootstraps a whole set of them in one step.
 
@@ -39,7 +39,7 @@ On top of that, `npx harness registry` lets a team pull any of the above from a 
 - Single source of truth for all agent configurations in the `.harness/` directory
 - Multi-provider support with simultaneous output generation for Codex, Claude, Copilot, and Cursor
 - Monorepo co-location: place generated artifacts in per-package directories via a per-entity `target`, routed per provider capability
-- System prompt management with provider-specific overrides
+- Composable prompt sections that assemble into each provider's system prompt in manifest order, with per-section provider overrides (drop a section from one provider via `enabled: false`)
 - Reusable skill management synchronized across providers
 - Third-party skill discovery and import via [skills.sh](https://skills.sh) with audit gating
 - Centralized MCP server configuration with merged outputs
@@ -56,7 +56,9 @@ On top of that, `npx harness registry` lets a team pull any of the above from a 
 - No hidden abstractions — every pulled file lands in `.harness/src/` where you can inspect, modify, and commit it
 - Per-entity registry provenance tracks where each entity originated
 - Explicit `registry pull` workflow for refreshing imported entities on your terms
-- Preset-based workspace bootstrapping with bundled, local, and registry-backed presets
+- Registries organize skills and prompt sections into category folders with optional `tags`; consumers add them by bare id (`add skill <id> --registry <name>`)
+- Strict registry root: only `skills/`, `prompt-sections/`, and `presets/` may hold entities — every other entity type (MCP, subagents, hooks, settings, commands) ships inside a preset
+- Preset-based workspace bootstrapping with bundled, local, and registry-backed presets, including registry preset inheritance via `extends`
 - Teams can maintain a shared registry of battle-tested prompts, skills, hooks, and MCP configs that any project can adopt
 
 ## Quick Start
@@ -80,7 +82,7 @@ npx harness init --delegate codex
 npx harness init --delegate copilot
 ```
 
-This path auto-applies the bundled `delegate` preset, seeds `.harness/src/prompts/system.md` with one shared bootstrap prompt for all providers, and then launches the selected agent CLI so it can inspect the repository and finish setup through non-interactive `pnpm harness` or `npx harness` commands.
+This path auto-applies the bundled `delegate` preset, seeds `.harness/src/prompt-sections/system/SECTION.md` with one shared bootstrap prompt section for all providers, and then launches the selected agent CLI so it can inspect the repository and finish setup through non-interactive `pnpm harness` or `npx harness` commands.
 
 ### Migrating from existing provider configs (U-Haul)
 
@@ -105,14 +107,17 @@ npx harness provider enable claude
 npx harness provider enable copilot
 
 # Configure a git registry and set it as default
-npx harness registry add corp --gitUrl git@github.com:acme/harness-registry.git --ref main
+npx harness registry add corp --git-url git@github.com:acme/harness-registry.git --ref main
 npx harness registry default set corp
 
-# Add a system prompt
-npx harness add prompt
+# Add a prompt section (composes into the system prompt)
+npx harness add prompt-section intro
 
 # Add a skill
 npx harness add skill my-skill
+
+# Add a skill by bare id from a registry (category resolved automatically)
+npx harness add skill commit-create --registry corp
 
 # Find third-party skills via skills.sh
 npx harness skill find "code review"
@@ -172,7 +177,7 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | `npx harness provider enable <id>`                                      | Enable a provider (codex/claude/copilot/cursor)                                                               |
 | `npx harness provider disable <id>`                                     | Disable a provider                                                                                            |
 | `npx harness registry list`                                             | List configured registries                                                                                    |
-| `npx harness registry add <name> --gitUrl <url> [--ref <branch>]`       | Add a Git registry entry                                                                                      |
+| `npx harness registry add <name> --git-url <url> [--ref <branch>] [--root <path>] [--token-env <VAR>]` | Add a Git registry entry                                                                       |
 | `npx harness registry remove <name>`                                    | Remove a configured registry                                                                                  |
 | `npx harness registry default show/set <name>`                          | Show or set default registry                                                                                  |
 | `npx harness registry pull [<type> <id>] [--registry <name>] [--force]` | Refresh imported entities                                                                                     |
@@ -180,7 +185,7 @@ The CLI is available at `packages/toolkit/dist/cli.js`.
 | `npx harness preset list [--registry <name>]`                           | List bundled, local, or registry presets                                                                      |
 | `npx harness preset describe <id> [--registry <name>]`                  | Describe a preset                                                                                             |
 | `npx harness preset apply <id> [--registry <name>]`                     | Materialize a preset into normal harness state                                                                |
-| `npx harness add prompt [<id>] [--registry <name>] [--target <dir>]`    | Add a system prompt entity (id defaults to `system`)                                                          |
+| `npx harness add prompt-section <id> [--registry <name>] [--target <dir>]` | Add a prompt-section entity (composed into the system prompt in manifest order)                            |
 | `npx harness skill find <query>`                                        | Search third-party skills via skills.sh                                                                       |
 | `npx harness skill import <source> --skill <id> [--as <id>] [--replace]`| Import a third-party skill with audit gating                                                                  |
 | `npx harness add skill <id> [--registry <name>] [--target <dir>]`       | Add a skill entity                                                                                            |
@@ -210,6 +215,7 @@ Global flags:
   3. `npx harness apply`
 - If a workspace schema is newer than the installed CLI, commands fail safely with `*_VERSION_NEWER_THAN_CLI`; upgrade the CLI before proceeding.
 - `npx harness migrate` creates a backup snapshot under `.harness/.backup/<timestamp>/` and writes files atomically.
+- The legacy single `prompt` entity was replaced by composable `prompt-section` entities. A workspace that still has a `type: "prompt"` entity fails with an actionable `PROMPT_ENTITY_REMOVED` error (move `prompts/<id>.md` to `prompt-sections/<id>/SECTION.md`, rename its override sidecars, and set the entity `type` to `prompt_section`). There is no automatic migration for this break.
 
 ## Project Structure
 
@@ -221,29 +227,36 @@ Global flags:
 ├── .env                   # Per-workspace secrets (gitignored)
 ├── presets/               # Optional local preset packages
 └── src/
-    ├── prompts/
-    │   └── system.md                    # System prompt
-    │   ├── system.overrides.codex.yaml
-    │   ├── system.overrides.claude.yaml
-    │   └── system.overrides.copilot.yaml
+    ├── prompt-sections/
+    │   └── system/                      # A prompt section; sections compose in manifest order
+    │       ├── SECTION.md
+    │       ├── OVERRIDES.codex.yaml
+    │       ├── OVERRIDES.claude.yaml
+    │       ├── OVERRIDES.copilot.yaml
+    │       └── OVERRIDES.cursor.yaml
     ├── skills/
     │   └── my-skill/
     │       ├── SKILL.md
     │       ├── OVERRIDES.codex.yaml
     │       ├── OVERRIDES.claude.yaml
-    │       └── OVERRIDES.copilot.yaml
+    │       ├── OVERRIDES.copilot.yaml
+    │       └── OVERRIDES.cursor.yaml
     ├── mcp/
-        ├── my-mcp.json
-        ├── my-mcp.overrides.codex.yaml
-        ├── my-mcp.overrides.claude.yaml
-        └── my-mcp.overrides.copilot.yaml
+    │   ├── my-mcp.json
+    │   ├── my-mcp.overrides.codex.yaml
+    │   ├── my-mcp.overrides.claude.yaml
+    │   ├── my-mcp.overrides.copilot.yaml
+    │   └── my-mcp.overrides.cursor.yaml
     ├── subagents/
     │   ├── researcher.md
     │   ├── researcher.overrides.codex.yaml
     │   ├── researcher.overrides.claude.yaml
-    │   └── researcher.overrides.copilot.yaml
-   ├── commands/
-   │   └── fix-issue.md
+    │   ├── researcher.overrides.copilot.yaml
+    │   └── researcher.overrides.cursor.yaml
+    ├── settings/
+    │   └── claude.json
+    ├── commands/
+    │   └── fix-issue.md
     └── hooks/
         └── my-hook.json
 .env.harness                   # Shared env parameters (optionally committed)
@@ -255,17 +268,17 @@ Presets are bootstrap macros, not manifest entities.
 
 - Bundled presets ship with the toolkit package.
 - Local presets live under `.harness/presets/<id>/`.
-- Registry presets live under `presets/<id>/` in a git registry.
+- Registry presets live under `presets/<id>/` in a git registry, and may declare a top-level `extends: <parent-id>` to inherit another registry preset's `add_skill` / `add_prompt_section` operations (inherited ops apply parent-first, then the child's own — this is also the prompt-section composition order). `extends` is registry-only; a bundled or local preset that declares it is rejected.
 
-The bundled `delegate` preset seeds one shared bootstrap prompt for Claude, Codex, Copilot, and Cursor and enables all providers. `init --delegate <provider>` uses that preset and then launches the selected agent CLI to replace the bootstrap content with the real project-specific prompt.
+The bundled `delegate` preset seeds one shared bootstrap prompt section for Claude, Codex, Copilot, and Cursor and enables all providers. `init --delegate <provider>` uses that preset and then launches the selected agent CLI to replace the bootstrap content with the real project-specific prompt.
 
-Applying a preset materializes normal harness state such as enabled providers, prompt/skill/subagent sources, settings, and commands. After that, the usual `validate`, `plan`, and `apply` workflow remains unchanged.
+Applying a preset materializes normal harness state such as enabled providers, prompt-section/skill/subagent sources, settings, and commands. After that, the usual `validate`, `plan`, and `apply` workflow remains unchanged.
 
 ## Generated Outputs
 
-| Entity    | Codex                                    | Claude                   | Copilot                           | Cursor                     |
-| --------- | ---------------------------------------- | ------------------------ | --------------------------------- | -------------------------- |
-| Prompt    | `AGENTS.md`                              | `.claude/CLAUDE.md`      | `.github/copilot-instructions.md` | —                          |
+| Entity          | Codex                                    | Claude                   | Copilot                           | Cursor                     |
+| --------------- | ---------------------------------------- | ------------------------ | --------------------------------- | -------------------------- |
+| Prompt sections | `AGENTS.md`                              | `.claude/CLAUDE.md`      | `.github/copilot-instructions.md` | —                          |
 | Skills    | `.codex/skills/`                         | `.claude/skills/`        | `.github/skills/`                 | `.cursor/skills/`          |
 | MCP       | `.codex/config.toml`                     | `.mcp.json`              | `.vscode/mcp.json`                | `.cursor/mcp.json`         |
 | Subagents | `.codex/config.toml` (merged `agents.*`) | `.claude/agents/<id>.md` | `.github/agents/<id>.agent.md`    | `.cursor/agents/<id>.md`   |
@@ -276,13 +289,13 @@ Applying a preset materializes normal harness state such as enabled providers, p
 In a monorepo, co-locate generated artifacts with the package they describe using a per-entity `target`:
 
 ```bash
-npx harness add prompt web --target packages/web
+npx harness add prompt-section web --target packages/web
 npx harness add skill api-testing --target packages/api
 npx harness apply
 # -> packages/web/CLAUDE.md and packages/api/.claude/skills/api-testing/SKILL.md
 ```
 
-`target` relocates only the generated artifacts; canonical sources stay under `.harness/src/`. Routing is capability-aware: providers that discover an artifact when nested (Claude for all artifacts, Codex for prompts) place it in the package, while providers that do not (Copilot, Cursor) keep it at the repository root. Multiple prompts are supported, so a root prompt plus per-package prompts can coexist. See [docs/monorepo.md](docs/monorepo.md) for the full behavior.
+`target` relocates only the generated artifacts; canonical sources stay under `.harness/src/`. Routing is capability-aware: providers that discover an artifact when nested (Claude for all artifacts, Codex for prompts) place it in the package, while providers that do not (Copilot, Cursor) keep it at the repository root. Prompt sections group by target, so a root section plus per-package sections can coexist. See [docs/monorepo.md](docs/monorepo.md) for the full behavior.
 
 ## Monorepo Packages
 
