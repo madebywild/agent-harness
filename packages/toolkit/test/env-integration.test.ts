@@ -15,12 +15,12 @@ test("env integration: prompt placeholders are substituted from .harness/.env", 
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.enableProvider("codex");
 
   // Overwrite the prompt source with a placeholder
   await fs.writeFile(
-    path.join(cwd, ".harness/src/prompts/system.md"),
+    path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md"),
     "You are a {{ROLE}} assistant for {{PROJECT_NAME}}.\n",
   );
 
@@ -223,10 +223,13 @@ test("env integration: .harness/.env takes precedence over .env.harness", async 
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.enableProvider("codex");
 
-  await fs.writeFile(path.join(cwd, ".harness/src/prompts/system.md"), "You work on the {{APP_ENV}} environment.\n");
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md"),
+    "You work on the {{APP_ENV}} environment.\n",
+  );
 
   // .env.harness at project root (lower priority)
   await fs.writeFile(path.join(cwd, ".env.harness"), "APP_ENV=staging\n");
@@ -258,7 +261,7 @@ test("env integration: unresolved placeholder generates ENV_VAR_UNRESOLVED warni
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.enableProvider("codex");
 
   // Ensure the env var doesn't exist in process.env either
@@ -267,7 +270,7 @@ test("env integration: unresolved placeholder generates ENV_VAR_UNRESOLVED warni
 
   try {
     await fs.writeFile(
-      path.join(cwd, ".harness/src/prompts/system.md"),
+      path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md"),
       "This uses {{UNDEFINED_VAR}} which is not set.\n",
     );
 
@@ -317,10 +320,10 @@ test("env integration: invalid override keeps unresolved env warnings in overrid
   const missingKey = "AGENT_HARNESS_TEST_MISSING_MODEL_OVERRIDE";
   const originalValue = process.env[missingKey];
   delete process.env[missingKey];
-  const overridePath = ".harness/src/prompts/system.overrides.codex.yaml";
+  const overridePath = ".harness/src/prompt-sections/system/OVERRIDES.codex.yaml";
 
   try {
-    await fs.mkdir(path.join(cwd, ".harness/src/prompts"), { recursive: true });
+    await fs.mkdir(path.join(cwd, ".harness/src/prompt-sections/system"), { recursive: true });
 
     await fs.writeFile(path.join(cwd, overridePath), `version: 1\nmodel: "{{${missingKey}}}"\nbad: [1, 2\n`);
 
@@ -349,10 +352,13 @@ test("env integration: lock file sourceSha256 is based on raw (pre-substitution)
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.enableProvider("codex");
 
-  await fs.writeFile(path.join(cwd, ".harness/src/prompts/system.md"), "You are the {{ASSISTANT_TYPE}} assistant.\n");
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md"),
+    "You are the {{ASSISTANT_TYPE}} assistant.\n",
+  );
   await fs.writeFile(path.join(cwd, ".harness/.env"), "ASSISTANT_TYPE=coding\n");
 
   // First apply
@@ -367,7 +373,7 @@ test("env integration: lock file sourceSha256 is based on raw (pre-substitution)
   const lock1 = JSON.parse(await fs.readFile(lockPath, "utf8")) as {
     entities: Array<{ id: string; type: string; sourceSha256: string }>;
   };
-  const promptEntity1 = lock1.entities.find((e) => e.type === "prompt");
+  const promptEntity1 = lock1.entities.find((e) => e.type === "prompt_section");
   assert.ok(promptEntity1, "Lock should have a prompt entity");
   const sha1 = promptEntity1.sourceSha256;
 
@@ -385,7 +391,7 @@ test("env integration: lock file sourceSha256 is based on raw (pre-substitution)
   const lock2 = JSON.parse(await fs.readFile(lockPath, "utf8")) as {
     entities: Array<{ id: string; type: string; sourceSha256: string }>;
   };
-  const promptEntity2 = lock2.entities.find((e) => e.type === "prompt");
+  const promptEntity2 = lock2.entities.find((e) => e.type === "prompt_section");
   assert.ok(promptEntity2, "Lock should still have a prompt entity");
   const sha2 = promptEntity2.sourceSha256;
 
@@ -406,7 +412,7 @@ test("env integration: missing .env files do not cause errors", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.enableProvider("codex");
 
   // Do NOT create .harness/.env or .env.harness
@@ -429,15 +435,18 @@ test("env integration: override YAML files support env var substitution", async 
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.enableProvider("codex");
 
   // Write the prompt source
-  await fs.writeFile(path.join(cwd, ".harness/src/prompts/system.md"), "You are a helpful assistant.\n");
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md"),
+    "You are a helpful assistant.\n",
+  );
 
   // Write an override YAML with a placeholder in targetPath
   await fs.writeFile(
-    path.join(cwd, ".harness/src/prompts/system.overrides.codex.yaml"),
+    path.join(cwd, ".harness/src/prompt-sections/system/OVERRIDES.codex.yaml"),
     'version: 1\ntargetPath: "{{OUTPUT_PATH}}"\n',
   );
 
@@ -476,10 +485,10 @@ test("env integration: .env.harness at project root is loaded when .harness/.env
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.enableProvider("codex");
 
-  await fs.writeFile(path.join(cwd, ".harness/src/prompts/system.md"), "Welcome to {{APP_NAME}}.\n");
+  await fs.writeFile(path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md"), "Welcome to {{APP_NAME}}.\n");
 
   // Only create .env.harness at root, no .harness/.env
   await fs.writeFile(path.join(cwd, ".env.harness"), "APP_NAME=TestApp\n");
@@ -503,12 +512,12 @@ test("env integration: multiple entity types with shared env vars", async () => 
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.addSubagent("helper");
   await engine.enableProvider("claude");
 
   // Both entities use the same placeholder
-  await fs.writeFile(path.join(cwd, ".harness/src/prompts/system.md"), "You work on {{PROJECT}}.\n");
+  await fs.writeFile(path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md"), "You work on {{PROJECT}}.\n");
   await fs.writeFile(
     path.join(cwd, ".harness/src/subagents/helper.md"),
     "---\nname: helper\ndescription: Helper for {{PROJECT}}\n---\n\nAssist with {{PROJECT}} tasks.\n",
@@ -538,10 +547,13 @@ test("env integration: env var value containing special characters", async () =>
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.enableProvider("codex");
 
-  await fs.writeFile(path.join(cwd, ".harness/src/prompts/system.md"), "Connect to {{DATABASE_URL}}.\n");
+  await fs.writeFile(
+    path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md"),
+    "Connect to {{DATABASE_URL}}.\n",
+  );
 
   // Value with special characters (URL with query params)
   await fs.writeFile(
@@ -571,12 +583,12 @@ test("env integration: apply works correctly with no placeholders in source file
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.enableProvider("codex");
 
   // Source has no placeholders, but .env exists
   await fs.writeFile(
-    path.join(cwd, ".harness/src/prompts/system.md"),
+    path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md"),
     "You are a helpful assistant with no placeholders.\n",
   );
   await fs.writeFile(path.join(cwd, ".harness/.env"), "UNUSED_VAR=some-value\n");

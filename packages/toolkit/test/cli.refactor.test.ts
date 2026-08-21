@@ -138,7 +138,7 @@ test("runCliArgv init --preset applies the shared delegate preset", async () => 
   };
   assert.deepEqual(manifest.providers.enabled, ["claude", "codex", "copilot"]);
 
-  const prompt = await fs.readFile(path.join(cwd, ".harness/src/prompts/system.md"), "utf8");
+  const prompt = await fs.readFile(path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md"), "utf8");
   assert.match(prompt, /temporary bootstrap prompt for agent-harness/u);
 });
 
@@ -182,8 +182,8 @@ test("runCliArgv init --u-haul --json returns u-haul summary payload", async () 
     ok: boolean;
     data: {
       uHaul?: {
-        detected: { prompt: number };
-        imported: { prompt: number };
+        detected: { "prompt-section": number };
+        imported: { "prompt-section": number };
         precedence: string[];
         apply: { operations: number; writtenArtifacts: number; prunedArtifacts: number };
       };
@@ -193,8 +193,8 @@ test("runCliArgv init --u-haul --json returns u-haul summary payload", async () 
   assert.equal(payload.command, "init");
   assert.equal(payload.ok, true);
   assert.ok(payload.data.uHaul);
-  assert.equal(payload.data.uHaul?.detected.prompt, 1);
-  assert.equal(payload.data.uHaul?.imported.prompt, 1);
+  assert.equal(payload.data.uHaul?.detected["prompt-section"], 1);
+  assert.equal(payload.data.uHaul?.imported["prompt-section"], 1);
   assert.deepEqual(payload.data.uHaul?.precedence, ["claude", "codex", "copilot"]);
   assert.equal(typeof payload.data.uHaul?.apply.operations, "number");
 });
@@ -233,7 +233,7 @@ test("runCliArgv init --u-haul-precedence controls precedence mapping", async ()
   };
   assert.deepEqual(payload.data.uHaul?.precedence, ["codex", "claude", "copilot"]);
 
-  const prompt = await fs.readFile(path.join(cwd, ".harness/src/prompts/system.md"), "utf8");
+  const prompt = await fs.readFile(path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md"), "utf8");
   assert.equal(prompt.trim(), "Codex prompt");
 });
 
@@ -259,13 +259,13 @@ test("runCliArgv returns exitCode for commander-managed --help path", async () =
 
 test("runCliCommand registry.validate defaults to context cwd when path is omitted", async () => {
   const cwd = await mkTmpRepo();
-  await fs.mkdir(path.join(cwd, "skills/reviewer"), { recursive: true });
+  await fs.mkdir(path.join(cwd, "skills/engineering/reviewer"), { recursive: true });
   await fs.writeFile(
     path.join(cwd, "harness-registry.json"),
     JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
     "utf8",
   );
-  await fs.writeFile(path.join(cwd, "skills/reviewer/SKILL.md"), "# reviewer\n\nSkill\n", "utf8");
+  await fs.writeFile(path.join(cwd, "skills/engineering/reviewer/SKILL.md"), "# reviewer\n\nSkill\n", "utf8");
 
   const output = await runCliCommand(
     {
@@ -292,13 +292,13 @@ test("runCliCommand registry.validate defaults to context cwd when path is omitt
 test("runCliArgv registry.validate defaults to invocation cwd when --path is omitted", async () => {
   const cwd = await mkTmpRepo();
   const capture = createCapturedContext(cwd, { isTty: false, isCi: false });
-  await fs.mkdir(path.join(cwd, "skills/reviewer"), { recursive: true });
+  await fs.mkdir(path.join(cwd, "skills/engineering/reviewer"), { recursive: true });
   await fs.writeFile(
     path.join(cwd, "harness-registry.json"),
     JSON.stringify({ version: 1, title: "Corp Registry", description: "Internal" }, null, 2),
     "utf8",
   );
-  await fs.writeFile(path.join(cwd, "skills/reviewer/SKILL.md"), "# reviewer\n\nSkill\n", "utf8");
+  await fs.writeFile(path.join(cwd, "skills/engineering/reviewer/SKILL.md"), "# reviewer\n\nSkill\n", "utf8");
 
   const result = await runCliArgv(["registry", "validate", "--json"], capture.context);
 

@@ -1,12 +1,12 @@
 import type {
   CanonicalMcpConfig,
-  CanonicalPrompt,
+  CanonicalPromptSection,
   CanonicalSkill,
   ProviderAdapter,
   ProviderOverride,
   RenderedArtifact,
 } from "../types.js";
-import { normalizeRelativePath, withSingleTrailingNewline } from "../utils.js";
+import { normalizeRelativePath, uniqSorted, withSingleTrailingNewline } from "../utils.js";
 import { isNestable } from "./constants.js";
 import { mergeMcpServers } from "./mcp.js";
 import { groupByOutputPath, resolveOutputPath } from "./paths.js";
@@ -24,31 +24,36 @@ export function createProviderAdapter(
 
   return {
     id: provider,
-    async renderPrompt(input: CanonicalPrompt, override?: ProviderOverride): Promise<RenderedArtifact[]> {
-      if (override?.enabled === false) {
+    async renderPromptSections(
+      sections: CanonicalPromptSection[],
+      overrideByEntity?: Map<string, ProviderOverride | undefined>,
+    ): Promise<RenderedArtifact[]> {
+      const enabled = sections.filter((section) => overrideByEntity?.get(section.id)?.enabled !== false);
+      if (enabled.length === 0) {
         return [];
       }
 
-      // A non-nesting provider (e.g. copilot) places the prompt at its single root
-      // instructions file. Which prompt "wins" that single slot is decided by the planner
-      // (it sees all prompts); this adapter only renders the prompts it is handed.
-      const artifactPath = resolveOutputPath({
-        nestable: isNestable(provider, "prompt"),
-        target: input.target,
-        targetPath: override?.targetPath,
-        defaultRelative: defaults.promptTarget,
-      });
-      const promptContent = withSingleTrailingNewline(input.body);
+      // Sections compose into one system-prompt artifact per resolved output path. A provider that
+      // does not nest the prompt collapses every section into its single root instructions file;
+      // sections carrying a `target` (on a nesting provider) group into that package's own file.
+      const groups = groupByOutputPath(enabled, provider, "prompt", defaults.promptTarget, (id) =>
+        overrideByEntity?.get(id),
+      );
 
-      return [
-        {
-          path: artifactPath,
-          content: promptContent,
-          ownerEntityId: input.id,
-          provider,
-          format: "markdown",
-        },
-      ];
+      return [...groups.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([targetPath, groupSections]) => {
+          // groupSections arrive in composition order (manifest array order, preserved by
+          // groupByOutputPath); compose them as-is.
+          const content = withSingleTrailingNewline(groupSections.map((section) => section.body.trim()).join("\n\n"));
+          return {
+            path: normalizeRelativePath(targetPath),
+            content,
+            ownerEntityId: uniqSorted(groupSections.map((section) => section.id)).join(","),
+            provider,
+            format: "markdown" as const,
+          };
+        });
     },
 
     async renderSkill(input: CanonicalSkill, override?: ProviderOverride): Promise<RenderedArtifact[]> {

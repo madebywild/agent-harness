@@ -139,7 +139,7 @@ Env var substitution works across **all** entity types and override sidecars:
 
 | Entity type | Source file | Substitution applies to |
 | --- | --- | --- |
-| Prompt | `.harness/src/prompts/system.md` | Full file (frontmatter + body) |
+| Prompt section | `.harness/src/prompt-sections/<id>/SECTION.md` | Full file (frontmatter + body) |
 | Skill | `.harness/src/skills/<id>/SKILL.md` (+ other files) | All files in skill directory |
 | MCP config | `.harness/src/mcp/<id>.json` | Full JSON text |
 | Subagent | `.harness/src/subagents/<id>.md` | Full file (frontmatter + body) |
@@ -150,9 +150,9 @@ Substitution happens at the **text level**, before the file is parsed as JSON, Y
 
 ## Examples
 
-### Prompt with context parameters
+### Prompt section with context parameters
 
-Source (`.harness/src/prompts/system.md`):
+Source (`.harness/src/prompt-sections/system/SECTION.md`):
 
 ```markdown
 You are a {{ROLE}} assistant for the {{PROJECT_NAME}} project.
@@ -240,7 +240,7 @@ Note: `{{GUARD_TIMEOUT}}` is replaced in the raw JSON text before parsing, so th
 
 ### Override YAML with dynamic target path
 
-Override (`.harness/src/prompts/system.overrides.codex.yaml`):
+Override (`.harness/src/prompt-sections/system/OVERRIDES.codex.yaml`):
 
 ```yaml
 version: 1
@@ -290,7 +290,7 @@ When either file changes, harness re-runs apply automatically.
 Emitted when a `{{PLACEHOLDER}}` in a source or override file cannot be resolved from any source (`.harness/.env`, `.env.harness`, or `process.env`).
 
 ```
-warning: Unresolved env placeholder '{{MISSING_KEY}}' in '.harness/src/prompts/system.md'
+warning: Unresolved env placeholder '{{MISSING_KEY}}' in '.harness/src/prompt-sections/system/SECTION.md'
 ```
 
 The unresolved placeholder is left as-is in the output. This is a warning, not an error, so `harness apply` still proceeds.

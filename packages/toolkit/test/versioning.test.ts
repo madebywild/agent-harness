@@ -35,16 +35,18 @@ test("doctor surfaces outdated override sidecars with provider context", async (
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
 
   await fs.writeFile(
-    path.join(cwd, ".harness/src/prompts/system.overrides.codex.yaml"),
+    path.join(cwd, ".harness/src/prompt-sections/system/OVERRIDES.codex.yaml"),
     "version: 0\nenabled: true\n",
     "utf8",
   );
 
   const doctor = await engine.doctor();
-  const override = doctor.files.find((file) => file.path === ".harness/src/prompts/system.overrides.codex.yaml");
+  const override = doctor.files.find(
+    (file) => file.path === ".harness/src/prompt-sections/system/OVERRIDES.codex.yaml",
+  );
 
   assert.ok(override);
   assert.equal(override?.provider, "codex");
@@ -57,7 +59,7 @@ test("non-current workspace blocks plan/apply/validate and mutating commands", a
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
 
   const manifest = await readJson<Record<string, unknown>>(cwd, ".harness/manifest.json");
   manifest.version = 0;
@@ -75,6 +77,41 @@ test("non-current workspace blocks plan/apply/validate and mutating commands", a
   assert.equal(apply.writtenArtifacts.length, 0);
 
   await assert.rejects(async () => engine.addSkill("blocked"), /MANIFEST_VERSION_OUTDATED/u);
+});
+
+test("legacy 'prompt' entity surfaces PROMPT_ENTITY_REMOVED, not a raw schema error", async () => {
+  const cwd = await mkTmpRepo();
+  const engine = new HarnessEngine(cwd);
+
+  await engine.init();
+  await engine.addPromptSection("system");
+
+  // Simulate a pre-refactor workspace: an entity whose type is the removed 'prompt'.
+  const manifest = await readJson<{ entities: Array<Record<string, unknown>> }>(cwd, ".harness/manifest.json");
+  const entity = manifest.entities.find((e) => e.type === "prompt_section");
+  assert.ok(entity, "expected a prompt_section entity to mutate");
+  entity.type = "prompt";
+  await writeJson(cwd, ".harness/manifest.json", manifest);
+
+  const hasFriendly = (diagnostics: Array<{ code: string }>) =>
+    diagnostics.some((d) => d.code === "PROMPT_ENTITY_REMOVED");
+  const hasRaw = (diagnostics: Array<{ code: string }>) => diagnostics.some((d) => d.code === "MANIFEST_INVALID");
+
+  const plan = await engine.plan();
+  assert.ok(hasFriendly(plan.diagnostics), "plan should surface PROMPT_ENTITY_REMOVED");
+  assert.ok(!hasRaw(plan.diagnostics), "plan should not leak the raw MANIFEST_INVALID error");
+
+  const validation = await engine.validate();
+  assert.equal(validation.valid, false);
+  assert.ok(hasFriendly(validation.diagnostics), "validate should surface PROMPT_ENTITY_REMOVED");
+
+  const apply = await engine.apply();
+  assert.ok(hasFriendly(apply.diagnostics), "apply should surface PROMPT_ENTITY_REMOVED");
+  assert.equal(apply.writtenArtifacts.length, 0);
+
+  const doctor = await engine.doctor();
+  const manifestFile = doctor.files.find((file) => file.path === ".harness/manifest.json");
+  assert.equal(manifestFile?.code, "PROMPT_ENTITY_REMOVED");
 });
 
 test("doctor flags mixed-version state as migration incomplete", async () => {
@@ -96,7 +133,7 @@ test("migrate --dry-run reports actions without writing files", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
 
   const manifest = await readJson<Record<string, unknown>>(cwd, ".harness/manifest.json");
   manifest.version = 0;
@@ -117,7 +154,7 @@ test("migrate creates backups and upgrades outdated manifest", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
 
   const manifest = await readJson<Record<string, unknown>>(cwd, ".harness/manifest.json");
   manifest.version = 0;
@@ -142,7 +179,7 @@ test("migrate rebuilds managed-index to adopt desired output paths", async () =>
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.enableProvider("codex");
 
   const applied = await engine.apply();

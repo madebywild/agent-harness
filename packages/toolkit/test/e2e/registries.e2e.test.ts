@@ -66,11 +66,13 @@ test("add commands without --registry use local registry", async () => {
   const workspace = await mkTmpRepo();
 
   await runHarnessCli(workspace, ["init"]);
-  await runHarnessCli(workspace, ["add", "prompt"]);
+  await runHarnessCli(workspace, ["add", "prompt-section", "system"]);
   await runHarnessCli(workspace, ["add", "skill", "reviewer"]);
   await runHarnessCli(workspace, ["add", "mcp", "playwright"]);
 
-  await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/prompts/system.md")));
+  await assert.doesNotReject(async () =>
+    fs.stat(path.join(workspace, ".harness/src/prompt-sections/system/SECTION.md")),
+  );
   await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/skills/reviewer/SKILL.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/mcp/playwright.json")));
 
@@ -78,7 +80,7 @@ test("add commands without --registry use local registry", async () => {
     entities: Array<{ type: string; id: string; registry: string }>;
   }>(workspace, ".harness/manifest.json");
 
-  const promptEntity = manifest.entities.find((entity) => entity.type === "prompt" && entity.id === "system");
+  const promptEntity = manifest.entities.find((entity) => entity.type === "prompt_section" && entity.id === "system");
   const skillEntity = manifest.entities.find((entity) => entity.type === "skill" && entity.id === "reviewer");
   const mcpEntity = manifest.entities.find((entity) => entity.type === "mcp_config" && entity.id === "playwright");
 
@@ -122,7 +124,7 @@ test("registry default set routes add to remote registry", { concurrency: false 
   const repo = await fixture.createRegistryRepo({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp", description: "Registry" }, null, 2),
-      "skills/reviewer/SKILL.md": "# reviewer\n\nRemote default content\n",
+      "skills/misc/reviewer/SKILL.md": "# reviewer\n\nRemote default content\n",
     },
     private: false,
     namePrefix: "default-remote",
@@ -154,7 +156,7 @@ test("registry pull --registry only updates targeted registry", { concurrency: f
   const corpRepo = await fixture.createRegistryRepo({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp", description: "Registry" }, null, 2),
-      "skills/reviewer/SKILL.md": "# reviewer\n\nCorp version 1\n",
+      "skills/misc/reviewer/SKILL.md": "# reviewer\n\nCorp version 1\n",
     },
     private: false,
     namePrefix: "filter-corp",
@@ -162,7 +164,7 @@ test("registry pull --registry only updates targeted registry", { concurrency: f
   const altRepo = await fixture.createRegistryRepo({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Alt", description: "Registry" }, null, 2),
-      "skills/writer/SKILL.md": "# writer\n\nAlt version 1\n",
+      "skills/misc/writer/SKILL.md": "# writer\n\nAlt version 1\n",
     },
     private: false,
     namePrefix: "filter-alt",
@@ -190,8 +192,8 @@ test("registry pull --registry only updates targeted registry", { concurrency: f
   await runHarnessCli(workspace, ["add", "skill", "reviewer", "--registry", "corp"]);
   await runHarnessCli(workspace, ["add", "skill", "writer", "--registry", "alt"]);
 
-  await corpRepo.updateFile("skills/reviewer/SKILL.md", "# reviewer\n\nCorp version 2\n", "update corp reviewer");
-  await altRepo.updateFile("skills/writer/SKILL.md", "# writer\n\nAlt version 2\n", "update alt writer");
+  await corpRepo.updateFile("skills/misc/reviewer/SKILL.md", "# reviewer\n\nCorp version 2\n", "update corp reviewer");
+  await altRepo.updateFile("skills/misc/writer/SKILL.md", "# writer\n\nAlt version 2\n", "update alt writer");
 
   const pullResult = await runHarnessCli(workspace, ["registry", "pull", "--registry", "corp"]);
   assert.match(pullResult.stdout, /Pulled skill 'reviewer'\./u);
@@ -203,14 +205,17 @@ test("registry pull --registry only updates targeted registry", { concurrency: f
   assert.match(altSkill, /Alt version 1/u);
 });
 
-test("registry add + add prompt imports remote prompt and records provenance", { concurrency: false }, async (t) => {
+test("registry add + add prompt-section imports remote section and records provenance", {
+  concurrency: false,
+}, async (t) => {
   if (skipIfContainerRuntimeUnavailable(t)) return;
 
   const workspace = await mkTmpRepo();
   const repo = await fixture.createRegistryRepo({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp", description: "Registry" }, null, 2),
-      "prompts/system.md": "# System Prompt\n\nRemote public prompt\n",
+      "prompt-sections/misc/system/SECTION.md":
+        "---\nname: system\ndescription: Remote\n---\n\n# System Prompt\n\nRemote public prompt\n",
     },
     private: false,
     namePrefix: "prompt",
@@ -218,15 +223,15 @@ test("registry add + add prompt imports remote prompt and records provenance", {
 
   await runHarnessCli(workspace, ["init"]);
   await runHarnessCli(workspace, ["registry", "add", "corp", "--git-url", repo.readOnlyUrl, "--ref", repo.defaultRef]);
-  await runHarnessCli(workspace, ["add", "prompt", "--registry", "corp"]);
+  await runHarnessCli(workspace, ["add", "prompt-section", "system", "--registry", "corp"]);
 
-  const prompt = await readWorkspaceText(workspace, ".harness/src/prompts/system.md");
+  const prompt = await readWorkspaceText(workspace, ".harness/src/prompt-sections/system/SECTION.md");
   assert.match(prompt, /Remote public prompt/u);
 
   const manifest = await readWorkspaceJson<{
     entities: Array<{ type: string; id: string; registry: string }>;
   }>(workspace, ".harness/manifest.json");
-  const promptEntity = manifest.entities.find((entity) => entity.type === "prompt" && entity.id === "system");
+  const promptEntity = manifest.entities.find((entity) => entity.type === "prompt_section" && entity.id === "system");
   assert.equal(promptEntity?.registry, "corp");
 
   const lock = await readWorkspaceJson<{
@@ -239,7 +244,7 @@ test("registry add + add prompt imports remote prompt and records provenance", {
     }>;
   }>(workspace, ".harness/manifest.lock.json");
 
-  const lockEntity = lock.entities.find((entity) => entity.type === "prompt" && entity.id === "system");
+  const lockEntity = lock.entities.find((entity) => entity.type === "prompt_section" && entity.id === "system");
   assert.equal(lockEntity?.registry, "corp");
   assert.equal(lockEntity?.registryRevision?.kind, "git");
   assert.equal(lockEntity?.registryRevision?.ref, repo.defaultRef);
@@ -254,8 +259,8 @@ test("registry add + add skill imports remote skill", { concurrency: false }, as
   const repo = await fixture.createRegistryRepo({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp", description: "Registry" }, null, 2),
-      "skills/reviewer/SKILL.md": "# reviewer\n\nRemote skill content\n",
-      "skills/reviewer/checklist.md": "- item\n",
+      "skills/misc/reviewer/SKILL.md": "# reviewer\n\nRemote skill content\n",
+      "skills/misc/reviewer/checklist.md": "- item\n",
     },
     private: false,
     namePrefix: "skill",
@@ -303,7 +308,7 @@ test("registry pull updates imported entities after remote commit", { concurrenc
   const repo = await fixture.createRegistryRepo({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp", description: "Registry" }, null, 2),
-      "skills/reviewer/SKILL.md": "# reviewer\n\nVersion 1\n",
+      "skills/misc/reviewer/SKILL.md": "# reviewer\n\nVersion 1\n",
     },
     private: false,
     namePrefix: "pull-update",
@@ -313,7 +318,7 @@ test("registry pull updates imported entities after remote commit", { concurrenc
   await runHarnessCli(workspace, ["registry", "add", "corp", "--git-url", repo.readOnlyUrl, "--ref", repo.defaultRef]);
   await runHarnessCli(workspace, ["add", "skill", "reviewer", "--registry", "corp"]);
 
-  await repo.updateFile("skills/reviewer/SKILL.md", "# reviewer\n\nVersion 2\n", "update reviewer");
+  await repo.updateFile("skills/misc/reviewer/SKILL.md", "# reviewer\n\nVersion 2\n", "update reviewer");
 
   await runHarnessCli(workspace, ["registry", "pull", "skill", "reviewer"]);
 
@@ -328,7 +333,7 @@ test("registry pull blocks local drift until --force", { concurrency: false }, a
   const repo = await fixture.createRegistryRepo({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp", description: "Registry" }, null, 2),
-      "skills/reviewer/SKILL.md": "# reviewer\n\nVersion 1\n",
+      "skills/misc/reviewer/SKILL.md": "# reviewer\n\nVersion 1\n",
     },
     private: false,
     namePrefix: "pull-conflict",
@@ -343,7 +348,7 @@ test("registry pull blocks local drift until --force", { concurrency: false }, a
     "# reviewer\n\nLocal edits\n",
     "utf8",
   );
-  await repo.updateFile("skills/reviewer/SKILL.md", "# reviewer\n\nVersion 2\n", "remote update");
+  await repo.updateFile("skills/misc/reviewer/SKILL.md", "# reviewer\n\nVersion 2\n", "remote update");
 
   const failed = await runHarnessCliExpectFailure(workspace, ["registry", "pull", "skill", "reviewer"]);
   assert.equal(failed.code, 1);
@@ -362,7 +367,7 @@ test("private registry with tokenEnvVar fails when env is missing", { concurrenc
   const repo = await fixture.createRegistryRepo({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp", description: "Registry" }, null, 2),
-      "skills/reviewer/SKILL.md": "# reviewer\n\nPrivate skill\n",
+      "skills/misc/reviewer/SKILL.md": "# reviewer\n\nPrivate skill\n",
     },
     private: true,
     namePrefix: "private-missing",
@@ -395,7 +400,7 @@ test("private registry succeeds when tokenEnvVar is set", { concurrency: false }
   const repo = await fixture.createRegistryRepo({
     files: {
       "harness-registry.json": JSON.stringify({ version: 1, title: "Corp", description: "Registry" }, null, 2),
-      "skills/reviewer/SKILL.md": "# reviewer\n\nPrivate skill\n",
+      "skills/misc/reviewer/SKILL.md": "# reviewer\n\nPrivate skill\n",
     },
     private: true,
     namePrefix: "private-success",

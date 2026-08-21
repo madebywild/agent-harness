@@ -30,11 +30,11 @@ export type {
   RegistryManifest,
 };
 
-export const CLI_ENTITY_TYPES = ["prompt", "skill", "mcp", "subagent", "hook", "settings", "command"] as const;
+export const CLI_ENTITY_TYPES = ["prompt-section", "skill", "mcp", "subagent", "hook", "settings", "command"] as const;
 export type CliEntityType = (typeof CLI_ENTITY_TYPES)[number];
 
 export const CLI_ENTITY_TO_MANIFEST_ENTITY: Record<CliEntityType, EntityType> = {
-  prompt: "prompt",
+  "prompt-section": "prompt_section",
   skill: "skill",
   mcp: "mcp_config",
   subagent: "subagent",
@@ -47,10 +47,9 @@ export function isCliEntityType(value: string): value is CliEntityType {
   return (CLI_ENTITY_TYPES as readonly string[]).includes(value);
 }
 
-export interface CanonicalPrompt {
+export interface CanonicalPromptSection {
   id: string;
   body: string;
-  frontmatter: Record<string, unknown>;
   /** Monorepo target directory the generated artifact is placed under (default: repo root). */
   target?: string;
 }
@@ -150,7 +149,10 @@ export interface ProviderStateInput {
 
 export interface ProviderAdapter {
   id: ProviderId;
-  renderPrompt?(input: CanonicalPrompt, override?: ProviderOverride): Promise<RenderedArtifact[]>;
+  renderPromptSections?(
+    sections: CanonicalPromptSection[],
+    overrideByEntity?: Map<string, ProviderOverride | undefined>,
+  ): Promise<RenderedArtifact[]>;
   renderSkill?(input: CanonicalSkill, override?: ProviderOverride): Promise<RenderedArtifact[]>;
   renderMcp?(
     input: CanonicalMcpConfig[],
@@ -336,7 +338,7 @@ export interface PresetSummary {
 
 export interface ResolvedPresetSource {
   registry?: RegistryId;
-  prompt?: string;
+  promptSections?: Record<string, string>;
   skills?: Record<string, Array<{ path: string; content: string }>>;
   mcp?: Record<string, Record<string, unknown>>;
   subagents?: Record<string, string>;
@@ -364,9 +366,9 @@ export interface PresetApplyResult {
   results: PresetOperationResult[];
 }
 
-export interface LoadedPrompt {
+export interface LoadedPromptSection {
   entity: EntityRef;
-  canonical: CanonicalPrompt;
+  canonical: CanonicalPromptSection;
   sourceSha256: string;
   overrideByProvider: Map<ProviderId, ProviderOverride | undefined>;
   overrideShaByProvider: Partial<Record<ProviderId, string>>;
@@ -433,7 +435,7 @@ export interface InternalPlanResult extends PlanResult {
 export interface LoadResult {
   manifest: AgentsManifest;
   diagnostics: Diagnostic[];
-  prompts: LoadedPrompt[];
+  promptSections: LoadedPromptSection[];
   skills: LoadedSkill[];
   mcps: LoadedMcp[];
   subagents: LoadedSubagent[];

@@ -11,7 +11,7 @@ export interface HarnessPaths {
   manifestFile: string;
   lockFile: string;
   managedIndexFile: string;
-  promptDir: string;
+  promptSectionDir: string;
   skillDir: string;
   mcpDir: string;
   subagentDir: string;
@@ -36,7 +36,7 @@ export function resolveHarnessPaths(rootDir: string): HarnessPaths {
     manifestFile: path.join(harnessDir, "manifest.json"),
     lockFile: path.join(harnessDir, "manifest.lock.json"),
     managedIndexFile: path.join(harnessDir, "managed-index.json"),
-    promptDir: path.join(srcDir, "prompts"),
+    promptSectionDir: path.join(srcDir, "prompt-sections"),
     skillDir: path.join(srcDir, "skills"),
     mcpDir: path.join(srcDir, "mcp"),
     subagentDir: path.join(srcDir, "subagents"),
@@ -48,16 +48,12 @@ export function resolveHarnessPaths(rootDir: string): HarnessPaths {
   };
 }
 
-export const DEFAULT_PROMPT_ID = "system";
-
-export function defaultPromptSourcePath(id: string): string {
-  return `.harness/src/prompts/${id}.md`;
+export function defaultPromptSectionSourcePath(id: string): string {
+  return `.harness/src/prompt-sections/${id}/SECTION.md`;
 }
 
-export const DEFAULT_PROMPT_SOURCE_PATH = defaultPromptSourcePath(DEFAULT_PROMPT_ID);
-
-export function defaultPromptOverridePath(id: string, provider: ProviderId): string {
-  return `.harness/src/prompts/${id}.overrides.${provider}.yaml`;
+export function defaultPromptSectionOverridePath(id: string, provider: ProviderId): string {
+  return `.harness/src/prompt-sections/${id}/OVERRIDES.${provider}.yaml`;
 }
 
 export function defaultSkillSourcePath(skillId: string): string {

@@ -94,7 +94,7 @@ test("runUHaulInitFlow imports all entity families, deletes legacy paths, enable
 
   const summary = await runUHaulInitFlow({ cwd, force: false });
 
-  assert.equal(summary.detected.prompt, 1);
+  assert.equal(summary.detected["prompt-section"], 1);
   assert.equal(summary.detected.skill, 1);
   assert.equal(summary.detected.mcp, 1);
   assert.equal(summary.detected.subagent, 1);
@@ -114,7 +114,7 @@ test("runUHaulInitFlow imports all entity families, deletes legacy paths, enable
     "AGENTS.md",
   ]);
 
-  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/prompts/system.md")));
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/mcp/browser.json")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/subagents/planner.md")));
@@ -275,13 +275,16 @@ test("runUHaulInitFlow resolves prompt conflicts by default precedence and suppo
   await fs.writeFile(path.join(cwdDefault, "CLAUDE.md"), "Claude prompt\n", "utf8");
 
   const defaultSummary = await runUHaulInitFlow({ cwd: cwdDefault, force: false });
-  const defaultPrompt = await fs.readFile(path.join(cwdDefault, ".harness/src/prompts/system.md"), "utf8");
+  const defaultPrompt = await fs.readFile(
+    path.join(cwdDefault, ".harness/src/prompt-sections/system/SECTION.md"),
+    "utf8",
+  );
   assert.equal(defaultSummary.precedence[0], "claude");
   assert.equal(defaultPrompt.trim(), "Claude prompt");
   assert.ok(
     defaultSummary.precedenceDrops.some(
       (drop) =>
-        drop.entityType === "prompt" &&
+        drop.entityType === "prompt-section" &&
         drop.id === "system" &&
         drop.keptProvider === "claude" &&
         drop.droppedProvider === "codex",
@@ -294,7 +297,10 @@ test("runUHaulInitFlow resolves prompt conflicts by default precedence and suppo
   await fs.writeFile(path.join(cwdOverride, "CLAUDE.md"), "Claude prompt\n", "utf8");
 
   const overrideSummary = await runUHaulInitFlow({ cwd: cwdOverride, force: false, precedencePrimary: "codex" });
-  const overridePrompt = await fs.readFile(path.join(cwdOverride, ".harness/src/prompts/system.md"), "utf8");
+  const overridePrompt = await fs.readFile(
+    path.join(cwdOverride, ".harness/src/prompt-sections/system/SECTION.md"),
+    "utf8",
+  );
   assert.equal(overrideSummary.precedence[0], "codex");
   assert.equal(overridePrompt.trim(), "Codex prompt");
 });
@@ -446,7 +452,7 @@ test("runUHaulInitFlow attempts git restore when apply throws", async () => {
   // Run successfully to verify the restore mechanism is wired up
   const summary = await runUHaulInitFlow({ cwd, force: false }, { execFile: mockExecFile });
   assert.equal(summary.noOp, false);
-  assert.equal(summary.detected.prompt, 1);
+  assert.equal(summary.detected["prompt-section"], 1);
 });
 
 test("runUHaulInitFlow returns no-op summary when no legacy assets are present", async () => {
@@ -456,7 +462,7 @@ test("runUHaulInitFlow returns no-op summary when no legacy assets are present",
   const summary = await runUHaulInitFlow({ cwd, force: false });
 
   assert.equal(summary.noOp, true);
-  assert.equal(summary.detected.prompt, 0);
+  assert.equal(summary.detected["prompt-section"], 0);
   assert.equal(summary.detected.skill, 0);
   assert.equal(summary.detected.mcp, 0);
   assert.equal(summary.detected.subagent, 0);

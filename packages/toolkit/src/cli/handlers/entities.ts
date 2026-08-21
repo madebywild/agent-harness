@@ -3,25 +3,24 @@ import { HarnessEngine } from "../../engine.js";
 import { CLI_ENTITY_TYPES, isCliEntityType } from "../../types.js";
 import type { CliResolvedContext, EntityMutationOutput } from "../contracts.js";
 
-export async function handleAddPrompt(
-  input: { registry?: string; id?: string; target?: string },
+export async function handleAddPromptSection(
+  input: { sectionId: string; registry?: string; target?: string },
   context: CliResolvedContext,
 ): Promise<EntityMutationOutput> {
   const engine = new HarnessEngine(context.cwd);
-  const promptId = input.id ?? "system";
-  await engine.addPrompt({ registry: input.registry, id: input.id, target: input.target });
+  await engine.addPromptSection(input.sectionId, { registry: input.registry, target: input.target });
 
   return {
     family: "entity-mutation",
-    command: "add.prompt",
+    command: "add.prompt-section",
     ok: true,
     diagnostics: [],
     exitCode: 0,
     data: {
       operation: "add",
-      entityType: "prompt",
-      id: promptId,
-      message: `Added prompt entity '${promptId}'.`,
+      entityType: "prompt-section",
+      id: input.sectionId,
+      message: `Added prompt-section '${input.sectionId}'.`,
     },
   };
 }

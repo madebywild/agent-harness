@@ -27,11 +27,11 @@ export function buildDelegatedBootstrapPrompt(): string {
 
 This is a temporary bootstrap prompt for agent-harness.
 
-Inspect the repository before writing the final instructions. Infer the stack, build and test commands, project layout, conventions, and any non-obvious workflows. Then replace this bootstrap content with a project-specific system prompt in \`.harness/src/prompts/system.md\`.
+Inspect the repository before writing the final instructions. Infer the stack, build and test commands, project layout, conventions, and any non-obvious workflows. Then replace this bootstrap content with a project-specific system prompt in \`.harness/src/prompt-sections/system/SECTION.md\`.
 
 Manage all agent customization through the canonical harness sources, not generated provider files.
 
-- Prompt: add or refine \`.harness/src/prompts/system.md\`
+- Prompt-sections: add or refine \`.harness/src/prompt-sections/<id>/SECTION.md\` (they compose, in order, into the system prompt)
 - MCP: manage \`.harness/src/mcp/*.json\`
 - Skills: manage \`.harness/src/skills/<id>/\`
 - Lifecycle hooks: manage \`.harness/src/hooks/*.json\`
@@ -42,7 +42,7 @@ Use harness in non-interactive mode only.
 
 - Prefer \`pnpm harness <command>\` when the repository uses pnpm and exposes a harness script
 - Otherwise use \`npx harness <command>\`
-- Use harness subcommands to manage prompts, MCP, skills, lifecycle hooks, settings, commands, plan, and apply
+- Use harness subcommands to manage prompt-sections, MCP, skills, lifecycle hooks, settings, commands, plan, and apply
 
 Do not edit generated files like \`CLAUDE.md\`, \`AGENTS.md\`, or \`.github/copilot-instructions.md\` directly. Harness owns those outputs and will regenerate them from the canonical sources.
 `;
@@ -51,7 +51,7 @@ Do not edit generated files like \`CLAUDE.md\`, \`AGENTS.md\`, or \`.github/copi
 export function buildDelegatedInitTask(): string {
   return `Inspect this repository and finish agent-harness onboarding.
 
-1. Replace the bootstrap content in .harness/src/prompts/system.md with the real shared system prompt for this project.
+1. Replace the bootstrap content in .harness/src/prompt-sections/system/SECTION.md with the real shared system prompt for this project.
 2. Add any other required harness entities using non-interactive pnpm harness or npx harness commands only.
 3. Keep all edits in canonical .harness/src sources rather than generated provider outputs.
 4. Run harness plan and apply when the setup is ready.

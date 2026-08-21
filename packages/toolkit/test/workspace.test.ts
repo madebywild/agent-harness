@@ -10,7 +10,7 @@ test("init + add commands scaffold manifest and source files", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.addSkill("reviewer");
   await engine.addMcp("playwright");
   await engine.addSubagent("review-bot");
@@ -26,7 +26,7 @@ test("init + add commands scaffold manifest and source files", async () => {
   assert.deepEqual(
     manifest.entities.map((entity) => `${entity.type}:${entity.id}`),
     [
-      "prompt:system",
+      "prompt_section:system",
       "skill:reviewer",
       "mcp_config:playwright",
       "subagent:review-bot",
@@ -35,7 +35,7 @@ test("init + add commands scaffold manifest and source files", async () => {
     ],
   );
 
-  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/prompts/system.md")));
+  await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/skills/reviewer/SKILL.md")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/mcp/playwright.json")));
   await assert.doesNotReject(async () => fs.stat(path.join(cwd, ".harness/src/subagents/review-bot.md")));
@@ -75,7 +75,7 @@ test("init --force recreates .harness workspace", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
 
   await engine.init({ force: true });
 
@@ -84,7 +84,7 @@ test("init --force recreates .harness workspace", async () => {
     entities: Array<{ id: string; type: string }>;
   };
   assert.deepEqual(manifest.entities, []);
-  await assert.rejects(async () => fs.stat(path.join(cwd, ".harness/src/prompts/system.md")));
+  await assert.rejects(async () => fs.stat(path.join(cwd, ".harness/src/prompt-sections/system/SECTION.md")));
 });
 
 test("manifest.lock remains byte-stable on no-op apply", async () => {
@@ -92,7 +92,7 @@ test("manifest.lock remains byte-stable on no-op apply", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
   await engine.enableProvider("codex");
 
   const first = await engine.apply();
@@ -114,19 +114,19 @@ test("manifest.lock remains byte-stable on no-op apply", async () => {
   assert.equal(lockAfter, lockBefore);
 });
 
-test("remove prompt targets by id and rejects unknown ids", async () => {
+test("remove prompt-section targets by id and rejects unknown ids", async () => {
   const cwd = await mkTmpRepo();
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
-  await engine.addPrompt({ id: "web", target: "packages/web" });
+  await engine.addPromptSection("system");
+  await engine.addPromptSection("web", { target: "packages/web" });
 
-  // Unknown id is rejected (no longer forced to 'system').
-  await assert.rejects(async () => engine.remove("prompt", "wrong-id", false), /Could not find/u);
+  // Unknown id is rejected.
+  await assert.rejects(async () => engine.remove("prompt-section", "wrong-id", false), /Could not find/u);
 
-  // A per-package prompt is removed by its own id, leaving the root prompt intact.
-  await engine.remove("prompt", "web", false);
+  // A section is removed by its own id, leaving the other section intact.
+  await engine.remove("prompt-section", "web", false);
 
   const manifestText = await fs.readFile(path.join(cwd, ".harness/manifest.json"), "utf8");
   const manifest = JSON.parse(manifestText) as {
@@ -135,7 +135,7 @@ test("remove prompt targets by id and rejects unknown ids", async () => {
 
   assert.deepEqual(
     manifest.entities.map((entity) => `${entity.type}:${entity.id}`),
-    ["prompt:system"],
+    ["prompt_section:system"],
   );
 });
 
@@ -177,10 +177,10 @@ test("remove returns the actual removed entity id", async () => {
   const engine = new HarnessEngine(cwd);
 
   await engine.init();
-  await engine.addPrompt();
+  await engine.addPromptSection("system");
 
-  const removed = await engine.remove("prompt", "system", false);
-  assert.deepEqual(removed, { entityType: "prompt", id: "system" });
+  const removed = await engine.remove("prompt-section", "system", false);
+  assert.deepEqual(removed, { entityType: "prompt-section", id: "system" });
 });
 
 test("validate reports subagent frontmatter/body requirements", async () => {

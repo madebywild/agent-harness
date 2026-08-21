@@ -8,7 +8,7 @@ Supporting logic is split across submodules in `engine/`:
 
 - `engine/entities.ts`
   - entity CRUD:
-    - `addPromptEntity`
+    - `addPromptSectionEntity`
     - `addSkillEntity`
     - `addMcpEntity`
     - `addSubagentEntity`
@@ -47,7 +47,7 @@ Supporting logic is split across submodules in `engine/`:
 - `init({ force? })`: creates or force-recreates `.harness` state files and source directories.
 - `enableProvider` / `disableProvider`: mutate `manifest.providers.enabled`.
 - entity add methods:
-  - `addPrompt`
+  - `addPromptSection`
   - `addSkill`
   - `addMcp`
   - `addSubagent`

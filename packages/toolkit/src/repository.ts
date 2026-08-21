@@ -54,6 +54,10 @@ export async function loadManifest(paths: HarnessPaths): Promise<{
 
   try {
     const parsed = JSON.parse(contents) as unknown;
+    const legacyPrompt = detectLegacyPromptEntity(parsed);
+    if (legacyPrompt) {
+      return { manifest: null, diagnostics: [legacyPrompt] };
+    }
     const manifest = parseManifest(parsed);
     return { manifest, diagnostics: [], versionStatus: "current" };
   } catch (error) {
@@ -78,6 +82,39 @@ export async function loadManifest(paths: HarnessPaths): Promise<{
       ],
     };
   }
+}
+
+// The `prompt` entity was removed in favor of composable `prompt_section` entities. Surface a
+// targeted, actionable diagnostic instead of a cryptic Zod discriminated-union error when an older
+// workspace is opened with a newer CLI. (No automatic migration is provided.)
+export function detectLegacyPromptEntity(parsed: unknown): Diagnostic | null {
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  const entities = (parsed as { entities?: unknown }).entities;
+  if (!Array.isArray(entities)) {
+    return null;
+  }
+  const legacy = entities.find(
+    (entity): entity is { id?: string } =>
+      !!entity && typeof entity === "object" && (entity as { type?: unknown }).type === "prompt",
+  );
+  if (!legacy) {
+    return null;
+  }
+  const id = typeof legacy.id === "string" ? legacy.id : "system";
+  return {
+    code: "PROMPT_ENTITY_REMOVED",
+    severity: "error",
+    message:
+      "The 'prompt' entity was removed in favor of composable 'prompt_section' entities. " +
+      `Move '.harness/src/prompts/${id}.md' to '.harness/src/prompt-sections/${id}/SECTION.md', rename its ` +
+      `override sidecars to '.harness/src/prompt-sections/${id}/OVERRIDES.<provider>.yaml', and change the ` +
+      "manifest entity 'type' to 'prompt_section' (composition order follows the entities array). " +
+      "No automatic migration is provided.",
+    path: ".harness/manifest.json",
+    entityId: id,
+  };
 }
 
 export async function writeManifest(paths: HarnessPaths, manifest: AgentsManifest): Promise<void> {
@@ -292,7 +329,7 @@ export async function collectSourceCandidates(paths: HarnessPaths): Promise<stri
   for (const file of files) {
     const relative = toPosixRelative(file, paths.root);
 
-    if (/^\.harness\/src\/prompts\/[^/]+\.md$/u.test(relative)) {
+    if (/^\.harness\/src\/prompt-sections\/[^/]+\/SECTION\.md$/u.test(relative)) {
       candidates.push(relative);
       continue;
     }
@@ -327,7 +364,7 @@ export async function collectSourceCandidates(paths: HarnessPaths): Promise<stri
       continue;
     }
 
-    if (/^\.harness\/src\/prompts\/[^/]+\.overrides\.[^./]+\.ya?ml$/u.test(relative)) {
+    if (/^\.harness\/src\/prompt-sections\/[^/]+\/OVERRIDES\.[^./]+\.ya?ml$/u.test(relative)) {
       candidates.push(relative);
       continue;
     }

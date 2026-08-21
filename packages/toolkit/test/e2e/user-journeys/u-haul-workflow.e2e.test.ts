@@ -215,7 +215,7 @@ timeout = 30
     assert.deepEqual(initPayload.data.uHaul.precedence, ["claude", "codex", "copilot"]);
     assert.deepEqual(initPayload.data.uHaul.autoEnabledProviders, ["claude", "codex", "copilot"]);
 
-    assert.equal(initPayload.data.uHaul.detected.prompt, 3);
+    assert.equal(initPayload.data.uHaul.detected["prompt-section"], 3);
     assert.equal(initPayload.data.uHaul.detected.skill, 2);
     assert.equal(initPayload.data.uHaul.detected.mcp, 3);
     assert.equal(initPayload.data.uHaul.detected.subagent, 3);
@@ -223,7 +223,7 @@ timeout = 30
     assert.equal(initPayload.data.uHaul.detected.command, 2);
     assert.equal(initPayload.data.uHaul.detected.hook, 1);
 
-    assert.equal(initPayload.data.uHaul.imported.prompt, 1);
+    assert.equal(initPayload.data.uHaul.imported["prompt-section"], 1);
     assert.equal(initPayload.data.uHaul.imported.skill, 1);
     assert.equal(initPayload.data.uHaul.imported.mcp, 2);
     assert.equal(initPayload.data.uHaul.imported.subagent, 1);
@@ -234,7 +234,7 @@ timeout = 30
     assert.ok(
       initPayload.data.uHaul.precedenceDrops.some(
         (drop) =>
-          drop.entityType === "prompt" &&
+          drop.entityType === "prompt-section" &&
           drop.id === "system" &&
           drop.keptProvider === "claude" &&
           drop.droppedProvider === "codex",
@@ -280,7 +280,7 @@ timeout = 30
     );
 
     // Canonical sources.
-    const canonicalPrompt = await readWorkspaceText(workspace, ".harness/src/prompts/system.md");
+    const canonicalPrompt = await readWorkspaceText(workspace, ".harness/src/prompt-sections/system/SECTION.md");
     assert.match(canonicalPrompt, /Claude legacy prompt wins by default/u);
 
     await assert.doesNotReject(async () => fs.stat(path.join(workspace, ".harness/src/skills/review/SKILL.md")));
@@ -346,7 +346,7 @@ describe("u-haul edge cases", { timeout: 120_000 }, () => {
 
     assert.equal(payload.ok, true);
     assert.deepEqual(payload.data.uHaul.precedence, ["codex", "claude", "copilot"]);
-    const canonicalPrompt = await readWorkspaceText(workspace, ".harness/src/prompts/system.md");
+    const canonicalPrompt = await readWorkspaceText(workspace, ".harness/src/prompt-sections/system/SECTION.md");
     assert.equal(canonicalPrompt.trim(), "Codex prompt source.");
   });
 

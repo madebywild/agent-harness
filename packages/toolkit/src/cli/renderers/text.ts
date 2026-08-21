@@ -113,9 +113,7 @@ function renderPresetOutput(output: PresetOutput, writeLine: (line: string) => v
           case "add_settings":
             target = operation.provider;
             break;
-          case "add_prompt":
-            target = "system";
-            break;
+          case "add_prompt_section":
           case "add_skill":
           case "add_mcp":
           case "add_subagent":
@@ -291,7 +289,7 @@ function renderInitOutput(output: InitOutput, writeLine: (line: string) => void)
   }
 
   const detected = [
-    `prompt=${summary.detected.prompt}`,
+    `prompt-section=${summary.detected["prompt-section"]}`,
     `skill=${summary.detected.skill}`,
     `mcp=${summary.detected.mcp}`,
     `subagent=${summary.detected.subagent}`,
@@ -300,7 +298,7 @@ function renderInitOutput(output: InitOutput, writeLine: (line: string) => void)
     `command=${summary.detected.command}`,
   ].join(", ");
   const imported = [
-    `prompt=${summary.imported.prompt}`,
+    `prompt-section=${summary.imported["prompt-section"]}`,
     `skill=${summary.imported.skill}`,
     `mcp=${summary.imported.mcp}`,
     `subagent=${summary.imported.subagent}`,

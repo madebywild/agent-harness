@@ -4,7 +4,7 @@
 
 CLI and engine for [Agent Harness](https://github.com/madebywild/agent-harness) — unified AI agent configuration management for Claude Code, GitHub Copilot, and OpenAI Codex. The Shadcn for agent harnesses.
 
-Agent Harness manages agent configurations (system prompts, skills, MCP servers, subagents, and lifecycle hooks) from a single source of truth in a `.harness/` directory and generates provider-specific outputs for each enabled provider. Like [shadcn/ui](https://ui.shadcn.com/) does for UI components, entities can be pulled from external git registries as full, editable source code — no opaque library imports, complete transparency and ownership.
+Agent Harness manages agent configurations (composable prompt sections, skills, MCP servers, subagents, and lifecycle hooks) from a single source of truth in a `.harness/` directory and generates provider-specific outputs for each enabled provider. Like [shadcn/ui](https://ui.shadcn.com/) does for UI components, entities can be pulled from external git registries as full, editable source code — no opaque library imports, complete transparency and ownership.
 
 ## Installation
 
@@ -18,7 +18,7 @@ pnpm add @madebywild/agent-harness-framework
 
 ```bash
 npx harness init
-npx harness add prompt
+npx harness add prompt-section intro
 npx harness add skill reviewer
 npx harness add mcp playwright
 npx harness provider enable claude
@@ -75,20 +75,22 @@ npx harness watch [--debounceMs]                             # Watch .harness/sr
 
 ### Entity management
 
-Five entity types are supported:
+Entity types include:
 
 | Type | Source format | Description |
 |---|---|---|
-| **prompt** | Markdown | System prompt shared across providers |
+| **prompt-section** | Directory (`SECTION.md`) | Composable section of the system prompt; sections assemble in manifest order into each provider's prompt file |
 | **skill** | Directory (Markdown + files) | Reusable tool/skill definitions (also importable from [skills.sh](https://skills.sh)) |
 | **mcp** | JSON | MCP server configurations |
 | **subagent** | Markdown with frontmatter | Sub-agent definitions with tools/model config |
 | **hook** | JSON | Lifecycle hooks (webhooks, scripts, notifications) |
+| **settings** | JSON | Provider-specific settings (permissions, model, features) |
+| **command** | Markdown | Reusable slash-command definitions |
 
 All entity source files and override sidecars support `{{PLACEHOLDER}}` syntax for injecting secrets and context-dependent values at apply time. See the [Environment Variables Guide](../../docs/environment-variables.md) for details.
 
 ```bash
-npx harness add prompt                     # Add the system prompt
+npx harness add prompt-section <id>        # Add a prompt section (composes into the system prompt)
 npx harness add skill <id>                 # Add a skill
 npx harness add mcp <id>                   # Add an MCP server config
 npx harness add subagent <id>              # Add a subagent
@@ -119,14 +121,16 @@ npx harness provider disable <provider>    # Disable a provider
 Registries are shared collections of entities that can be pulled into any workspace via git — like Shadcn, entities are copied as full source code into your project, not installed as opaque dependencies.
 
 ```bash
-npx harness registry list                                   # List configured registries
-npx harness registry add <name> --gitUrl <url> [--ref main] # Add a git registry
-npx harness registry remove <name>                          # Remove a registry
-npx harness registry default show                           # Show the default registry
-npx harness registry default set <name>                     # Set the default registry
-npx harness registry pull [entityType] [id] [--force]       # Pull entities from a registry
-npx harness registry validate [--path <path>]               # Validate a registry's structure
+npx harness registry list                                    # List configured registries
+npx harness registry add <name> --git-url <url> [--ref main] # Add a git registry
+npx harness registry remove <name>                           # Remove a registry
+npx harness registry default show                            # Show the default registry
+npx harness registry default set <name>                      # Set the default registry
+npx harness registry pull [entityType] [id] [--force]        # Pull entities from a registry
+npx harness registry validate [--path <path>]                # Validate a registry's structure
 ```
+
+A registry has a strict root: only `skills/`, `prompt-sections/`, and `presets/` may hold entities. Skills and prompt sections are organized into category folders (`skills/<category>/<id>/SKILL.md`) with globally-unique ids and optional `tags`; consumers add them by bare id (`add skill <id> --registry <name>`). Every other entity type (MCP, subagents, hooks, settings, commands) must ship inside a preset. Registry presets may declare `extends: <parent-id>` to inherit another preset's skill and prompt-section operations.
 
 ### Health and migration
 
@@ -141,13 +145,13 @@ Each enabled provider gets its own set of generated files:
 
 | | Claude | Copilot | Codex |
 |---|---|---|---|
-| **Prompt** | `.claude/CLAUDE.md` | `.github/copilot-instructions.md` | `AGENTS.md` |
+| **Prompt sections** | `.claude/CLAUDE.md` | `.github/copilot-instructions.md` | `AGENTS.md` |
 | **Skills** | `.claude/skills/<id>/` | `.github/skills/<id>/` | `.codex/skills/<id>/` |
 | **MCP** | `.mcp.json` | `.vscode/mcp.json` | `.codex/config.toml` |
 | **Subagents** | `.claude/agents/<id>.md` | `.github/agents/<id>.agent.md` | `.codex/config.toml` |
 | **Hooks** | `.claude/settings.json` | `.github/hooks/...` | `.codex/config.toml` |
 
-Each entity can have per-provider overrides via `.overrides.<provider>.yml` sidecar files, allowing you to customize target paths, enable/disable per provider, or set provider-specific options (model, tools, handoffs).
+Each entity can have per-provider overrides via sidecar files — `OVERRIDES.<provider>.yaml` inside directory entities (prompt sections, skills) and `<id>.overrides.<provider>.yaml` alongside flat entities (mcp, subagents, hooks) — allowing you to customize target paths, enable/disable per provider, or set provider-specific options (model, tools, handoffs).
 
 ## Workspace structure
 
@@ -158,8 +162,9 @@ Each entity can have per-provider overrides via `.overrides.<provider>.yml` side
   managed-index.json         # Tracks managed source and output files
   .env                       # Per-workspace secrets (gitignored)
   src/
-    prompts/
-      system.md              # System prompt
+    prompt-sections/
+      <id>/
+        SECTION.md           # Prompt section (compose in manifest order)
     skills/
       <id>/
         SKILL.md             # Skill definition + supporting files

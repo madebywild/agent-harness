@@ -19,9 +19,9 @@ test("parseManifest rejects Windows drive-prefixed source paths", () => {
         entities: [
           {
             id: "system",
-            type: "prompt",
+            type: "prompt_section",
             registry: "local",
-            sourcePath: "C:/repo/.harness/src/prompts/system.md",
+            sourcePath: "C:/repo/.harness/src/prompt-sections/system/SECTION.md",
           },
         ],
       }),

@@ -7,7 +7,7 @@ Implements the delegated prompt authoring flow: after `harness init --delegate <
 ## Key exports
 
 - `DELEGATED_INIT_PRESET_ID` — `"delegate"`, the bundled preset used by the delegation flow.
-- `buildDelegatedBootstrapPrompt()` — returns the markdown content seeded into `.harness/src/prompts/system.md` by the `delegate` preset. Instructs the agent to use harness CLI commands, not edit generated files directly.
+- `buildDelegatedBootstrapPrompt()` — returns the markdown content seeded into `.harness/src/prompt-sections/system/SECTION.md` by the `delegate` preset. Instructs the agent to use harness CLI commands, not edit generated files directly.
 - `buildDelegatedInitTask()` — returns the task prompt passed to the provider CLI. Instructs it to replace the bootstrap content, add any other entities, and run `harness plan` + `apply`.
 - `launchDelegatedInit(input, spawnImpl?)` — spawns the provider CLI with `stdio: "inherit"` and returns a promise that resolves on exit code 0 or rejects on failure.
 

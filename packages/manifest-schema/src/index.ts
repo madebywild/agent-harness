@@ -16,7 +16,15 @@ export const PROVIDERS = ["codex", "claude", "copilot", "cursor"] as const;
 export const providerIdSchema = z.enum(PROVIDERS);
 export type ProviderId = z.infer<typeof providerIdSchema>;
 
-export const entityTypes = ["prompt", "skill", "mcp_config", "subagent", "hook", "settings", "command"] as const;
+export const entityTypes = [
+  "prompt_section",
+  "skill",
+  "mcp_config",
+  "subagent",
+  "hook",
+  "settings",
+  "command",
+] as const;
 export const entityTypeSchema = z.enum(entityTypes);
 export type EntityType = z.infer<typeof entityTypeSchema>;
 
@@ -101,8 +109,8 @@ const entityRefBaseSchema = z
   })
   .strict();
 
-export const promptEntityRefSchema = entityRefBaseSchema.extend({
-  type: z.literal("prompt"),
+export const promptSectionEntityRefSchema = entityRefBaseSchema.extend({
+  type: z.literal("prompt_section"),
 });
 
 export const skillEntityRefSchema = entityRefBaseSchema.extend({
@@ -130,7 +138,7 @@ export const commandEntityRefSchema = entityRefBaseSchema.extend({
 });
 
 export const entityRefSchema = z.discriminatedUnion("type", [
-  promptEntityRefSchema,
+  promptSectionEntityRefSchema,
   skillEntityRefSchema,
   mcpEntityRefSchema,
   subagentEntityRefSchema,
@@ -253,10 +261,9 @@ const presetEntityIdSchema = z
   .min(1)
   .regex(/^[a-zA-Z0-9._-]+$/);
 
-export const presetAddPromptOperationSchema = presetOperationBaseSchema.extend({
-  type: z.literal("add_prompt"),
-  // Optional; defaults to "system". Enables per-package prompts in a preset.
-  id: presetEntityIdSchema.optional(),
+export const presetAddPromptSectionOperationSchema = presetOperationBaseSchema.extend({
+  type: z.literal("add_prompt_section"),
+  id: presetEntityIdSchema,
   target: relativePathSchema.optional(),
   source: presetEntitySourceSchema.optional(),
 });
@@ -306,7 +313,7 @@ export const presetAddCommandOperationSchema = presetOperationBaseSchema.extend(
 export const presetOperationSchema = z.discriminatedUnion("type", [
   presetRegisterRegistryOperationSchema,
   presetEnableProviderOperationSchema,
-  presetAddPromptOperationSchema,
+  presetAddPromptSectionOperationSchema,
   presetAddSkillOperationSchema,
   presetAddMcpOperationSchema,
   presetAddSubagentOperationSchema,
@@ -324,6 +331,9 @@ export const presetDefinitionSchema = z
     name: z.string().min(1),
     description: z.string().min(1),
     recommended: z.boolean().optional(),
+    // Parent preset id to inherit add_skill / add_prompt_section operations from (registry presets
+    // only). Resolved transitively with nearest-wins dedupe; validated for existence + acyclicity.
+    extends: presetEntityIdSchema.optional(),
     registries: z.array(presetRegistryTargetSchema).optional(),
     operations: z.array(presetOperationSchema).min(1),
     metadata: z.record(z.string(), z.unknown()).optional(),
@@ -351,7 +361,7 @@ export const schemas = {
   managedIndexSchema,
   providerOverrideSchema,
   entityRefSchema,
-  promptEntityRefSchema,
+  promptSectionEntityRefSchema,
   skillEntityRefSchema,
   mcpEntityRefSchema,
   subagentEntityRefSchema,
@@ -362,7 +372,7 @@ export const schemas = {
 
 export type ProviderOverride = z.infer<typeof providerOverrideSchema>;
 export type EntityRef = z.infer<typeof entityRefSchema>;
-export type PromptEntityRef = z.infer<typeof promptEntityRefSchema>;
+export type PromptSectionEntityRef = z.infer<typeof promptSectionEntityRefSchema>;
 export type SkillEntityRef = z.infer<typeof skillEntityRefSchema>;
 export type McpEntityRef = z.infer<typeof mcpEntityRefSchema>;
 export type SubagentEntityRef = z.infer<typeof subagentEntityRefSchema>;

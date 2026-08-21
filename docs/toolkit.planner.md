@@ -16,7 +16,7 @@ Transforms loaded canonical state into:
 
 ## Planning flow
 
-- Builds provider adapters and renders prompt/skill/MCP/subagent/hook artifacts for enabled providers.
+- Builds provider adapters and renders prompt-section/skill/MCP/subagent/hook artifacts for enabled providers (prompt-sections compose into one system-prompt artifact per output path).
 - Supports composite provider-state rendering (`renderProviderState`) for shared artifacts (Codex `.codex/config.toml`).
 - Supports dedicated hook rendering (`renderHooks`) for providers with separate hook files.
 - Normalizes artifact paths and coalesces by path.

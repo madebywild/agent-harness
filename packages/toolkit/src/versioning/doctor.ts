@@ -11,7 +11,7 @@ import {
   VersionError,
 } from "@madebywild/agent-harness-manifest";
 import type { HarnessPaths } from "../paths.js";
-import { collectSourceCandidates } from "../repository.js";
+import { collectSourceCandidates, detectLegacyPromptEntity } from "../repository.js";
 import type { Diagnostic, DoctorResult, ProviderId, VersionDiagnostic, VersionStatus } from "../types.js";
 import { readTextIfExists } from "../utils.js";
 
@@ -252,6 +252,23 @@ function inspectParsedVersionedObject(
       canMigrate: false,
       hint: "Install a newer harness CLI for this workspace.",
     });
+  }
+
+  // The `prompt` entity was removed in favor of `prompt_section`. Surface the targeted rename
+  // diagnostic here (the schema-parse choke point every command funnels through) instead of the
+  // cryptic Zod discriminated-union error that `parseCurrent` would otherwise raise below.
+  if (kind === "manifest") {
+    const legacyPrompt = detectLegacyPromptEntity(parsed);
+    if (legacyPrompt) {
+      return createVersionStatus(kind, pathValue, {
+        status: "invalid",
+        version,
+        code: legacyPrompt.code,
+        message: legacyPrompt.message,
+        provider,
+        canMigrate: false,
+      });
+    }
   }
 
   try {

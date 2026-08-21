@@ -22,7 +22,7 @@ import { sha256, stableStringify } from "../utils.js";
 
 export function sortEntities(entities: AgentsManifest["entities"]): AgentsManifest["entities"] {
   const order: Record<EntityType, number> = {
-    prompt: 0,
+    prompt_section: 0,
     skill: 1,
     mcp_config: 2,
     subagent: 3,
@@ -35,6 +35,12 @@ export function sortEntities(entities: AgentsManifest["entities"]): AgentsManife
     const typeOrder = order[left.type] - order[right.type];
     if (typeOrder !== 0) {
       return typeOrder;
+    }
+    // Prompt-sections keep their manifest insertion order (stable sort) — that array order IS their
+    // composition order (it reflects preset operation order / add sequence). Other entity kinds sort
+    // by id for a canonical, diff-friendly layout.
+    if (left.type === "prompt_section") {
+      return 0;
     }
     return left.id.localeCompare(right.id);
   });
@@ -81,8 +87,8 @@ export function resolveEntityRegistrySelection(
 
 export function manifestEntityTypeToCliEntityType(type: EntityType): CliEntityType {
   switch (type) {
-    case "prompt":
-      return "prompt";
+    case "prompt_section":
+      return "prompt-section";
     case "skill":
       return "skill";
     case "mcp_config":

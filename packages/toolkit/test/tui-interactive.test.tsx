@@ -375,7 +375,8 @@ describe("journey 9 — onboarding full flow", { timeout: 15_000 }, () => {
     const { api, calls } = createMockApi((input) => {
       if (input.command === "init") return makeInitOutput();
       if (input.command === "provider.enable") return makeProviderOutput(input.args?.provider);
-      if (input.command === "add.prompt") return makeEntityMutationOutput("add.prompt", "prompt", "system");
+      if (input.command === "add.prompt-section")
+        return makeEntityMutationOutput("add.prompt-section", "prompt-section", "system");
       if (input.command === "apply") return makeApplyOutput();
       return makePlanOutput();
     });
@@ -409,12 +410,12 @@ describe("journey 9 — onboarding full flow", { timeout: 15_000 }, () => {
     const completeFrame = await waitForFrame(instance, (f) => f.includes("Setup complete"), 5000);
     assertFrameContains(completeFrame, "Press Enter to continue to the main menu");
 
-    // Verify API calls: init, provider.enable, add.prompt, apply
+    // Verify API calls: init, provider.enable, add.prompt-section, apply
     assert.equal(calls.length, 4);
     assert.equal(calls[0]?.command, "init");
     assert.equal(calls[1]?.command, "provider.enable");
     assert.equal(calls[1]?.args?.provider, "claude");
-    assert.equal(calls[2]?.command, "add.prompt");
+    assert.equal(calls[2]?.command, "add.prompt-section");
     assert.equal(calls[3]?.command, "apply");
 
     // Dismiss → main menu

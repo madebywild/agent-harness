@@ -5,7 +5,7 @@ import {
   cleanupTempDir,
   fetchEntityFromCheckout,
 } from "../entity-registries.js";
-import { DEFAULT_PROMPT_ID, resolveHarnessPaths } from "../paths.js";
+import { resolveHarnessPaths } from "../paths.js";
 import { summarizePreset } from "../presets.js";
 import { writeManifest } from "../repository.js";
 import type { AgentsManifest, EntityType, PresetApplyResult, PresetOperationResult, ResolvedPreset } from "../types.js";
@@ -14,7 +14,7 @@ import {
   addCommandEntity,
   addHookEntity,
   addMcpEntity,
-  addPromptEntity,
+  addPromptSectionEntity,
   addSettingsEntity,
   addSkillEntity,
   addSubagentEntity,
@@ -27,14 +27,6 @@ export async function applyResolvedPreset(cwd: string, preset: ResolvedPreset): 
   const paths = resolveHarnessPaths(cwd);
   let manifest = await readManifestOrThrow(paths);
   const results: PresetOperationResult[] = [];
-
-  // Embedded/registry preset content exposes a single prompt body, so multiple add_prompt
-  // operations would all scaffold identical content. Reject that until per-id prompt content
-  // is supported.
-  const promptOps = preset.definition.operations.filter((operation) => operation.type === "add_prompt");
-  if (promptOps.length > 1) {
-    throw new Error("PRESET_UNSUPPORTED: a preset may define at most one add_prompt operation in this version");
-  }
 
   // Pre-checkout each unique registry referenced by entity operations so we
   // clone at most once per registry instead of once per operation.
@@ -115,16 +107,14 @@ interface EntityOperationSpec {
 
 function describeEntityOperation(operation: EntityAddOperation, preset: ResolvedPreset): EntityOperationSpec {
   switch (operation.type) {
-    case "add_prompt": {
-      const promptId = operation.id ?? DEFAULT_PROMPT_ID;
+    case "add_prompt_section":
       return {
-        entityType: "prompt",
-        entityId: promptId,
-        label: `prompt:${promptId}`,
+        entityType: "prompt_section",
+        entityId: operation.id,
+        label: `prompt-section:${operation.id}`,
         registry: operation.source?.registry ?? DEFAULT_REGISTRY_ID,
-        resolveDesiredSha: () => Promise.resolve(sha256(requireEmbedded(preset, "prompt"))),
+        resolveDesiredSha: () => Promise.resolve(sha256(requireEmbeddedPromptSection(preset, operation.id))),
       };
-    }
     case "add_skill":
       return {
         entityType: "skill",
@@ -193,6 +183,14 @@ async function applyEntityOperation(
   const spec = describeEntityOperation(operation, preset);
   const { entityType, entityId, label, registry } = spec;
 
+  // Strict root: only skills and prompt-sections may be registry-sourced; every other entity kind is
+  // embedded in the preset package.
+  if (registry !== DEFAULT_REGISTRY_ID && entityType !== "skill" && entityType !== "prompt_section") {
+    throw new Error(
+      `PRESET_UNSUPPORTED: operation for ${entityType} '${entityId}' cannot use a registry source; only skills and prompt-sections may (other entities are embedded)`,
+    );
+  }
+
   const existing = manifest.entities.find((entity) => entity.type === entityType && entity.id === entityId);
 
   const desiredSha =
@@ -238,8 +236,8 @@ async function addEntityFromRegistry(
   target?: string,
 ): Promise<void> {
   switch (entityType) {
-    case "prompt":
-      return addPromptEntity(cwd, { registry, id: entityId, target });
+    case "prompt_section":
+      return addPromptSectionEntity(cwd, entityId, { registry, target });
     case "skill":
       return addSkillEntity(cwd, entityId, { registry, target });
     case "mcp_config":
@@ -262,8 +260,11 @@ async function addEntityFromEmbedded(
   target?: string,
 ): Promise<void> {
   switch (operation.type) {
-    case "add_prompt":
-      return addPromptEntity(cwd, { sourceText: requireEmbedded(preset, "prompt"), id: operation.id, target });
+    case "add_prompt_section":
+      return addPromptSectionEntity(cwd, operation.id, {
+        sourceText: requireEmbeddedPromptSection(preset, operation.id),
+        target,
+      });
     case "add_skill":
       return addSkillEntity(cwd, operation.id, { files: requireEmbeddedSkillFiles(preset, operation.id), target });
     case "add_mcp":
@@ -332,29 +333,26 @@ async function resolveRegistrySha(
   return fetched.importedSourceSha256;
 }
 
-function requireEmbedded(preset: ResolvedPreset, key: "prompt"): string;
 function requireEmbedded(preset: ResolvedPreset, key: "subagents" | "commands", id: string): string;
 function requireEmbedded(preset: ResolvedPreset, key: "mcp" | "hooks", id: string): Record<string, unknown>;
 function requireEmbedded(preset: ResolvedPreset, key: "settings", id: string): Record<string, unknown>;
 function requireEmbedded(
   preset: ResolvedPreset,
-  key: "prompt" | "subagents" | "commands" | "mcp" | "hooks" | "settings",
-  id?: string,
+  key: "subagents" | "commands" | "mcp" | "hooks" | "settings",
+  id: string,
 ): string | Record<string, unknown> {
-  if (key === "prompt") {
-    const value = preset.content.prompt;
-    if (!value) {
-      throw new Error(`PRESET_INVALID: preset '${preset.definition.id}' is missing embedded prompt content`);
-    }
-    return value;
-  }
-
-  const lookupId = id as string;
   // Settings uses ProviderId keys; all other maps use plain string keys.
-  const value =
-    key === "settings" ? preset.content.settings?.[lookupId as ProviderId] : preset.content[key]?.[lookupId];
+  const value = key === "settings" ? preset.content.settings?.[id as ProviderId] : preset.content[key]?.[id];
   if (!value) {
-    throw new Error(`PRESET_INVALID: preset '${preset.definition.id}' is missing embedded ${key} '${lookupId}'`);
+    throw new Error(`PRESET_INVALID: preset '${preset.definition.id}' is missing embedded ${key} '${id}'`);
+  }
+  return value;
+}
+
+function requireEmbeddedPromptSection(preset: ResolvedPreset, id: string): string {
+  const value = preset.content.promptSections?.[id];
+  if (!value) {
+    throw new Error(`PRESET_INVALID: preset '${preset.definition.id}' is missing embedded prompt-section '${id}'`);
   }
   return value;
 }

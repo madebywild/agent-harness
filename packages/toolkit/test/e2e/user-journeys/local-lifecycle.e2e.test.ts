@@ -137,7 +137,7 @@ describe("local lifecycle journey", { timeout: 120_000 }, () => {
 
   // ---- Phase 2: Add every entity type ------------------------------------
   test("phase 2 — add all entity types", async () => {
-    await runHarnessCli(workspace, ["add", "prompt"]);
+    await runHarnessCli(workspace, ["add", "prompt-section", "system"]);
     await runHarnessCli(workspace, ["add", "skill", "reviewer"]);
     await runHarnessCli(workspace, ["add", "skill", "security-audit"]);
     await runHarnessCli(workspace, ["add", "mcp", "playwright"]);
@@ -148,7 +148,7 @@ describe("local lifecycle journey", { timeout: 120_000 }, () => {
 
     // Verify source files exist
     const sources = [
-      ".harness/src/prompts/system.md",
+      ".harness/src/prompt-sections/system/SECTION.md",
       ".harness/src/skills/reviewer/SKILL.md",
       ".harness/src/skills/security-audit/SKILL.md",
       ".harness/src/mcp/playwright.json",
@@ -166,7 +166,7 @@ describe("local lifecycle journey", { timeout: 120_000 }, () => {
     assert.equal(manifest.entities.length, 8);
 
     const entityKeys = manifest.entities.map((e) => `${e.type}:${e.id}`);
-    assert.ok(entityKeys.includes("prompt:system"));
+    assert.ok(entityKeys.includes("prompt_section:system"));
     assert.ok(entityKeys.includes("skill:reviewer"));
     assert.ok(entityKeys.includes("skill:security-audit"));
     assert.ok(entityKeys.includes("mcp_config:playwright"));
@@ -192,7 +192,7 @@ describe("local lifecycle journey", { timeout: 120_000 }, () => {
   test("phase 3 — customise entity sources with realistic content", async () => {
     // Prompt
     await fs.writeFile(
-      path.join(workspace, ".harness/src/prompts/system.md"),
+      path.join(workspace, ".harness/src/prompt-sections/system/SECTION.md"),
       "You are a senior staff engineer AI assistant.\n\nAlways write tests before implementation.\n",
       "utf8",
     );
@@ -394,7 +394,7 @@ describe("local lifecycle journey", { timeout: 120_000 }, () => {
   test("phase 6 — modify prompt and skill, re-apply propagates changes", async () => {
     // Modify the prompt
     await fs.writeFile(
-      path.join(workspace, ".harness/src/prompts/system.md"),
+      path.join(workspace, ".harness/src/prompt-sections/system/SECTION.md"),
       "You are an expert TypeScript engineer.\n\nFollow strict null checks and prefer immutable patterns.\n",
       "utf8",
     );
@@ -671,7 +671,7 @@ describe("local lifecycle journey", { timeout: 120_000 }, () => {
   // ---- Phase 16: Env vars in user journey --------------------------------
   test("phase 16 — env placeholders resolve from .harness/.env and update on env changes", async () => {
     await fs.writeFile(
-      path.join(workspace, ".harness/src/prompts/system.md"),
+      path.join(workspace, ".harness/src/prompt-sections/system/SECTION.md"),
       "You are {{ASSISTANT_ROLE}} for {{TEAM_NAME}}.\n",
       "utf8",
     );

@@ -10,7 +10,7 @@ Implements `init --u-haul`, a legacy import flow that migrates provider-owned fi
 
 1. **Phase A (read-only planning)**
    - Detect legacy assets at default provider paths.
-   - Parse and validate prompts, skills, MCP, subagents, hooks, settings, and commands.
+   - Parse and validate prompt sections, skills, MCP, subagents, hooks, settings, and commands.
    - Resolve provider precedence conflicts (`claude > codex > copilot` by default; override via `--u-haul-precedence`).
    - Plan deterministic id remaps for canonical id collisions (`-<type>`, then `-<n>`).
    - Build deletion list for imported legacy files/directories.
@@ -27,7 +27,7 @@ Implements `init --u-haul`, a legacy import flow that migrates provider-owned fi
 
 ## Detection scope
 
-- Prompt: `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`
+- Prompt sections: `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md` (imported into a `system` prompt-section; summary counts use the `prompt-section` key)
 - Skills: `.codex/skills/*`, `.claude/skills/*`, `.github/skills/*`
 - MCP: `.codex/config.toml` (`mcp_servers`), `.mcp.json` (`mcpServers`/`servers`), `.vscode/mcp.json` (`servers`)
 - Subagents: `.codex/config.toml` (`agents`), `.claude/agents/*.md`, `.github/agents/*.agent.md`

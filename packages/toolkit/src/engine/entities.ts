@@ -5,15 +5,14 @@ import type { ProviderId } from "@madebywild/agent-harness-manifest";
 import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { fetchEntityFromRegistry } from "../entity-registries.js";
 import {
-  DEFAULT_PROMPT_ID,
   defaultCommandOverridePath,
   defaultCommandSourcePath,
   defaultHookOverridePath,
   defaultHookSourcePath,
   defaultMcpOverridePath,
   defaultMcpSourcePath,
-  defaultPromptOverridePath,
-  defaultPromptSourcePath,
+  defaultPromptSectionOverridePath,
+  defaultPromptSectionSourcePath,
   defaultSettingsSourcePath,
   defaultSkillImportMetadataPath,
   defaultSkillOverridePath,
@@ -73,7 +72,7 @@ export async function ensureOverrideFiles(
   const overrides: Partial<Record<ProviderId, string>> = {};
   const overrideShaByProvider: Partial<Record<ProviderId, string>> = {};
   const defaultOverridePath: Record<Exclude<EntityType, "settings">, (id: string, p: ProviderId) => string> = {
-    prompt: (id, p) => defaultPromptOverridePath(id, p),
+    prompt_section: (id, p) => defaultPromptSectionOverridePath(id, p),
     skill: (id, p) => defaultSkillOverridePath(id, p),
     mcp_config: (id, p) => defaultMcpOverridePath(id, p),
     subagent: (id, p) => defaultSubagentOverridePath(id, p),
@@ -100,7 +99,7 @@ export async function ensureOverrideFiles(
 
 export async function readCurrentSourceSha(cwd: string, entity: AgentsManifest["entities"][number]): Promise<string> {
   const sourceAbs = path.join(cwd, entity.sourcePath);
-  if (entity.type === "prompt") {
+  if (entity.type === "prompt_section") {
     const text = await fs.readFile(sourceAbs, "utf8");
     return sha256(text);
   }
@@ -195,7 +194,7 @@ export async function materializeFetchedEntity(
   entity: AgentsManifest["entities"][number],
   fetched: Awaited<ReturnType<typeof fetchEntityFromRegistry>>,
 ): Promise<void> {
-  if (entity.type === "prompt" && fetched.type === "prompt") {
+  if (entity.type === "prompt_section" && fetched.type === "prompt_section") {
     const sourceAbs = path.join(cwd, entity.sourcePath);
     await ensureParentDir(sourceAbs);
     await fs.writeFile(sourceAbs, fetched.sourceText, "utf8");
@@ -265,24 +264,24 @@ export async function materializeFetchedEntity(
   throw new Error(`Fetched entity type mismatch for ${entity.type}:${entity.id}`);
 }
 
-export async function addPromptEntity(
+export async function addPromptSectionEntity(
   cwd: string,
-  options?: { registry?: string; sourceText?: string; id?: string; target?: string },
+  sectionId: string,
+  options?: { registry?: string; sourceText?: string; target?: string },
 ): Promise<void> {
-  const promptId = options?.id ?? DEFAULT_PROMPT_ID;
-  validateEntityId(promptId, "prompt");
+  validateEntityId(sectionId, "prompt_section");
   const paths = resolveHarnessPaths(cwd);
   const manifest = await readManifestOrThrow(paths);
 
-  if (manifest.entities.some((entity) => entity.id === promptId)) {
-    throw new Error(`Entity id '${promptId}' already exists`);
+  if (manifest.entities.some((entity) => entity.id === sectionId)) {
+    throw new Error(`Entity id '${sectionId}' already exists`);
   }
 
-  const sourcePath = defaultPromptSourcePath(promptId);
+  const sourcePath = defaultPromptSectionSourcePath(sectionId);
   const sourceAbs = path.join(cwd, sourcePath);
 
   if (await exists(sourceAbs)) {
-    throw new Error(`Cannot add prompt because '${sourcePath}' already exists`);
+    throw new Error(`Cannot add prompt-section because '${sourcePath}' already exists`);
   }
 
   let sourceText: string;
@@ -298,28 +297,28 @@ export async function addPromptEntity(
     registryId = registry.id;
 
     if (registry.definition.type === "git") {
-      // Registries expose a single prompt under the canonical id "system"; the local entity
-      // may be named differently (e.g. a per-package prompt).
-      const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "prompt", DEFAULT_PROMPT_ID);
-      if (fetched.type !== "prompt") {
-        throw new Error(`REGISTRY_FETCH_FAILED: expected prompt from registry '${registry.id}'`);
+      const fetched = await fetchEntityFromRegistry(registry.id, registry.definition, "prompt_section", sectionId);
+      if (fetched.type !== "prompt_section") {
+        throw new Error(`REGISTRY_FETCH_FAILED: expected prompt-section from registry '${registry.id}'`);
       }
       sourceText = fetched.sourceText;
       importedSourceSha256 = fetched.importedSourceSha256;
       registryRevision = fetched.registryRevision;
     } else {
-      sourceText = "# System Prompt\n\nDescribe the core behavior for the assistant.\n";
+      sourceText = `---\nname: ${sectionId}\ndescription: Describe what this section contributes to the system prompt.\n---\n\n# ${sectionId}\n\nDescribe this part of the system prompt.\n`;
     }
   }
 
   await ensureParentDir(sourceAbs);
   await fs.writeFile(sourceAbs, sourceText, "utf8");
 
-  const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "prompt", promptId);
+  const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "prompt_section", sectionId);
 
+  // Appended at the end; sortEntities keeps prompt-sections in insertion order (stable sort), so a
+  // singly-added section composes at the bottom and preset-applied sections keep operation order.
   manifest.entities.push({
-    id: promptId,
-    type: "prompt",
+    id: sectionId,
+    type: "prompt_section",
     registry: registryId,
     sourcePath,
     overrides,
@@ -331,8 +330,8 @@ export async function addPromptEntity(
   await writeManifest(paths, manifest);
   await writeManagedSourceIndex(paths, manifest);
   await upsertLockEntityRecord(paths, manifest, {
-    id: promptId,
-    type: "prompt",
+    id: sectionId,
+    type: "prompt_section",
     registry: registryId,
     sourceSha256: sha256(sourceText),
     overrideSha256ByProvider: overrideShaByProvider,
@@ -991,6 +990,10 @@ export async function removeEntity(
     if (entity.type === "skill") {
       await removeIfExists(path.join(cwd, `.harness/src/skills/${entity.id}`));
       await removeIfExists(path.join(cwd, defaultSkillImportMetadataPath(entity.id)));
+    }
+
+    if (entity.type === "prompt_section") {
+      await removeIfExists(path.join(cwd, `.harness/src/prompt-sections/${entity.id}`));
     }
   }
 

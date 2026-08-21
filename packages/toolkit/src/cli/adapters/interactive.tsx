@@ -96,7 +96,7 @@ const INTERACTIVE_COMMAND_IDS: readonly CommandId[] = [
   "preset.describe",
   "preset.apply",
   "skill.import",
-  "add.prompt",
+  "add.prompt-section",
   "add.skill",
   "add.mcp",
   "add.subagent",
@@ -324,8 +324,9 @@ function buildPromptsForCommand(commandId: CommandId, presets: Array<{ id: strin
         },
       ];
 
-    case "add.prompt":
+    case "add.prompt-section":
       return [
+        { id: "sectionId", type: "text", message: "Prompt-section id", required: true },
         {
           id: "registry",
           type: "text",
@@ -552,8 +553,12 @@ function buildCommandInput(commandId: CommandId, values: CollectedValues): Comma
         },
       };
 
-    case "add.prompt":
-      return { command: commandId, options: { registry: str("registry") } };
+    case "add.prompt-section":
+      return {
+        command: commandId,
+        args: { sectionId: str("sectionId") },
+        options: { registry: str("registry") },
+      };
 
     case "add.skill":
       return {
@@ -1498,9 +1503,9 @@ function OnboardingWizard({ api, presets, legacyAssets, onComplete }: Onboarding
     } else if (subStep.type === "running-add-prompt") {
       runningRef.current = true;
       api
-        .execute({ command: "add.prompt" })
+        .execute({ command: "add.prompt-section", args: { sectionId: "system" } })
         .then(() => {
-          summaryRef.current.push("Added system prompt entity");
+          summaryRef.current.push("Added system prompt-section entity");
           setSubStep({ type: "running-apply" });
         })
         .catch((err: unknown) => {

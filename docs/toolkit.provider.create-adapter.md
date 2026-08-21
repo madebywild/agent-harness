@@ -10,10 +10,10 @@ Implements the shared adapter builder used by all concrete providers.
 
 ## Rendering behavior
 
-- Prompt:
-  - respects `override.enabled === false` to skip generation.
-  - uses override `targetPath` or provider default `promptTarget`.
-  - writes canonical prompt body with a single trailing newline.
+- Prompt sections (`renderPromptSections`):
+  - filters out sections whose override sets `enabled === false`; zero enabled sections emits no artifact.
+  - groups sections by resolved output path (override `targetPath` or provider default `promptTarget`, honoring `target` on nesting providers), so sections sharing a path merge into one file.
+  - within each group, composes section bodies (frontmatter already stripped) in `order` then id, joined by a blank line, with a single trailing newline.
 - Skill:
   - respects `override.enabled === false`.
   - uses override `targetPath` or default `<skillRoot>/<skillId>`.
@@ -38,5 +38,5 @@ Implements the shared adapter builder used by all concrete providers.
 
 ## Ownership tagging
 
-- Prompt/skill artifacts use a single owner entity ID.
-- MCP artifact owner is a sorted comma-separated list of contributing MCP entity IDs.
+- Skill artifacts use a single owner entity ID.
+- Prompt and MCP artifact owners are a sorted comma-separated list of the contributing entity IDs.

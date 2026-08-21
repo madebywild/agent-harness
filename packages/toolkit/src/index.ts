@@ -19,7 +19,7 @@ export type {
   ApplyResult,
   CanonicalHook,
   CanonicalMcpConfig,
-  CanonicalPrompt,
+  CanonicalPromptSection,
   CanonicalSkill,
   CanonicalSubagent,
   Diagnostic,

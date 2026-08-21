@@ -44,7 +44,7 @@ Detection uses `resolveHarnessPaths` + `exists` for the fast path and `runDoctor
 
 ## Notable command surface
 
-- `add prompt|skill|mcp|subagent|hook`
+- `add prompt-section <id>|skill|mcp|subagent|hook` (the `prompt-section` id is required)
 - `skill find <query>`
 - `skill import <source> --skill <upstream-skill> [--as <harness-id>] [--replace] [--allow-unsafe] [--allow-unaudited]`
 - `remove <entity-type> <id>` (entity-type includes `hook`)
@@ -91,7 +91,7 @@ If `data.uHaul.apply.errorDiagnostics > 0`, init returns `ok: false` and exits n
 - `preset list --registry <name>` lists presets exposed by a configured git registry.
 - `preset describe <id>` resolves a preset and returns its metadata plus ordered operations.
 - `preset apply <id>` materializes normal harness state into the workspace; the preset itself is not persisted in `manifest.json`.
-- Bundled presets: `delegate` (bootstrap prompt for delegated authoring), `starter` (prompt + reviewer skill + fix-issue command), `researcher` (prompt + research subagent), `yolo` (prompt + permissive settings for all providers). All four enable `claude`, `codex`, and `copilot`.
+- Bundled presets: `delegate` (bootstrap prompt-section for delegated authoring), `starter` (prompt-section + reviewer skill + fix-issue command), `researcher` (prompt-section + research subagent), `yolo` (prompt-section + permissive settings for all providers). All four enable `claude`, `codex`, and `copilot`.
 - `init --delegate <provider>` is the intended first-run path when the user wants `claude`, `codex`, or `copilot` to author the real project-specific prompt and any related harness entities from the current repository context.
 - Delegated init is interactive-only and should not be combined with `--json`, because the selected provider CLI takes over the terminal session.
 - Provider CLIs are invoked non-interactively: `claude -p <task>`, `codex exec <task>`, `copilot -p <task>`. See [`toolkit.delegated-init.md`](./toolkit.delegated-init.md) for details.

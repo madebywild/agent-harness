@@ -430,7 +430,7 @@ export async function runCommanderAdapter(
       .command("pull")
       .description("Refresh imported entities from configured registries")
       .argument("[entity-type]", CLI_ENTITY_TYPES.join("|"))
-      .argument("[id]", "entity id; use 'system' for prompt")
+      .argument("[id]", "entity id")
       .option("--registry <registry>", "limit pull to one registry")
       .option("--force", "overwrite locally modified imported sources", false)
       .action(
@@ -461,16 +461,18 @@ export async function runCommanderAdapter(
 
   addJsonOption(
     addCommand
-      .command("prompt")
-      .description("Create a system prompt entity (id defaults to 'system')")
-      .argument("[id]", "prompt id (defaults to 'system')")
+      .command("prompt-section")
+      .description("Create a prompt-section entity (composed into the system prompt)")
+      .argument("<section-id>", "prompt-section id")
       .option("--registry <registry>", "registry id (defaults to configured default/local)")
       .option("--target <dir>", "monorepo directory to place generated artifacts under (e.g. packages/web)")
-      .action(async (id: string | undefined, options: { registry?: string; target?: string; json?: boolean }) => {
+      .action(async (sectionId: string, options: { registry?: string; target?: string; json?: boolean }) => {
         await runCommand(
           {
-            command: "add.prompt",
-            args: id ? { id } : {},
+            command: "add.prompt-section",
+            args: {
+              sectionId,
+            },
             options: {
               registry: options.registry,
               target: options.target,
@@ -628,7 +630,7 @@ export async function runCommanderAdapter(
       .command("remove")
       .description("Remove an existing entity")
       .argument("<entity-type>", CLI_ENTITY_TYPES.join("|"))
-      .argument("<id>", "entity id; use 'system' for prompt")
+      .argument("<id>", "entity id")
       .option("--no-delete-source", "keep scaffolded source files (advanced; may trigger ownership diagnostics)")
       .action(async (entityType: string, id: string, options: { deleteSource: boolean; json?: boolean }) => {
         await runCommand(
