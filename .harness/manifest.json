@@ -3,7 +3,6 @@
     {
       "enabled": true,
       "id": "system",
-      "order": 0,
       "overrides": {
         "claude": ".harness/src/prompt-sections/system/OVERRIDES.claude.yaml",
         "codex": ".harness/src/prompt-sections/system/OVERRIDES.codex.yaml",

@@ -144,9 +144,8 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   return {
     manifest,
     diagnostics,
-    promptSections: promptSections.sort(
-      (left, right) => left.canonical.order - right.canonical.order || left.entity.id.localeCompare(right.entity.id),
-    ),
+    // Preserve manifest entity array order: that order is the prompt-section composition order.
+    promptSections,
     skills: skills.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     mcps: mcps.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
     subagents: subagents.sort((left, right) => left.entity.id.localeCompare(right.entity.id)),
@@ -486,7 +485,6 @@ async function loadPromptSection(
       canonical: {
         id: entity.id,
         body,
-        order: entity.type === "prompt_section" ? (entity.order ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER,
         target: entity.target,
       },
       sourceSha256: sha256(text),

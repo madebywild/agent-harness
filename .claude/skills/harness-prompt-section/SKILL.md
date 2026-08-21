@@ -21,10 +21,10 @@ There is no separate monolithic "prompt" entity anymore. To create one system pr
 
 ## Composition and ordering
 
-- Sections compose in `order` (a nonnegative integer on each entity), tie-broken by `id`.
-- `npx harness add prompt-section <id>` appends the new section at the bottom (its `order` is the current maximum + 1).
+- Sections compose in the order their entities appear in `.harness/manifest.json` (that array order reflects preset operation order and add sequence — there is no separate `order` field).
+- `npx harness add prompt-section <id>` appends the new section at the bottom.
 - Section bodies are joined with a blank line, in order, with no injected headings or markers — author your own headings inside each `SECTION.md`.
-- To reorder, edit the `order` values in `.harness/manifest.json` and re-run `apply`.
+- To reorder, move the section's entity within the `entities` array in `.harness/manifest.json` and re-run `apply`.
 - A section can be disabled for a single provider via its override sidecar (`enabled: false`); it still composes for the others.
 
 ## Provider output mapping

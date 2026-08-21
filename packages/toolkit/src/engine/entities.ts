@@ -314,20 +314,13 @@ export async function addPromptSectionEntity(
 
   const { overrides, overrideShaByProvider } = await ensureOverrideFiles(cwd, "prompt_section", sectionId);
 
-  // Composition order: append after existing sections so a singly-added section lands at the bottom.
-  let maxOrder = -1;
-  for (const entity of manifest.entities) {
-    if (entity.type === "prompt_section") {
-      maxOrder = Math.max(maxOrder, entity.order ?? -1);
-    }
-  }
-
+  // Appended at the end; sortEntities keeps prompt-sections in insertion order (stable sort), so a
+  // singly-added section composes at the bottom and preset-applied sections keep operation order.
   manifest.entities.push({
     id: sectionId,
     type: "prompt_section",
     registry: registryId,
     sourcePath,
-    order: maxOrder + 1,
     overrides,
     ...(options?.target ? { target: options.target } : {}),
     enabled: true,

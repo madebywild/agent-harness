@@ -50,8 +50,6 @@ export function isCliEntityType(value: string): value is CliEntityType {
 export interface CanonicalPromptSection {
   id: string;
   body: string;
-  /** Composition order; lower renders first. Resolved from the entity's `order` (missing → last). */
-  order: number;
   /** Monorepo target directory the generated artifact is placed under (default: repo root). */
   target?: string;
 }

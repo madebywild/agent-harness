@@ -111,9 +111,6 @@ const entityRefBaseSchema = z
 
 export const promptSectionEntityRefSchema = entityRefBaseSchema.extend({
   type: z.literal("prompt_section"),
-  // Composition order; lower renders first. Assigned on add (append) and preset-apply (op sequence).
-  // Sections compose into the single system-prompt artifact in this order.
-  order: z.number().int().nonnegative().optional(),
 });
 
 export const skillEntityRefSchema = entityRefBaseSchema.extend({

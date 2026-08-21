@@ -20,7 +20,7 @@ Only enabled providers receive generated artifacts. Supported providers are `cod
 
 Canonical entity types:
 
-- `prompt_section` (0 or more; each carries an integer `order`; sections compose into a single system prompt per provider)
+- `prompt_section` (0 or more; sections compose into a single system prompt per provider, in manifest entity order)
 - `skill`
 - `mcp_config`
 - `subagent`
@@ -107,7 +107,7 @@ Notes:
 ### Prompt sections
 
 - Every enabled `prompt_section` composes into one system-prompt artifact per provider. Section
-  bodies (frontmatter stripped) are joined with a blank line, in `order` then id.
+  bodies (frontmatter stripped) are joined with a blank line, in manifest entity order (which reflects preset operation order / add sequence).
 - `codex -> AGENTS.md`
 - `claude -> CLAUDE.md`
 - `copilot -> .github/copilot-instructions.md`

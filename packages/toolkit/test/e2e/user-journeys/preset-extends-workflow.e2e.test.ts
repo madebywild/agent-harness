@@ -15,7 +15,7 @@ import { readWorkspaceJson, readWorkspaceText, runHarnessCli } from "../cli-help
 import { GiteaRegistryFixture, type RegistryRepoFixture } from "../gitea-registry-fixture.ts";
 
 interface ManifestJson {
-  entities: Array<{ type: string; id: string; registry: string; order?: number }>;
+  entities: Array<{ type: string; id: string; registry: string }>;
 }
 
 function skipIfContainerRuntimeUnavailable(t: TestContext, reason: string | undefined): boolean {
@@ -164,10 +164,8 @@ describe("preset extends workflow journey", { timeout: 300_000, concurrency: fal
     assert.deepEqual(skills, ["commit", "grill", "skill-a"]);
 
     // Prompt-sections compose parent-first then child: root-section, base-embedded, child-embedded.
-    const sections = manifest.entities
-      .filter((entry) => entry.type === "prompt_section")
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-      .map((entry) => entry.id);
+    // Manifest entity array order is the composition order (no explicit `order` field).
+    const sections = manifest.entities.filter((entry) => entry.type === "prompt_section").map((entry) => entry.id);
     assert.deepEqual(sections, ["root-section", "base-embedded", "child-embedded"]);
 
     // Non-inheritable parent op (base-mcp) is NOT inherited; child's own settings are applied.

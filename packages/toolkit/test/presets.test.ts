@@ -270,14 +270,12 @@ test("applyPreset resolves extends: inherits skills + prompt-sections parent-fir
   await engine.applyPreset("child", { registry: "corp" });
 
   const manifest = await readJson<{
-    entities: Array<{ id: string; type: string; order?: number }>;
+    entities: Array<{ id: string; type: string }>;
   }>(cwd, ".harness/manifest.json");
 
-  // Prompt-sections: inherited (parent-first) then child's own, in composition order.
-  const sections = manifest.entities
-    .filter((entry) => entry.type === "prompt_section")
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-    .map((entry) => entry.id);
+  // Prompt-sections: inherited (parent-first) then child's own. Manifest entity array order is the
+  // composition order (no explicit `order` field).
+  const sections = manifest.entities.filter((entry) => entry.type === "prompt_section").map((entry) => entry.id);
   assert.deepEqual(sections, ["root-a", "shared-section", "child-b"]);
 
   // Skills: parent's skill-a + child's skill-b + the shared skill exactly once (child wins).

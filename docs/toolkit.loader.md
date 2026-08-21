@@ -26,7 +26,7 @@ SHA256 hashes are always computed on the raw (pre-substitution) text. Unresolved
 - Prompt section (`loadPromptSection`):
   - reads markdown (`gray-matter`), strips frontmatter to obtain the composable body, validates it is non-empty (`PROMPT_SECTION_EMPTY`).
   - frontmatter (name/description/tags) is registry-side metadata and is not parsed or stored locally.
-  - loaded sections are sorted by `order` then id; enabled sections compose into one system-prompt artifact per provider output path.
+  - loaded sections preserve manifest entity array order (their composition order); enabled sections compose into one system-prompt artifact per provider output path.
 - Skill:
   - loads all files under skill directory, excluding `OVERRIDES.<provider>.yaml` sidecars from canonical skill payload.
   - requires presence of `SKILL.md` (`SKILL_MARKDOWN_MISSING`).

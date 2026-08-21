@@ -43,12 +43,13 @@ export function createProviderAdapter(
       return [...groups.entries()]
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([targetPath, groupSections]) => {
-          const ordered = [...groupSections].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
-          const content = withSingleTrailingNewline(ordered.map((section) => section.body.trim()).join("\n\n"));
+          // groupSections arrive in composition order (manifest array order, preserved by
+          // groupByOutputPath); compose them as-is.
+          const content = withSingleTrailingNewline(groupSections.map((section) => section.body.trim()).join("\n\n"));
           return {
             path: normalizeRelativePath(targetPath),
             content,
-            ownerEntityId: uniqSorted(ordered.map((section) => section.id)).join(","),
+            ownerEntityId: uniqSorted(groupSections.map((section) => section.id)).join(","),
             provider,
             format: "markdown" as const,
           };

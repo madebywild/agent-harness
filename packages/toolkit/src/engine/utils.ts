@@ -36,13 +36,11 @@ export function sortEntities(entities: AgentsManifest["entities"]): AgentsManife
     if (typeOrder !== 0) {
       return typeOrder;
     }
-    // Prompt-sections compose in `order`; keep the canonical manifest layout consistent with the
-    // composition order so the on-disk file matches how sections render.
-    if (left.type === "prompt_section" && right.type === "prompt_section") {
-      const byOrder = (left.order ?? Number.MAX_SAFE_INTEGER) - (right.order ?? Number.MAX_SAFE_INTEGER);
-      if (byOrder !== 0) {
-        return byOrder;
-      }
+    // Prompt-sections keep their manifest insertion order (stable sort) — that array order IS their
+    // composition order (it reflects preset operation order / add sequence). Other entity kinds sort
+    // by id for a canonical, diff-friendly layout.
+    if (left.type === "prompt_section") {
+      return 0;
     }
     return left.id.localeCompare(right.id);
   });
