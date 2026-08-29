@@ -38,6 +38,7 @@ import {
 } from "./presets.js";
 import {
   emptyManagedIndex,
+  ensureHarnessGitignore,
   loadLock,
   loadManagedIndex,
   loadManifest,
@@ -140,6 +141,7 @@ export class HarnessEngine {
     await writeManifest(paths, manifest);
     await writeLock(paths, lock);
     await writeManagedIndex(paths, managedIndex);
+    await ensureHarnessGitignore(paths);
   }
 
   async enableProvider(provider: ProviderId): Promise<void> {

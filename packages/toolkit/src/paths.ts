@@ -22,6 +22,7 @@ export interface HarnessPaths {
   rootEnvFile: string;
   behaviorMapFile: string;
   behaviorConfigFile: string;
+  gitignoreFile: string;
 }
 
 export function resolveHarnessPaths(rootDir: string): HarnessPaths {
@@ -49,6 +50,7 @@ export function resolveHarnessPaths(rootDir: string): HarnessPaths {
     rootEnvFile: path.join(rootDir, ".env.harness"),
     behaviorMapFile: path.join(harnessDir, "behavior.map.yaml"),
     behaviorConfigFile: path.join(harnessDir, "behavior.yaml"),
+    gitignoreFile: path.join(harnessDir, ".gitignore"),
   };
 }
 

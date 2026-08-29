@@ -6,6 +6,7 @@ import {
   loadBehavior,
 } from "../behavior.js";
 import type { HarnessPaths } from "../paths.js";
+import { ensureHarnessGitignore } from "../repository.js";
 import { readTextIfExists, writeFileAtomic } from "../utils.js";
 
 export interface BehaviorSetResult {
@@ -74,6 +75,8 @@ export async function setBehaviorValue(paths: HarnessPaths, key: string, value: 
   }
 
   document.set(key, value);
+  // Workspaces created before .harness/.gitignore existed get it here, as the local config appears.
+  await ensureHarnessGitignore(paths);
   await writeFileAtomic(paths.behaviorConfigFile, document.toString());
 
   return {

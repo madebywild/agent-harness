@@ -185,6 +185,32 @@ test("behavior integration: behaviorSet validates and preserves config comments"
   await assert.rejects(() => engine.behaviorSet("speed", "fast"), /Known keys: effort/);
 });
 
+test("behavior integration: init ships .harness/.gitignore covering local-only files", async () => {
+  const cwd = await mkTmpRepo();
+  await new HarnessEngine(cwd).init();
+
+  const ignore = await fs.readFile(path.join(cwd, ".harness/.gitignore"), "utf8");
+  assert.ok(ignore.includes("behavior.yaml"), "should ignore the per-developer behavior config");
+  assert.ok(ignore.includes(".env"), "should ignore harness secrets");
+});
+
+test("behavior integration: behaviorSet backfills .gitignore but never clobbers an existing one", async () => {
+  const { cwd, engine } = await setupWorkspace();
+  await fs.writeFile(path.join(cwd, ".harness/behavior.map.yaml"), MAP_YAML);
+
+  // Simulate a workspace created before .harness/.gitignore existed.
+  await fs.rm(path.join(cwd, ".harness/.gitignore"));
+  await engine.behaviorSet("effort", "fast");
+  const backfilled = await fs.readFile(path.join(cwd, ".harness/.gitignore"), "utf8");
+  assert.ok(backfilled.includes("behavior.yaml"));
+
+  // A project-owned .gitignore is left exactly as-is.
+  await fs.writeFile(path.join(cwd, ".harness/.gitignore"), "# hand written\nbehavior.yaml\n");
+  await engine.behaviorSet("effort", "thorough");
+  const preserved = await fs.readFile(path.join(cwd, ".harness/.gitignore"), "utf8");
+  assert.equal(preserved, "# hand written\nbehavior.yaml\n");
+});
+
 test("behavior integration: behaviorShow reports value, source, and allowed values", async () => {
   const { cwd, engine } = await setupWorkspace();
   await fs.writeFile(path.join(cwd, ".harness/behavior.map.yaml"), MAP_YAML);

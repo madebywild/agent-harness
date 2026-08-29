@@ -35,7 +35,7 @@ See also: [Behavior Config Guide](./behavior-config.md)
 
 ## Engine and CLI surface
 
-- `HarnessEngine.behaviorSet(key, value)` → `src/engine/behavior.ts` `setBehaviorValue`: validates against the map, then writes the config via the YAML Document API (preserving comments) and `writeFileAtomic`.
+- `HarnessEngine.behaviorSet(key, value)` → `src/engine/behavior.ts` `setBehaviorValue`: validates against the map, ensures `.harness/.gitignore` exists (backfilling workspaces created before it shipped), then writes the config via the YAML Document API (preserving comments) and `writeFileAtomic`.
 - `HarnessEngine.behaviorShow()` → `showBehavior`: returns `LoadedBehavior` for display.
 - CLI: `harness behavior set <key> <value>` and `harness behavior show` (`cli/handlers/behavior.ts`, output family `behavior`).
 - `engine.watch()` watches both behavior files and re-applies on change.

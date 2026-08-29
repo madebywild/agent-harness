@@ -17,7 +17,8 @@ Env file paths:
 Behavior file paths:
 
 - `behaviorMapFile`: `.harness/behavior.map.yaml` (committed ruleset for `{{behavior.*}}` placeholders)
-- `behaviorConfigFile`: `.harness/behavior.yaml` (per-developer choices; gitignore recommended)
+- `behaviorConfigFile`: `.harness/behavior.yaml` (per-developer choices; ignored via `.harness/.gitignore`)
+- `gitignoreFile`: `.harness/.gitignore` (written by `init`, covers `.env` and `behavior.yaml`)
 
 Source path helpers:
 

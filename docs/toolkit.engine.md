@@ -44,7 +44,7 @@ Supporting logic is split across submodules in `engine/`:
 ## Main class
 
 - `HarnessEngine(cwd = process.cwd())`
-- `init({ force? })`: creates or force-recreates `.harness` state files and source directories.
+- `init({ force? })`: creates or force-recreates `.harness` state files and source directories, including `.harness/.gitignore` (covers `.env` and `behavior.yaml`; an existing file is never overwritten).
 - `enableProvider` / `disableProvider`: mutate `manifest.providers.enabled`.
 - entity add methods:
   - `addPromptSection`

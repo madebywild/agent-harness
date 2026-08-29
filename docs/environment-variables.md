@@ -55,21 +55,18 @@ Harness loads env vars from two file locations, merged in priority order:
 
 | Priority | File | Typical use | Version control |
 | --- | --- | --- | --- |
-| 1 (highest) | `.harness/.env` | Secrets, local overrides | Gitignored |
+| 1 (highest) | `.harness/.env` | Secrets, local overrides | Ignored automatically |
 | 2 | `.env.harness` (project root) | Shared, non-secret params | Optionally committed |
 
 Higher-priority files override lower-priority ones for the same key. Both files are optional; missing files are silently skipped.
 
 A third fallback layer is `process.env`. If a placeholder key is not found in either file, the current process environment is checked. This enables CI/CD pipelines to inject values without any `.env` file.
 
-### Recommended `.gitignore` entries
+### Git ignores `.harness/.env` for you
 
-```gitignore
-# Harness secrets
-.harness/.env
-```
+`harness init` writes a `.harness/.gitignore` that already covers `.env` (and the per-developer `behavior.yaml`), so consuming projects do not have to edit their own root `.gitignore`. Commit that file with the rest of the workspace; if it already exists, harness never overwrites it, so add entries there yourself.
 
-`.env.harness` can be committed when it contains only non-secret configuration (project names, environment labels, feature flags).
+`.env.harness` at the project root is **not** covered — it lives outside `.harness/`. Commit it only when it contains non-secret configuration (project names, environment labels, feature flags), and ignore it yourself otherwise.
 
 ## Env file format
 
@@ -334,7 +331,7 @@ Replaces `{{PLACEHOLDER}}` patterns in text. Falls back to `process.env` for key
 
 ## Security considerations
 
-- **Never commit `.harness/.env`**. Add it to `.gitignore`.
+- **Never commit `.harness/.env`**. The `.harness/.gitignore` written by `harness init` already covers it; verify with `git check-ignore .harness/.env` in workspaces that predate it.
 - Resolved secret values appear in generated output files (for example `.mcp.json`). Ensure those outputs are also gitignored if they contain secrets, or use provider-level mechanisms (like environment variable references) instead of literal injection where possible.
 - The lock file does not contain resolved values; it only stores SHA256 hashes of the raw source templates.
 - `process.env` fallback means any environment variable on the machine is accessible via `{{NAME}}` if not shadowed by a `.env` file entry. This is by design for CI/CD but worth noting for shared machines.

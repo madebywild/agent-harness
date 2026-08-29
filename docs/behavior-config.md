@@ -9,7 +9,7 @@ Org-wide harnesses want one committed ruleset but per-developer behavior. Some d
 | File | Purpose | Version control |
 | --- | --- | --- |
 | `.harness/behavior.map.yaml` | The ruleset: every allowed key, its allowed values, the instruction text each value expands to, and a required default | Committed |
-| `.harness/behavior.yaml` | Each developer's chosen values (`effort: fast`) | Gitignored (recommended) |
+| `.harness/behavior.yaml` | Each developer's chosen values (`effort: fast`) | Ignored automatically |
 
 Placeholders of the form `{{behavior.<key>}}` in entity sources are replaced at `harness plan`/`apply` time with the resolved instruction text: the developer's configured value when set, else the map's default. Keys are arbitrary identifiers; `effort` is just one example.
 
@@ -55,12 +55,17 @@ npx harness apply
 
 `CLAUDE.md` / `AGENTS.md` / `.github/copilot-instructions.md` now carry the `fast` instruction for that developer only.
 
-### Recommended `.gitignore` entries
+### Git ignores the local config for you
+
+`harness init` writes `.harness/.gitignore`, and `harness behavior set` backfills it in workspaces created before it existed:
 
 ```gitignore
-# Per-developer behavior choices
-.harness/behavior.yaml
+# Local, per-developer harness state. Everything else in .harness is shared.
+.env
+behavior.yaml
 ```
+
+Because git honors a `.gitignore` at any directory level, consuming projects never have to touch their own root `.gitignore`. Commit `.harness/.gitignore` along with the rest of the workspace. If the file already exists it is never overwritten: once present it belongs to the project, so add entries there yourself.
 
 The map (`.harness/behavior.map.yaml`) is the shared contract and should always be committed.
 

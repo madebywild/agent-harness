@@ -238,7 +238,7 @@ npx harness remove <entity-type> <id> --no-delete-source  # keep source files
 
 ### Behavior config
 
-Team-defined behavior levels fill `{{behavior.<key>}}` placeholders in entity sources at apply time. The committed ruleset lives in `.harness/behavior.map.yaml` (keys, allowed values, instruction text per value, required default); each developer's choices live in `.harness/behavior.yaml` (gitignore recommended). See `docs/behavior-config.md`.
+Team-defined behavior levels fill `{{behavior.<key>}}` placeholders in entity sources at apply time. The committed ruleset lives in `.harness/behavior.map.yaml` (keys, allowed values, instruction text per value, required default); each developer's choices live in `.harness/behavior.yaml`, ignored via the `.harness/.gitignore` that `init` ships (so consuming projects never edit their own). See `docs/behavior-config.md`.
 
 ```bash
 npx harness behavior set <key> <value>    # validated against the map; writes .harness/behavior.yaml

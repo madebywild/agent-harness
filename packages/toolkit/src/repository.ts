@@ -220,6 +220,26 @@ export async function writeManagedIndex(paths: HarnessPaths, managedIndex: Manag
   await writeFileAtomic(paths.managedIndexFile, stableStringify(managedIndex));
 }
 
+// Per-developer workspace files (.env secrets, behavior choices) are ignored through a
+// .gitignore inside .harness itself, so consuming projects never have to edit their own.
+const HARNESS_GITIGNORE_CONTENT = `# Local, per-developer harness state. Everything else in .harness is shared.
+.env
+behavior.yaml
+`;
+
+/**
+ * Write `.harness/.gitignore` when it does not exist yet. An existing file is left untouched:
+ * once present it belongs to the project, not the CLI.
+ */
+export async function ensureHarnessGitignore(paths: HarnessPaths): Promise<boolean> {
+  if (await exists(paths.gitignoreFile)) {
+    return false;
+  }
+
+  await writeFileAtomic(paths.gitignoreFile, HARNESS_GITIGNORE_CONTENT);
+  return true;
+}
+
 export async function readProviderOverrideFile(
   rootDir: string,
   provider: ProviderId,

@@ -11,11 +11,15 @@
  */
 
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, test } from "node:test";
-import { mkTmpRepo } from "../../helpers.ts";
+import { promisify } from "node:util";
+import { initGitRepo, mkTmpRepo } from "../../helpers.ts";
 import { readWorkspaceText, runHarnessCli, runHarnessCliExpectFailure } from "../cli-helpers.ts";
+
+const execFileAsync = promisify(execFile);
 
 interface BehaviorShowJson {
   ok: boolean;
@@ -154,5 +158,41 @@ describe("behavior config journey", { timeout: 120_000 }, () => {
     const output = await readWorkspaceText(workspace, "CLAUDE.md");
     assert.ok(output.includes("{{behavior.tone}}"), "unknown placeholder should remain literal");
     assert.ok(output.includes("Skip broad tests and linting"), "known placeholder should still resolve");
+  });
+
+  test("phase 8 — the shipped .harness/.gitignore keeps local choices out of git", async () => {
+    const repo = await mkTmpRepo();
+    await initGitRepo(repo);
+
+    await runHarnessCli(repo, ["init"]);
+    await fs.writeFile(path.join(repo, ".harness/behavior.map.yaml"), MAP_YAML, "utf8");
+    await runHarnessCli(repo, ["behavior", "set", "effort", "fast"]);
+    await fs.writeFile(path.join(repo, ".harness/.env"), "API_KEY=secret\n", "utf8");
+
+    // The consuming project never touched its own .gitignore.
+    assert.equal(
+      await fs
+        .stat(path.join(repo, ".gitignore"))
+        .then(() => true)
+        .catch(() => false),
+      false,
+      "no root .gitignore should be required",
+    );
+
+    const { stdout } = await execFileAsync("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: repo });
+    const tracked = stdout.split("\n").filter(Boolean);
+    assert.ok(
+      !tracked.some((line) => line.includes(".harness/behavior.yaml")),
+      `behavior.yaml should be ignored, got: ${stdout}`,
+    );
+    assert.ok(!tracked.some((line) => line.includes(".harness/.env")), `.env should be ignored, got: ${stdout}`);
+    assert.ok(
+      tracked.some((line) => line.includes(".harness/behavior.map.yaml")),
+      "the shared behavior map must stay visible to git",
+    );
+    assert.ok(
+      tracked.some((line) => line.includes(".harness/.gitignore")),
+      "the ignore file itself must be committable",
+    );
   });
 });

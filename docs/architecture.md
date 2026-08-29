@@ -55,7 +55,7 @@ Entity source files and override sidecars support `{{PLACEHOLDER}}` syntax for i
 
 Env var sources (resolution order, highest priority first):
 
-1. `.harness/.env` — per-workspace secrets (gitignored)
+1. `.harness/.env` — per-workspace secrets (ignored via `.harness/.gitignore`)
 2. `.env.harness` — project-root shared parameters (optionally committed)
 3. `process.env` — CI/CD fallback
 
@@ -67,7 +67,7 @@ See also: [Environment Variables Guide](./environment-variables.md)
 
 ## Behavior config
 
-Entity sources also support `{{behavior.<key>}}` placeholders resolved from two workspace-level YAML files: `.harness/behavior.map.yaml` (the committed ruleset: keys, allowed values, instruction text per value, required defaults) and `.harness/behavior.yaml` (per-developer choices; gitignore recommended). Every config key and value must map to an entry in the behavior map (errors block apply); an unresolved `{{behavior.<key>}}` placeholder is a warning, mirroring env vars. `harness behavior set <key> <value>` and `harness behavior show` manage the local config.
+Entity sources also support `{{behavior.<key>}}` placeholders resolved from two workspace-level YAML files: `.harness/behavior.map.yaml` (the committed ruleset: keys, allowed values, instruction text per value, required defaults) and `.harness/behavior.yaml` (per-developer choices, ignored via the `.harness/.gitignore` that `init` writes, so consuming projects never edit their own). Every config key and value must map to an entry in the behavior map (errors block apply); an unresolved `{{behavior.<key>}}` placeholder is a warning, mirroring env vars. `harness behavior set <key> <value>` and `harness behavior show` manage the local config.
 
 See also: [Behavior Config Guide](./behavior-config.md)
 
