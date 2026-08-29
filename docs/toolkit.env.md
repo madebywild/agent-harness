@@ -11,6 +11,7 @@ See also: [Environment Variables Guide](./environment-variables.md)
 - `parseEnvFile(content)`: parses a dotenv-format string into a `Map<string, string>`.
 - `loadEnvVars(paths)`: loads and merges env vars from `.harness/.env` (high priority) and `.env.harness` (low priority).
 - `substituteEnvVars(text, vars)`: replaces `{{PLACEHOLDER}}` patterns in text with values from the env var map, falling back to `process.env`.
+- `substitutePlaceholders(text, pattern, resolve)`: the generic replace-and-track walker shared with behavior substitution (see [toolkit.behavior](./toolkit.behavior.md)).
 
 ## `parseEnvFile`
 
@@ -49,6 +50,8 @@ Resolution order per placeholder:
 2. `process.env[key]` fallback (for CI/CD).
 
 Unresolved placeholders are left as-is in the output text.
+
+The pattern forbids dots, so `{{behavior.<key>}}` placeholders (behavior config) can never collide with env placeholders.
 
 Returns:
 

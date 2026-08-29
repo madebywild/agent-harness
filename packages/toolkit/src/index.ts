@@ -4,6 +4,8 @@ import { HarnessEngine } from "./engine.js";
 import { validateRegistryRepo } from "./registry-validator.js";
 import type { ApplyOptions, ApplyResult, DoctorResult, MigrationResult, PlanOptions, PlanResult } from "./types.js";
 
+export type { BehaviorChoice, LoadedBehavior, SubstitutionContext } from "./behavior.js";
+export { loadBehavior, substituteBehaviorPlaceholders } from "./behavior.js";
 export type {
   CliEnvelope,
   CliExecutionContext,

@@ -1,6 +1,7 @@
 import type { Diagnostic } from "../../types.js";
 import type {
   ApplyOutput,
+  BehaviorOutput,
   CommandOutput,
   DocsOutput,
   DoctorOutput,
@@ -178,6 +179,23 @@ function renderSkillsOutput(output: SkillsOutput, writeLine: (line: string) => v
   renderDiagnosticsSection(output.diagnostics, writeLine);
 }
 
+function renderBehaviorOutput(output: BehaviorOutput, writeLine: (line: string) => void): void {
+  if (output.data.operation === "set") {
+    writeLine(output.data.message);
+    return;
+  }
+
+  if (output.data.entries.length === 0) {
+    writeLine("No behavior map found (.harness/behavior.map.yaml).");
+  }
+
+  for (const entry of output.data.entries) {
+    writeLine(`${entry.key} = ${entry.value} (${entry.source})  [${entry.allowed.join(" | ")}]`);
+  }
+
+  renderDiagnosticsSection(output.diagnostics, writeLine);
+}
+
 function renderValidationOutput(output: ValidationOutput, writeLine: (line: string) => void): void {
   if (output.data.result.diagnostics.length === 0) {
     writeLine("Validation passed.");
@@ -346,6 +364,10 @@ export function renderTextOutput(output: CommandOutput, writeLine: (line: string
     }
     case "skills": {
       renderSkillsOutput(output, writeLine);
+      return;
+    }
+    case "behavior": {
+      renderBehaviorOutput(output, writeLine);
       return;
     }
     case "validation": {

@@ -65,6 +65,12 @@ Unresolved placeholders produce `ENV_VAR_UNRESOLVED` warnings but do not block a
 
 See also: [Environment Variables Guide](./environment-variables.md)
 
+## Behavior config
+
+Entity sources also support `{{behavior.<key>}}` placeholders resolved from two workspace-level YAML files: `.harness/behavior.map.yaml` (the committed ruleset: keys, allowed values, instruction text per value, required defaults) and `.harness/behavior.yaml` (per-developer choices; gitignore recommended). Every config key and value must map to an entry in the behavior map (errors block apply); an unresolved `{{behavior.<key>}}` placeholder is a warning, mirroring env vars. `harness behavior set <key> <value>` and `harness behavior show` manage the local config.
+
+See also: [Behavior Config Guide](./behavior-config.md)
+
 ## Hook primitive
 
 `hook` is a canonical lifecycle-hook primitive rendered into provider-native hook formats.

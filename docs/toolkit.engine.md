@@ -69,10 +69,11 @@ Supporting logic is split across submodules in `engine/`:
   - `applyPreset(presetId, { registry? })`: materializes a preset into the workspace (providers, entities, settings).
 - `remove(entityType, id, deleteSource)`: removes entity and optionally source/override files.
 - `validate()`, `plan()`, `apply()`, `watch(debounceMs)`, `doctor({ json? })`, `migrate({ ... })`.
+- `behaviorSet(key, value)`, `behaviorShow()` — manage `.harness/behavior.yaml` against the committed behavior map (see [behavior-config](./behavior-config.md)).
 
 ## Watch mode
 
-`watch` monitors entity sources, overrides, manifest, and env files (`.harness/.env`, `.env.harness`). Changes to env files trigger re-apply alongside source file changes.
+`watch` monitors entity sources, overrides, manifest, env files (`.harness/.env`, `.env.harness`), and behavior files (`.harness/behavior.map.yaml`, `.harness/behavior.yaml`). Changes to any of them trigger re-apply alongside source file changes.
 
 ## Runtime guarantees
 

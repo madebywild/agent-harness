@@ -122,6 +122,7 @@ Placeholders use double-brace syntax:
 - Invalid (not matched): `{{123}}`, `{{a-b}}`, `{{}}`
 - Single braces `{VAR}` are **not** matched.
 - Placeholders are replaced in-place within the source text before any parsing occurs.
+- Dotted names are never matched, so `{{behavior.<key>}}` placeholders belong to the separate [behavior config](./behavior-config.md) mechanism and cannot collide with env vars.
 
 ## Resolution order
 

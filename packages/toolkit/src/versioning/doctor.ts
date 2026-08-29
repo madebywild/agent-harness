@@ -3,6 +3,7 @@ import {
   type DocumentKind,
   detectDocumentVersion,
   LATEST_VERSION_BY_KIND,
+  parseBehaviorMap,
   parseManagedIndex,
   parseManifest,
   parseManifestLock,
@@ -54,6 +55,21 @@ export async function runDoctor(paths: HarnessPaths): Promise<DoctorResult> {
   });
   if (managedIndexStatus) {
     files.push(managedIndexStatus);
+  }
+
+  const behaviorMapStatus = await inspectJsonDocument(paths, {
+    kind: "behavior-map",
+    relativePath: ".harness/behavior.map.yaml",
+    required: false,
+    parseCurrent: parseBehaviorMap,
+    invalidCode: "BEHAVIOR_MAP_INVALID",
+    parseText: async (text) => {
+      const YAML = await import("yaml");
+      return YAML.parse(text) as unknown;
+    },
+  });
+  if (behaviorMapStatus) {
+    files.push(behaviorMapStatus);
   }
 
   const sourceCandidates = await collectSourceCandidates(paths);
@@ -147,6 +163,8 @@ interface InspectJsonDocumentInput {
   required: boolean;
   invalidCode: string;
   parseCurrent(input: unknown): unknown;
+  /** Text parser for non-JSON documents (e.g. YAML behavior map); defaults to JSON.parse. */
+  parseText?(text: string): Promise<unknown>;
 }
 
 async function inspectJsonDocument(
@@ -180,18 +198,18 @@ async function inspectJsonDocument(
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text) as unknown;
+    parsed = input.parseText ? await input.parseText(text) : (JSON.parse(text) as unknown);
   } catch (error) {
     return {
       code: input.invalidCode,
       severity: "error",
-      message: error instanceof Error ? error.message : "Invalid JSON",
+      message: error instanceof Error ? error.message : "Invalid document",
       path: input.relativePath,
       kind: input.kind,
       status: "invalid",
       latestVersion: LATEST_VERSION_BY_KIND[input.kind],
       canMigrate: false,
-      hint: "Fix schema/JSON issues before running 'harness migrate'.",
+      hint: "Fix schema/syntax issues before running 'harness migrate'.",
     };
   }
 
@@ -296,7 +314,7 @@ function inspectParsedVersionedObject(
     return createVersionStatus(kind, pathValue, {
       status: "invalid",
       version,
-      code: kind === "manifest" ? "MANIFEST_INVALID" : kind === "lock" ? "LOCK_INVALID" : "MANAGED_INDEX_INVALID",
+      code: invalidCodeForKind(kind),
       message: error instanceof Error ? error.message : "Invalid schema",
       provider,
       canMigrate: false,
@@ -331,6 +349,21 @@ function createVersionStatus(
     canMigrate: input.canMigrate,
     hint: input.hint,
   };
+}
+
+function invalidCodeForKind(kind: DocumentKind): string {
+  switch (kind) {
+    case "manifest":
+      return "MANIFEST_INVALID";
+    case "lock":
+      return "LOCK_INVALID";
+    case "provider-override":
+      return "OVERRIDE_INVALID";
+    case "behavior-map":
+      return "BEHAVIOR_MAP_INVALID";
+    case "managed-index":
+      return "MANAGED_INDEX_INVALID";
+  }
 }
 
 function versionCode(kind: DocumentKind, suffix: string): string {

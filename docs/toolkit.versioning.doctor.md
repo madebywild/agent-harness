@@ -6,7 +6,7 @@ Performs workspace schema-version health checks and produces per-file version di
 
 ## Main APIs
 
-- `runDoctor(paths)`: scans required manifest, optional lock/managed-index, and discovered override sidecars.
+- `runDoctor(paths)`: scans required manifest, optional lock/managed-index, the optional behavior map (`.harness/behavior.map.yaml`, kind `behavior-map`, parsed as YAML), and discovered override sidecars.
 - `hasVersionBlockers(doctorResult)`: returns `true` when any file is non-current.
 - `buildVersionPreflightDiagnostics(doctorResult)`: converts doctor findings into command-preflight diagnostics.
 

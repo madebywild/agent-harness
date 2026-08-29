@@ -1,4 +1,4 @@
-export const DOCUMENT_KINDS = ["manifest", "lock", "managed-index", "provider-override"] as const;
+export const DOCUMENT_KINDS = ["manifest", "lock", "managed-index", "provider-override", "behavior-map"] as const;
 
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 
@@ -9,6 +9,7 @@ export const LATEST_VERSION_BY_KIND: Record<DocumentKind, number> = {
   lock: LATEST_SCHEMA_MAJOR,
   "managed-index": LATEST_SCHEMA_MAJOR,
   "provider-override": LATEST_SCHEMA_MAJOR,
+  "behavior-map": LATEST_SCHEMA_MAJOR,
 };
 
 export type VersionDetectionStatus = "ok" | "missing" | "invalid_type";
@@ -76,6 +77,8 @@ function formatKind(kind: DocumentKind): string {
       return "Managed index";
     case "provider-override":
       return "Provider override";
+    case "behavior-map":
+      return "Behavior map";
   }
 }
 

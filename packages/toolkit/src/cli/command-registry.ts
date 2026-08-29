@@ -2,6 +2,7 @@ import { providerIdSchema } from "@madebywild/agent-harness-manifest";
 import { CLI_ENTITY_TYPES } from "../types.js";
 import type { CliResolvedContext, CommandId, CommandInput, CommandOutput } from "./contracts.js";
 import { handleApply } from "./handlers/apply.js";
+import { handleBehaviorSet, handleBehaviorShow } from "./handlers/behavior.js";
 import { handleDocs } from "./handlers/docs.js";
 import { handleDoctor } from "./handlers/doctor.js";
 import {
@@ -680,6 +681,36 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
         },
         context,
       ),
+  },
+  {
+    id: "behavior.set",
+    path: ["behavior", "set"],
+    description: "Set a behavior value in .harness/behavior.yaml (validated against .harness/behavior.map.yaml)",
+    args: [
+      { name: "key", required: true, description: "behavior key defined in the behavior map" },
+      { name: "value", required: true, description: "one of the key's allowed values" },
+    ],
+    options: [],
+    mutatesWorkspace: true,
+    interactiveLabel: "Set behavior value",
+    run: (input, context) =>
+      handleBehaviorSet(
+        {
+          key: readStringArg(input, "key") ?? "",
+          value: readStringArg(input, "value") ?? "",
+        },
+        context,
+      ),
+  },
+  {
+    id: "behavior.show",
+    path: ["behavior", "show"],
+    description: "Show resolved behavior values (config choice or map default per key)",
+    args: [],
+    options: [],
+    mutatesWorkspace: false,
+    interactiveLabel: "Show behavior values",
+    run: (_input, context) => handleBehaviorShow(context),
   },
   {
     id: "remove",

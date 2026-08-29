@@ -8,7 +8,7 @@ import {
   providerIdSchema,
   VersionError,
 } from "@madebywild/agent-harness-manifest";
-import { pushUnresolvedEnvDiagnostics, substituteEnvVars } from "./env.js";
+import { type SubstitutionContext, substituteSourceText } from "./behavior.js";
 import type { HarnessPaths } from "./paths.js";
 import type {
   AgentsManifest,
@@ -224,7 +224,7 @@ export async function readProviderOverrideFile(
   rootDir: string,
   provider: ProviderId,
   overridePath?: string,
-  envVars?: Map<string, string>,
+  subs?: SubstitutionContext,
 ): Promise<{
   override: ProviderOverride | undefined;
   sha256: string | undefined;
@@ -256,10 +256,9 @@ export async function readProviderOverrideFile(
   const overrideDiagnostics: Diagnostic[] = [];
   try {
     let textToParse = text;
-    if (envVars) {
-      const { result, unresolvedKeys } = substituteEnvVars(text, envVars);
+    if (subs) {
+      const { result } = substituteSourceText(text, subs, overrideDiagnostics, normalized, { provider });
       textToParse = result;
-      pushUnresolvedEnvDiagnostics(unresolvedKeys, overrideDiagnostics, normalized, { provider });
     }
     const YAML = await import("yaml");
     const parsed = YAML.parse(textToParse) as unknown;

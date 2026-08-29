@@ -327,7 +327,10 @@ test("env integration: invalid override keeps unresolved env warnings in overrid
 
     await fs.writeFile(path.join(cwd, overridePath), `version: 1\nmodel: "{{${missingKey}}}"\nbad: [1, 2\n`);
 
-    const result = await readProviderOverrideFile(cwd, "codex", overridePath, new Map<string, string>());
+    const result = await readProviderOverrideFile(cwd, "codex", overridePath, {
+      envVars: new Map<string, string>(),
+      behaviorValues: new Map<string, string>(),
+    });
     assert.ok(
       result.diagnostics.some((d) => d.code === "OVERRIDE_INVALID"),
       "Should emit OVERRIDE_INVALID diagnostic",
