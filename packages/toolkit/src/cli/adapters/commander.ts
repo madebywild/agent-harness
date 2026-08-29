@@ -308,6 +308,39 @@ export async function runCommanderAdapter(
       }),
   );
 
+  const behaviorCommand = program
+    .command("behavior")
+    .description("Manage behavior values that fill {{behavior.*}} placeholders");
+
+  addJsonOption(
+    behaviorCommand
+      .command("set")
+      .argument("<key>", "behavior key defined in .harness/behavior.map.yaml")
+      .argument("<value>", "one of the key's allowed values")
+      .description("Set a behavior value in .harness/behavior.yaml")
+      .action(async (key: string, value: string, options: JsonOption) => {
+        await runCommand(
+          {
+            command: "behavior.set",
+            args: {
+              key,
+              value,
+            },
+          },
+          options,
+        );
+      }),
+  );
+
+  addJsonOption(
+    behaviorCommand
+      .command("show")
+      .description("Show resolved behavior values")
+      .action(async (options: JsonOption) => {
+        await runCommand({ command: "behavior.show" }, options);
+      }),
+  );
+
   const registryCommand = program.command("registry").description("Manage registries and pull imported entities");
 
   addJsonOption(

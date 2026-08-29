@@ -13,13 +13,14 @@ Loads canonical entities from `.harness/src`, validates manifest semantics, and 
 
 - Validates manifest semantic constraints.
 - Loads environment variables from `.harness/.env` and `.env.harness` via `loadEnvVars`.
+- Loads behavior values from `.harness/behavior.map.yaml` + `.harness/behavior.yaml` via `loadBehavior` (see [toolkit.behavior](./toolkit.behavior.md)); both variable sources are threaded through entity loaders as a `SubstitutionContext`.
 - Scans `.harness/src` candidate files and raises `SOURCE_UNREGISTERED` for unmanaged candidates.
   - Candidate set includes canonical entity files and provider override sidecars.
-- Loads enabled prompt-section/skill/MCP/subagent/hook entities with env var substitution applied to raw file text before parsing.
-- Parses provider override sidecars for each provider (also with env var substitution) and records override SHA hashes.
+- Loads enabled prompt-section/skill/MCP/subagent/hook entities with env var and behavior placeholder substitution applied to raw file text before parsing (env pass first, then `{{behavior.<key>}}`; the namespaces are disjoint).
+- Parses provider override sidecars for each provider (also with env var and behavior substitution) and records override SHA hashes.
 - Returns loaded collections sorted by `entity.id`.
 
-SHA256 hashes are always computed on the raw (pre-substitution) text. Unresolved `{{PLACEHOLDER}}` patterns produce `ENV_VAR_UNRESOLVED` warning diagnostics.
+SHA256 hashes are always computed on the raw (pre-substitution) text. Unresolved `{{PLACEHOLDER}}` patterns produce `ENV_VAR_UNRESOLVED` warning diagnostics; unresolved `{{behavior.<key>}}` patterns produce `BEHAVIOR_PLACEHOLDER_UNRESOLVED` warnings. In JSON sources, unresolved placeholders of either kind in bare value positions are re-quoted so the document still parses.
 
 ## Entity loading behavior
 

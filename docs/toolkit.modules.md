@@ -4,6 +4,7 @@ This set documents source files under `packages/toolkit/src`.
 
 ## Top-level modules
 
+- `behavior.ts`: [`toolkit.behavior.md`](./toolkit.behavior.md)
 - `cli.ts`: [`toolkit.cli.md`](./toolkit.cli.md)
 - `delegated-init.ts`: [`toolkit.delegated-init.md`](./toolkit.delegated-init.md)
 - `engine.ts`: [`toolkit.engine.md`](./toolkit.engine.md)

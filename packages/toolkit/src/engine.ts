@@ -3,6 +3,8 @@ import path from "node:path";
 import type { ProviderId } from "@madebywild/agent-harness-manifest";
 import { DEFAULT_REGISTRY_ID, LATEST_VERSION_BY_KIND } from "@madebywild/agent-harness-manifest";
 import chokidar from "chokidar";
+import type { LoadedBehavior } from "./behavior.js";
+import { type BehaviorSetResult, setBehaviorValue, showBehavior } from "./engine/behavior.js";
 import {
   addCommandEntity,
   addHookEntity,
@@ -36,6 +38,7 @@ import {
 } from "./presets.js";
 import {
   emptyManagedIndex,
+  ensureHarnessGitignore,
   loadLock,
   loadManagedIndex,
   loadManifest,
@@ -138,6 +141,7 @@ export class HarnessEngine {
     await writeManifest(paths, manifest);
     await writeLock(paths, lock);
     await writeManagedIndex(paths, managedIndex);
+    await ensureHarnessGitignore(paths);
   }
 
   async enableProvider(provider: ProviderId): Promise<void> {
@@ -492,6 +496,16 @@ export class HarnessEngine {
     return removeEntity(this.cwd, entityTypeArg, id, deleteSource);
   }
 
+  async behaviorSet(key: string, value: string): Promise<BehaviorSetResult> {
+    await this.assertWorkspaceVersionCurrent();
+    return setBehaviorValue(resolveHarnessPaths(this.cwd), key, value);
+  }
+
+  async behaviorShow(): Promise<LoadedBehavior> {
+    await this.assertWorkspaceVersionCurrent();
+    return showBehavior(resolveHarnessPaths(this.cwd));
+  }
+
   async validate(): Promise<ValidationResult> {
     const result = await this.planInternal();
     return {
@@ -588,6 +602,8 @@ export class HarnessEngine {
         path.join(base, "src/**/OVERRIDES.*.yaml"),
         paths.envFile,
         paths.rootEnvFile,
+        paths.behaviorMapFile,
+        paths.behaviorConfigFile,
       ],
       {
         ignoreInitial: true,

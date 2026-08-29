@@ -10,6 +10,7 @@ Public package entrypoint for programmatic use (`@madebywild/agent-harness-frame
 - `loadConfig`, `validateConfig`, `validateLock`
 - `runCliCommand`, `runCliArgv`
 - `parseEnvFile`, `loadEnvVars`, `substituteEnvVars` from `env.ts`
+- `loadBehavior`, `substituteBehaviorPlaceholders` and types `LoadedBehavior`, `BehaviorChoice`, `SubstitutionContext` from `behavior.ts`
 - Core types from `types.ts` (manifest types, canonical models including `CanonicalHook`, diagnostics, operations, adapter contracts, version diagnostics/migration models)
   - Includes skills integration models (`SkillDiscoveryResult`, `SkillsFindResult`, `SkillAuditDecision`, `SkillImportResult`)
 - CLI contracts from `cli/contracts.ts` (`CommandInput`, `CommandOutput`, `CommandId`, `CliEnvelope`, context types)

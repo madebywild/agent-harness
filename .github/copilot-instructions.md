@@ -97,6 +97,7 @@ The main package containing the CLI and core engine. Depends on `manifest-schema
 - **`src/registry-validator.ts`** — Validates registry repo structure.
 - **`src/hooks.ts`** — Canonical hook parsing and provider-specific projection.
 - **`src/env.ts`** — env var placeholder loading and substitution.
+- **`src/behavior.ts`** — behavior map/config loading and `{{behavior.<key>}}` placeholder substitution.
 - **`src/paths.ts`** — Path resolution for `.harness/` workspace layout.
 - **`src/provider-adapters/`** — Per-provider rendering: `claude.ts`, `codex.ts`, `copilot.ts`, plus shared logic for MCP, subagents, hooks, and renderers.
 - **`src/versioning/`** — `doctor.ts` (schema health checks), `migrate.ts` (schema migration), `registry.ts` (version registry).
@@ -154,14 +155,14 @@ npx harness provider disable codex
 
 Entities are the canonical source units. Each `add` command scaffolds a source file under `.harness/src/` and registers it in `manifest.json`. After adding or editing entities, run `npx harness apply` to generate provider artifacts.
 
-#### Prompt (system prompt, at most one, id is always `system`)
+#### Prompt sections (compose into one system-prompt artifact per provider)
 
 ```bash
-npx harness add prompt                        # scaffold .harness/src/prompts/system.md
-npx harness remove prompt system              # remove prompt entity + source
+npx harness add prompt-section <section-id>   # scaffold .harness/src/prompt-sections/<section-id>/SECTION.md
+npx harness remove prompt-section <section-id>
 ```
 
-Source: `.harness/src/prompts/system.md` (markdown with optional YAML frontmatter).
+Source: `.harness/src/prompt-sections/<section-id>/SECTION.md` (markdown; frontmatter is registry-side metadata). Sections compose in manifest order into `CLAUDE.md` / `AGENTS.md` / `.github/copilot-instructions.md`.
 
 #### Skills
 
@@ -231,8 +232,17 @@ npx harness remove command <command-id>
 ### Remove (generic)
 
 ```bash
-npx harness remove <entity-type> <id>         # entity-type: prompt|skill|mcp|subagent|hook|settings|command
+npx harness remove <entity-type> <id>         # entity-type: prompt-section|skill|mcp|subagent|hook|settings|command
 npx harness remove <entity-type> <id> --no-delete-source  # keep source files
+```
+
+### Behavior config
+
+Team-defined behavior levels fill `{{behavior.<key>}}` placeholders in entity sources at apply time. The committed ruleset lives in `.harness/behavior.map.yaml` (keys, allowed values, instruction text per value, required default); each developer's choices live in `.harness/behavior.yaml`, ignored via the `.harness/.gitignore` that `init` ships (so consuming projects never edit their own). See `docs/behavior-config.md`.
+
+```bash
+npx harness behavior set <key> <value>    # validated against the map; writes .harness/behavior.yaml
+npx harness behavior show                 # resolved values: key = value (source)  [allowed]
 ```
 
 ### Plan, apply, and watch
@@ -289,8 +299,8 @@ npx harness add hook guard --registry shared
 ```bash
 npx harness init
 npx harness provider enable claude
-npx harness add prompt
-# edit .harness/src/prompts/system.md
+npx harness add prompt-section system
+# edit .harness/src/prompt-sections/system/SECTION.md
 npx harness add mcp my-server
 # edit .harness/src/mcp/my-server.json
 npx harness add hook guard

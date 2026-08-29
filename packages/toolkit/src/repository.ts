@@ -8,7 +8,7 @@ import {
   providerIdSchema,
   VersionError,
 } from "@madebywild/agent-harness-manifest";
-import { pushUnresolvedEnvDiagnostics, substituteEnvVars } from "./env.js";
+import { type SubstitutionContext, substituteSourceText } from "./behavior.js";
 import type { HarnessPaths } from "./paths.js";
 import type {
   AgentsManifest,
@@ -220,11 +220,31 @@ export async function writeManagedIndex(paths: HarnessPaths, managedIndex: Manag
   await writeFileAtomic(paths.managedIndexFile, stableStringify(managedIndex));
 }
 
+// Per-developer workspace files (.env secrets, behavior choices) are ignored through a
+// .gitignore inside .harness itself, so consuming projects never have to edit their own.
+const HARNESS_GITIGNORE_CONTENT = `# Local, per-developer harness state. Everything else in .harness is shared.
+.env
+behavior.yaml
+`;
+
+/**
+ * Write `.harness/.gitignore` when it does not exist yet. An existing file is left untouched:
+ * once present it belongs to the project, not the CLI.
+ */
+export async function ensureHarnessGitignore(paths: HarnessPaths): Promise<boolean> {
+  if (await exists(paths.gitignoreFile)) {
+    return false;
+  }
+
+  await writeFileAtomic(paths.gitignoreFile, HARNESS_GITIGNORE_CONTENT);
+  return true;
+}
+
 export async function readProviderOverrideFile(
   rootDir: string,
   provider: ProviderId,
   overridePath?: string,
-  envVars?: Map<string, string>,
+  subs?: SubstitutionContext,
 ): Promise<{
   override: ProviderOverride | undefined;
   sha256: string | undefined;
@@ -256,10 +276,9 @@ export async function readProviderOverrideFile(
   const overrideDiagnostics: Diagnostic[] = [];
   try {
     let textToParse = text;
-    if (envVars) {
-      const { result, unresolvedKeys } = substituteEnvVars(text, envVars);
+    if (subs) {
+      const { result } = substituteSourceText(text, subs, overrideDiagnostics, normalized, { provider });
       textToParse = result;
-      pushUnresolvedEnvDiagnostics(unresolvedKeys, overrideDiagnostics, normalized, { provider });
     }
     const YAML = await import("yaml");
     const parsed = YAML.parse(textToParse) as unknown;

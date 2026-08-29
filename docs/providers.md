@@ -232,6 +232,39 @@ For hook entities the default sidecar path is:
 
 - `.harness/src/hooks/<id>.overrides.<provider>.yaml`
 
+## Generated output formatting
+
+Every file `harness apply` writes is serialized by `stableStringify`
+(`packages/toolkit/src/utils.ts`): keys sorted, two-space indent, trailing newline, and — because it
+is `JSON.stringify` under the hood — one array element per line regardless of length.
+
+**Generated files are owned by the generator, so formatters must not touch them.** A formatter with a
+line-width heuristic (Biome collapses short arrays onto one line) will fight `apply` forever: `apply`
+expands `"allow": [...]`, the formatter collapses it, and the file is permanently dirty. This affects
+generated JSON artifacts and the `.harness/` workspace state alike (`manifest.lock.json`
+`ownerEntityIds` arrays are the worst offender).
+
+This repository resolves that by excluding harness-written JSON from Biome in `biome.json`, rather
+than by teaching the renderer a formatter's heuristics — `stableStringify` output is a published
+product consumed by projects that use no formatter at all, or a different one. The excluded globs are:
+
+```
+!.harness/*.json                          # manifest, lock, managed-index (not .harness/src/**, which is hand-authored)
+!**/.claude/settings.json
+!**/.mcp.json
+!**/.vscode/mcp.json
+!**/.cursor/mcp.json
+!**/.cursor/hooks.json
+!**/.github/hooks/harness.generated.json
+```
+
+They are `**/`-prefixed because a `target` on an entity relocates Claude artifacts into a package
+subdirectory (see [Monorepo support](./monorepo.md)). Biome honors these exclusions even for paths
+passed explicitly on the command line, so the Lefthook pre-commit hook respects them too.
+
+Consuming projects that run a formatter over their repository should apply the same exclusions for
+whichever artifacts they generate.
+
 ## References
 
 - [OpenAI Codex Config Reference](https://developers.openai.com/codex/config-reference)

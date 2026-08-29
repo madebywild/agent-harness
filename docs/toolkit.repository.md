@@ -9,7 +9,8 @@ Encapsulates filesystem persistence/parsing for manifest, lock, managed-index, s
 - Manifest I/O: `loadManifest`, `writeManifest`
 - Lock I/O: `loadLock`, `writeLock`
 - Managed index I/O: `emptyManagedIndex`, `loadManagedIndex`, `writeManagedIndex`
-- Sidecar parser: `readProviderOverrideFile` (accepts optional `envVars` map for placeholder substitution)
+- Sidecar parser: `readProviderOverrideFile` (accepts an optional `SubstitutionContext` with env vars and behavior values for placeholder substitution)
+- `ensureHarnessGitignore(paths)`: writes `.harness/.gitignore` (ignoring `.env` and `behavior.yaml`) when absent, and returns whether it created the file; an existing file is left untouched because it then belongs to the project
 - Filesystem helpers: `listFilesRecursively`, `collectSourceCandidates`, `collectManagedSourcePaths`, `removeIfExists`, `copyWorkspaceFileToBackup`
 
 ## Diagnostics produced here

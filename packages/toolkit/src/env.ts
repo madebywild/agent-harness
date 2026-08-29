@@ -172,22 +172,27 @@ export function pushUnresolvedEnvDiagnostics(
 
 const PLACEHOLDER_RE = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g;
 
+export interface SubstitutionResult {
+  result: string;
+  usedKeys: Set<string>;
+  unresolvedKeys: string[];
+}
+
 /**
- * Replace {{PLACEHOLDER}} patterns in text with env var values.
- * Pattern: \{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}
- * Returns the substituted text, set of used keys, and array of unresolved placeholder names.
- *
- * When a placeholder key is not found in `vars`, process.env is checked as a fallback.
+ * Replace placeholder patterns in text using a resolver.
+ * The pattern's first capture group is the placeholder key; unresolved
+ * placeholders are left as-is and reported in `unresolvedKeys`.
  */
-export function substituteEnvVars(
+export function substitutePlaceholders(
   text: string,
-  vars: Map<string, string>,
-): { result: string; usedKeys: Set<string>; unresolvedKeys: string[] } {
+  pattern: RegExp,
+  resolve: (key: string) => string | undefined,
+): SubstitutionResult {
   const usedKeys = new Set<string>();
   const unresolvedSet = new Set<string>();
 
-  const result = text.replace(PLACEHOLDER_RE, (match, key: string) => {
-    const value = vars.get(key) ?? process.env[key];
+  const result = text.replace(pattern, (match, key: string) => {
+    const value = resolve(key);
     if (value !== undefined) {
       usedKeys.add(key);
       return value;
@@ -197,4 +202,15 @@ export function substituteEnvVars(
   });
 
   return { result, usedKeys, unresolvedKeys: [...unresolvedSet] };
+}
+
+/**
+ * Replace {{PLACEHOLDER}} patterns in text with env var values.
+ * Pattern: \{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}
+ * Returns the substituted text, set of used keys, and array of unresolved placeholder names.
+ *
+ * When a placeholder key is not found in `vars`, process.env is checked as a fallback.
+ */
+export function substituteEnvVars(text: string, vars: Map<string, string>): SubstitutionResult {
+  return substitutePlaceholders(text, PLACEHOLDER_RE, (key) => vars.get(key) ?? process.env[key]);
 }

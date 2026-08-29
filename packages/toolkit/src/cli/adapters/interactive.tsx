@@ -103,6 +103,8 @@ const INTERACTIVE_COMMAND_IDS: readonly CommandId[] = [
   "add.hook",
   "add.settings",
   "add.command",
+  "behavior.set",
+  "behavior.show",
   "remove",
   "validate",
   "doctor",
@@ -421,6 +423,12 @@ function buildPromptsForCommand(commandId: CommandId, presets: Array<{ id: strin
         },
       ];
 
+    case "behavior.set":
+      return [
+        { id: "key", type: "text", message: "Behavior key", required: true },
+        { id: "value", type: "text", message: "Behavior value", required: true },
+      ];
+
     case "remove":
       return [
         {
@@ -593,6 +601,12 @@ function buildCommandInput(commandId: CommandId, values: CollectedValues): Comma
         command: commandId,
         args: { provider: str("provider") },
         options: { registry: str("registry") },
+      };
+
+    case "behavior.set":
+      return {
+        command: commandId,
+        args: { key: str("key"), value: str("value") },
       };
 
     case "add.command":

@@ -1,0 +1,3 @@
+# Local, per-developer harness state. Everything else in .harness is shared.
+.env
+behavior.yaml

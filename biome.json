@@ -7,7 +7,19 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!**/dist/**/*", "!**/node_modules/**/*", "!.claude/worktrees/**/*"]
+    "includes": [
+      "**",
+      "!**/dist/**/*",
+      "!**/node_modules/**/*",
+      "!.claude/worktrees/**/*",
+      "!.harness/*.json",
+      "!**/.claude/settings.json",
+      "!**/.mcp.json",
+      "!**/.vscode/mcp.json",
+      "!**/.cursor/mcp.json",
+      "!**/.cursor/hooks.json",
+      "!**/.github/hooks/harness.generated.json"
+    ]
   },
   "formatter": {
     "enabled": true,

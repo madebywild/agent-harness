@@ -14,6 +14,12 @@ Env file paths:
 - `envFile`: `.harness/.env` (project-specific secrets, highest priority)
 - `rootEnvFile`: `.env.harness` at project root (shared parameters, lower priority)
 
+Behavior file paths:
+
+- `behaviorMapFile`: `.harness/behavior.map.yaml` (committed ruleset for `{{behavior.*}}` placeholders)
+- `behaviorConfigFile`: `.harness/behavior.yaml` (per-developer choices; ignored via `.harness/.gitignore`)
+- `gitignoreFile`: `.harness/.gitignore` (written by `init`, covers `.env` and `behavior.yaml`)
+
 Source path helpers:
 
 - `defaultPromptSectionSourcePath(id)` → `.harness/src/prompt-sections/<id>/SECTION.md`

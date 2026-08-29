@@ -457,9 +457,10 @@ async function maybeWrite(
 function sortWriteOrder(writes: PendingWrite[]): PendingWrite[] {
   const order: Record<DocumentKind, number> = {
     "provider-override": 0,
-    lock: 1,
-    "managed-index": 2,
-    manifest: 3,
+    "behavior-map": 1,
+    lock: 2,
+    "managed-index": 3,
+    manifest: 4,
   };
 
   return [...writes].sort((left, right) => {

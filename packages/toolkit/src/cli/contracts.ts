@@ -43,6 +43,8 @@ export type CommandId =
   | "add.hook"
   | "add.settings"
   | "add.command"
+  | "behavior.set"
+  | "behavior.show"
   | "remove"
   | "validate"
   | "doctor"
@@ -190,6 +192,28 @@ export interface EntityMutationOutput
     }
   > {}
 
+export interface BehaviorShowEntry {
+  key: string;
+  value: string;
+  source: "config" | "default";
+  allowed: string[];
+  instruction: string;
+}
+
+export type BehaviorOutputData =
+  | {
+      operation: "set";
+      key: string;
+      value: string;
+      message: string;
+    }
+  | {
+      operation: "show";
+      entries: BehaviorShowEntry[];
+    };
+
+export interface BehaviorOutput extends CommandOutputBase<"behavior", BehaviorOutputData> {}
+
 export interface ValidationOutput
   extends CommandOutputBase<
     "validation",
@@ -254,6 +278,7 @@ export type CommandOutput =
   | RegistryOutput
   | SkillsOutput
   | EntityMutationOutput
+  | BehaviorOutput
   | ValidationOutput
   | PlanOutput
   | ApplyOutput

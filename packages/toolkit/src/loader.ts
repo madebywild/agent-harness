@@ -10,8 +10,9 @@ import type {
 } from "@madebywild/agent-harness-manifest";
 import { DEFAULT_REGISTRY_ID, providerIdSchema } from "@madebywild/agent-harness-manifest";
 import matter from "gray-matter";
+import { loadBehavior, type SubstitutionContext, substituteSourceText } from "./behavior.js";
 import { parseCanonicalCommandDocument } from "./commands.js";
-import { loadEnvVars, pushUnresolvedEnvDiagnostics, substituteEnvVars } from "./env.js";
+import { loadEnvVars } from "./env.js";
 import { canonicalHookHasErrors, parseCanonicalHookDocument, withHookId } from "./hooks.js";
 import type { HarnessPaths } from "./paths.js";
 import {
@@ -51,8 +52,11 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   diagnostics.push(...validateManifestSemantics(manifest));
   diagnostics.push(...buildProviderEnablementDiagnostics(manifest));
 
-  // Load env vars
+  // Load env vars and behavior levels for placeholder substitution
   const envVars = await loadEnvVars(paths);
+  const behavior = await loadBehavior(paths);
+  diagnostics.push(...behavior.diagnostics);
+  const subs: SubstitutionContext = { envVars, behaviorValues: behavior.values };
 
   const candidates = await collectSourceCandidates(paths);
   const registeredSourcePaths = new Set(collectManagedSourcePaths(manifest));
@@ -74,7 +78,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   );
   const promptSections: LoadedPromptSection[] = [];
   for (const sectionEntity of promptSectionEntities) {
-    const loadedSection = await loadPromptSection(paths, sectionEntity, envVars);
+    const loadedSection = await loadPromptSection(paths, sectionEntity, subs);
     diagnostics.push(...loadedSection.diagnostics);
     if (loadedSection.section) {
       promptSections.push(loadedSection.section);
@@ -84,7 +88,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   const skillEntities = manifest.entities.filter((entity) => entity.type === "skill" && entity.enabled !== false);
   const skills: LoadedSkill[] = [];
   for (const skillEntity of skillEntities) {
-    const loadedSkill = await loadSkill(paths, skillEntity, envVars);
+    const loadedSkill = await loadSkill(paths, skillEntity, subs);
     diagnostics.push(...loadedSkill.diagnostics);
     if (loadedSkill.skill) {
       skills.push(loadedSkill.skill);
@@ -94,7 +98,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   const mcpEntities = manifest.entities.filter((entity) => entity.type === "mcp_config" && entity.enabled !== false);
   const mcps: LoadedMcp[] = [];
   for (const mcpEntity of mcpEntities) {
-    const loadedMcp = await loadMcp(paths, mcpEntity, envVars);
+    const loadedMcp = await loadMcp(paths, mcpEntity, subs);
     diagnostics.push(...loadedMcp.diagnostics);
     if (loadedMcp.mcp) {
       mcps.push(loadedMcp.mcp);
@@ -104,7 +108,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   const subagentEntities = manifest.entities.filter((entity) => entity.type === "subagent" && entity.enabled !== false);
   const subagents: LoadedSubagent[] = [];
   for (const subagentEntity of subagentEntities) {
-    const loadedSubagent = await loadSubagent(paths, subagentEntity, envVars);
+    const loadedSubagent = await loadSubagent(paths, subagentEntity, subs);
     diagnostics.push(...loadedSubagent.diagnostics);
     if (loadedSubagent.subagent) {
       subagents.push(loadedSubagent.subagent);
@@ -114,7 +118,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   const hookEntities = manifest.entities.filter((entity) => entity.type === "hook" && entity.enabled !== false);
   const hooks: LoadedHook[] = [];
   for (const hookEntity of hookEntities) {
-    const loadedHook = await loadHook(paths, hookEntity, envVars);
+    const loadedHook = await loadHook(paths, hookEntity, subs);
     diagnostics.push(...loadedHook.diagnostics);
     if (loadedHook.hook) {
       hooks.push(loadedHook.hook);
@@ -124,7 +128,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   const settingsEntities = manifest.entities.filter((entity) => entity.type === "settings" && entity.enabled !== false);
   const settings: LoadedSettings[] = [];
   for (const settingsEntity of settingsEntities) {
-    const loadedSettings = await loadSettings(paths, settingsEntity, envVars);
+    const loadedSettings = await loadSettings(paths, settingsEntity, subs);
     diagnostics.push(...loadedSettings.diagnostics);
     if (loadedSettings.settings) {
       settings.push(loadedSettings.settings);
@@ -134,7 +138,7 @@ export async function loadCanonicalState(paths: HarnessPaths, manifest: AgentsMa
   const commandEntities = manifest.entities.filter((entity) => entity.type === "command" && entity.enabled !== false);
   const commands: LoadedCommand[] = [];
   for (const commandEntity of commandEntities) {
-    const loadedCommand = await loadCommand(paths, commandEntity, envVars);
+    const loadedCommand = await loadCommand(paths, commandEntity, subs);
     diagnostics.push(...loadedCommand.diagnostics);
     if (loadedCommand.command) {
       commands.push(loadedCommand.command);
@@ -422,7 +426,7 @@ function validateGitRegistryEntry(registryId: string, definition: RegistryDefini
 async function loadPromptSection(
   paths: HarnessPaths,
   entity: EntityRef,
-  envVars: Map<string, string>,
+  subs: SubstitutionContext,
 ): Promise<{ section?: LoadedPromptSection; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
@@ -443,8 +447,9 @@ async function loadPromptSection(
     return { diagnostics };
   }
 
-  const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
-  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
+  const { result: substitutedText } = substituteSourceText(text, subs, diagnostics, sourcePath, {
+    entityId: entity.id,
+  });
 
   // Prompt-sections are opaque locally: strip frontmatter only to obtain the composable body.
   // name/description/tags are registry-side metadata and are not parsed or stored here.
@@ -469,7 +474,7 @@ async function loadPromptSection(
       provider,
       entity,
       entity.overrides?.[provider] ?? defaultPromptSectionOverridePath(entity.id, provider),
-      envVars,
+      subs,
     );
     diagnostics.push(...parsedOverride.diagnostics);
     overrideByProvider.set(provider, parsedOverride.override);
@@ -497,7 +502,7 @@ async function loadPromptSection(
 async function loadSkill(
   paths: HarnessPaths,
   entity: EntityRef,
-  envVars: Map<string, string>,
+  subs: SubstitutionContext,
 ): Promise<{ skill?: LoadedSkill; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
@@ -532,8 +537,9 @@ async function loadSkill(
 
     const relativeInSkill = normalizeRelativePath(path.relative(sourceDir, absolutePath).replace(/\\/g, "/"));
     const content = await fs.readFile(absolutePath, "utf8");
-    const { result: substitutedContent, unresolvedKeys } = substituteEnvVars(content, envVars);
-    pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, relativeFromRoot, { entityId: entity.id });
+    const { result: substitutedContent } = substituteSourceText(content, subs, diagnostics, relativeFromRoot, {
+      entityId: entity.id,
+    });
 
     filesWithContent.push({
       path: relativeInSkill,
@@ -562,7 +568,7 @@ async function loadSkill(
       provider,
       entity,
       entity.overrides?.[provider] ?? defaultSkillOverridePath(entity.id, provider),
-      envVars,
+      subs,
     );
     diagnostics.push(...parsedOverride.diagnostics);
     overrideByProvider.set(provider, parsedOverride.override);
@@ -595,7 +601,7 @@ async function loadSkill(
 async function loadMcp(
   paths: HarnessPaths,
   entity: EntityRef,
-  envVars: Map<string, string>,
+  subs: SubstitutionContext,
 ): Promise<{ mcp?: LoadedMcp; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
@@ -615,7 +621,7 @@ async function loadMcp(
     return { diagnostics };
   }
 
-  const parsedJson = parseJsonWithEnvSubstitution(text, envVars, diagnostics, sourcePath, entity.id);
+  const parsedJson = parseJsonWithSubstitution(text, subs, diagnostics, sourcePath, entity.id);
   if (parsedJson.error) {
     diagnostics.push({
       code: "MCP_JSON_INVALID",
@@ -647,7 +653,7 @@ async function loadMcp(
       provider,
       entity,
       entity.overrides?.[provider] ?? defaultMcpOverridePath(entity.id, provider),
-      envVars,
+      subs,
     );
     diagnostics.push(...parsedOverride.diagnostics);
     overrideByProvider.set(provider, parsedOverride.override);
@@ -675,7 +681,7 @@ async function loadMcp(
 async function loadSubagent(
   paths: HarnessPaths,
   entity: EntityRef,
-  envVars: Map<string, string>,
+  subs: SubstitutionContext,
 ): Promise<{ subagent?: LoadedSubagent; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
@@ -695,8 +701,9 @@ async function loadSubagent(
     return { diagnostics };
   }
 
-  const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
-  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
+  const { result: substitutedText } = substituteSourceText(text, subs, diagnostics, sourcePath, {
+    entityId: entity.id,
+  });
 
   let parsed: matter.GrayMatterFile<string>;
   try {
@@ -767,7 +774,7 @@ async function loadSubagent(
 
   for (const provider of providerIdSchema.options) {
     const overridePath = entity.overrides?.[provider] ?? defaultSubagentOverridePath(entity.id, provider);
-    const parsedOverride = await parseOverride(paths, provider, entity, overridePath, envVars);
+    const parsedOverride = await parseOverride(paths, provider, entity, overridePath, subs);
     diagnostics.push(...parsedOverride.diagnostics);
     diagnostics.push(...validateSubagentOverrideOptions(entity.id, provider, parsedOverride.override, overridePath));
     overrideByProvider.set(provider, parsedOverride.override);
@@ -798,7 +805,7 @@ async function loadSubagent(
 async function loadHook(
   paths: HarnessPaths,
   entity: EntityRef,
-  envVars: Map<string, string>,
+  subs: SubstitutionContext,
 ): Promise<{ hook?: LoadedHook; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
@@ -818,7 +825,7 @@ async function loadHook(
     return { diagnostics };
   }
 
-  const parsedJson = parseJsonWithEnvSubstitution(text, envVars, diagnostics, sourcePath, entity.id);
+  const parsedJson = parseJsonWithSubstitution(text, subs, diagnostics, sourcePath, entity.id);
   if (parsedJson.error) {
     diagnostics.push({
       code: "HOOK_JSON_INVALID",
@@ -841,7 +848,7 @@ async function loadHook(
 
   for (const provider of providerIdSchema.options) {
     const overridePath = entity.overrides?.[provider] ?? defaultHookOverridePath(entity.id, provider);
-    const parsedOverride = await parseOverride(paths, provider, entity, overridePath, envVars);
+    const parsedOverride = await parseOverride(paths, provider, entity, overridePath, subs);
     diagnostics.push(...parsedOverride.diagnostics);
     overrideByProvider.set(provider, parsedOverride.override);
     if (parsedOverride.sha256) {
@@ -864,7 +871,7 @@ async function loadHook(
 async function loadSettings(
   paths: HarnessPaths,
   entity: EntityRef,
-  envVars: Map<string, string>,
+  subs: SubstitutionContext,
 ): Promise<{ settings?: LoadedSettings; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
@@ -900,8 +907,9 @@ async function loadSettings(
   let payload: Record<string, unknown>;
 
   if (provider === "codex") {
-    const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
-    pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
+    const { result: substitutedText } = substituteSourceText(text, subs, diagnostics, sourcePath, {
+      entityId: entity.id,
+    });
 
     try {
       const TOML = await import("@iarna/toml");
@@ -917,7 +925,7 @@ async function loadSettings(
       return { diagnostics };
     }
   } else {
-    const parsedJson = parseJsonWithEnvSubstitution(text, envVars, diagnostics, sourcePath, entity.id);
+    const parsedJson = parseJsonWithSubstitution(text, subs, diagnostics, sourcePath, entity.id);
     if (parsedJson.error) {
       diagnostics.push({
         code: "SETTINGS_JSON_INVALID",
@@ -960,7 +968,7 @@ async function loadSettings(
 async function loadCommand(
   paths: HarnessPaths,
   entity: EntityRef,
-  envVars: Map<string, string>,
+  subs: SubstitutionContext,
 ): Promise<{ command?: LoadedCommand; diagnostics: Diagnostic[] }> {
   const diagnostics: Diagnostic[] = [];
   const sourcePath = normalizeRelativePath(entity.sourcePath);
@@ -980,8 +988,9 @@ async function loadCommand(
     return { diagnostics };
   }
 
-  const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
-  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId: entity.id });
+  const { result: substitutedText } = substituteSourceText(text, subs, diagnostics, sourcePath, {
+    entityId: entity.id,
+  });
 
   const parsedCommand = parseCanonicalCommandDocument(substitutedText, sourcePath, entity.id);
   diagnostics.push(...parsedCommand.diagnostics);
@@ -994,7 +1003,7 @@ async function loadCommand(
 
   for (const provider of providerIdSchema.options) {
     const overridePath = entity.overrides?.[provider] ?? defaultCommandOverridePath(entity.id, provider);
-    const parsedOverride = await parseOverride(paths, provider, entity, overridePath, envVars);
+    const parsedOverride = await parseOverride(paths, provider, entity, overridePath, subs);
     diagnostics.push(...parsedOverride.diagnostics);
     overrideByProvider.set(provider, parsedOverride.override);
     if (parsedOverride.sha256) {
@@ -1014,17 +1023,21 @@ async function loadCommand(
   };
 }
 
-const JSON_ENV_PLACEHOLDER_RE = /^\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/u;
+const JSON_PLACEHOLDER_RE = /^\{\{((?:behavior\.)?[a-zA-Z_][a-zA-Z0-9_]*)\}\}/u;
 
-function parseJsonWithEnvSubstitution(
+function parseJsonWithSubstitution(
   text: string,
-  envVars: Map<string, string>,
+  subs: SubstitutionContext,
   diagnostics: Diagnostic[],
   sourcePath: string,
   entityId: string,
 ): { value: unknown; error?: undefined } | { value?: undefined; error: unknown } {
-  const { result: substitutedText, unresolvedKeys } = substituteEnvVars(text, envVars);
-  pushUnresolvedEnvDiagnostics(unresolvedKeys, diagnostics, sourcePath, { entityId });
+  const {
+    result: substitutedText,
+    unresolvedEnvKeys,
+    unresolvedBehaviorKeys,
+  } = substituteSourceText(text, subs, diagnostics, sourcePath, { entityId });
+  const unresolvedKeys = [...unresolvedEnvKeys, ...unresolvedBehaviorKeys.map((key) => `behavior.${key}`)];
 
   try {
     return { value: JSON.parse(substitutedText) as unknown };
@@ -1077,7 +1090,7 @@ function parseJsonWithQuotedBarePlaceholders(text: string, unresolvedKeys: strin
 
     if (char === "{" && text[i + 1] === "{") {
       const slice = text.slice(i);
-      const match = slice.match(JSON_ENV_PLACEHOLDER_RE);
+      const match = slice.match(JSON_PLACEHOLDER_RE);
       if (match) {
         const key = match[1];
         const placeholder = match[0];
@@ -1112,9 +1125,9 @@ async function parseOverride(
   provider: ProviderId,
   entity: EntityRef,
   pathValue: string,
-  envVars?: Map<string, string>,
+  subs?: SubstitutionContext,
 ) {
-  return readProviderOverrideFile(paths.root, provider, pathValue, envVars).then((result) => ({
+  return readProviderOverrideFile(paths.root, provider, pathValue, subs).then((result) => ({
     ...result,
     diagnostics: result.diagnostics.map((diagnostic) => ({
       ...diagnostic,

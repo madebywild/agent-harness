@@ -218,6 +218,32 @@ export const managedIndexV1Schema = z
   })
   .strict();
 
+export const behaviorKeyNameSchema = z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/u);
+
+export const behaviorMapEntrySchema = z
+  .object({
+    description: z.string().optional(),
+    default: z.string().min(1),
+    values: z.record(z.string().min(1), z.string()),
+  })
+  .strict()
+  .superRefine((entry, ctx) => {
+    if (Object.keys(entry.values).length === 0) {
+      ctx.addIssue({ code: "custom", message: "values must define at least one entry" });
+    } else if (!(entry.default in entry.values)) {
+      ctx.addIssue({ code: "custom", message: `default '${entry.default}' is not among the defined values` });
+    }
+  });
+
+export const behaviorMapV1Schema = z
+  .object({
+    version: z.literal(1),
+    keys: z.record(behaviorKeyNameSchema, behaviorMapEntrySchema),
+  })
+  .strict();
+
+export const behaviorConfigSchema = z.record(behaviorKeyNameSchema, z.string().min(1));
+
 export const registryManifestSchema = z
   .object({
     version: z.literal(1),
@@ -344,12 +370,17 @@ export const agentsManifestSchema = agentsManifestV1Schema;
 export const manifestLockSchema = manifestLockV1Schema;
 export const managedIndexSchema = managedIndexV1Schema;
 export const providerOverrideSchema = providerOverrideV1Schema;
+export const behaviorMapSchema = behaviorMapV1Schema;
 
 export const schemas = {
   agentsManifestV1Schema,
   manifestLockV1Schema,
   managedIndexV1Schema,
   providerOverrideV1Schema,
+  behaviorMapV1Schema,
+  behaviorMapSchema,
+  behaviorMapEntrySchema,
+  behaviorConfigSchema,
   registryManifestSchema,
   presetDefinitionSchema,
   presetOperationSchema,
@@ -379,6 +410,9 @@ export type SubagentEntityRef = z.infer<typeof subagentEntityRefSchema>;
 export type HookEntityRef = z.infer<typeof hookEntityRefSchema>;
 export type SettingsEntityRef = z.infer<typeof settingsEntityRefSchema>;
 export type CommandEntityRef = z.infer<typeof commandEntityRefSchema>;
+export type BehaviorMap = z.infer<typeof behaviorMapV1Schema>;
+export type BehaviorMapEntry = z.infer<typeof behaviorMapEntrySchema>;
+export type BehaviorConfig = z.infer<typeof behaviorConfigSchema>;
 export type AgentsManifest = z.infer<typeof agentsManifestV1Schema>;
 export type ManifestLock = z.infer<typeof manifestLockV1Schema>;
 export type ManagedIndex = z.infer<typeof managedIndexV1Schema>;
@@ -392,6 +426,8 @@ export function toJsonSchemas(): Record<string, object> {
     "manifest-lock.schema.json": toJSONSchema(manifestLockSchema),
     "managed-index.schema.json": toJSONSchema(managedIndexSchema),
     "provider-override.schema.json": toJSONSchema(providerOverrideSchema),
+    "behavior-map.schema.json": toJSONSchema(behaviorMapSchema),
+    "behavior-config.schema.json": toJSONSchema(behaviorConfigSchema),
     "registry-manifest.schema.json": toJSONSchema(registryManifestSchema),
   };
 }
@@ -410,6 +446,14 @@ export function parseManagedIndex(input: unknown): ManagedIndex {
 
 export function parseProviderOverride(input: unknown): ProviderOverride {
   return parseVersionedDocument("provider-override", input, providerOverrideV1Schema);
+}
+
+export function parseBehaviorMap(input: unknown): BehaviorMap {
+  return parseVersionedDocument("behavior-map", input, behaviorMapV1Schema);
+}
+
+export function parseBehaviorConfig(input: unknown): BehaviorConfig {
+  return behaviorConfigSchema.parse(input);
 }
 
 export function parseRegistryManifest(input: unknown): RegistryManifest {
