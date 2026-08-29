@@ -14,6 +14,8 @@ Defines reusable JSON renderer factories for provider-specific MCP output format
 - Wraps merged servers under the configured top-level property:
   - `mcpServers` (Claude)
   - `servers` (Copilot)
-- Serializes output via deterministic `stableStringify`.
+- Serializes output via deterministic `stableStringify` (sorted keys, one array element per line). That
+  formatting is authoritative: generated artifacts are excluded from Biome so a formatter cannot fight
+  `apply` over it — see [Generated output formatting](./providers.md#generated-output-formatting).
 - Scope note: Codex uses an inline TOML MCP renderer in `packages/toolkit/src/provider-adapters/codex.ts` (`mcp_servers`) and
   does not use this helper.

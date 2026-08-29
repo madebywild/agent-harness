@@ -3,7 +3,16 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "permissions": {
-    "allow": ["Bash", "Read", "Edit", "Write", "WebFetch", "WebSearch", "Agent", "mcp__*"],
+    "allow": [
+      "Bash",
+      "Read",
+      "Edit",
+      "Write",
+      "WebFetch",
+      "WebSearch",
+      "Agent",
+      "mcp__*"
+    ],
     "defaultMode": "bypassPermissions"
   }
 }
